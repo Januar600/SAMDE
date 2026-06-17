@@ -121,7 +121,10 @@ class MenuNavegacionPage extends StatelessWidget {
                       context,
                       'Registrar\nUsuarios',
                       azulBoton,
-                      () {},
+                      () {
+                        // Navegación directa añadida aquí para conectar la vista
+                        Navigator.pushNamed(context, '/registrar_usuario');
+                      },
                     ),
                     _buildMenuButton(
                       context,
@@ -134,8 +137,7 @@ class MenuNavegacionPage extends StatelessWidget {
                       'Registrar\nContratos',
                       azulBoton,
                       () {
-                        // Navegación directa y limpia por la ruta oficial del main.dart
-                        Navigator.pushNamed(context, '/registrar_contrato');
+                        Navigator.pushNamed(context, '/registrar_contracto');
                       },
                     ),
                     _buildMenuButton(
