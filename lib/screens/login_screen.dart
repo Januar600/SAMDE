@@ -10,22 +10,27 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  // Variables e identificadores del formulario
   final _formKey = GlobalKey<FormState>();
   final _usuarioController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _cargando = false;
 
+  // Almacena el mensaje de error del backend (ej: "Su usuario se encuentra inactivo")
+  String? _errorMensaje;
+
   Future<void> _iniciarSesion() async {
-    // Valida los campos localmente antes de enviar
+    // Valida los campos localmente (borde rojo nativo si están vacíos)
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
     setState(() {
       _cargando = true;
+      _errorMensaje = null; // Limpiamos errores previos al intentar de nuevo
     });
 
-    // Tu ruta local en XAMPP para el login
+    // Ruta local en XAMPP para el login
     final url = Uri.parse('http://localhost/samde_db/api/login.php');
 
     try {
@@ -49,7 +54,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           );
 
-          // Redirección al menú principal
+          // Redirección al menú principal pasando el usuario como argumento
           Navigator.pushReplacementNamed(
             context,
             '/menu',
@@ -57,16 +62,15 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
       } else {
+        // Manejo de error controlado desde el backend (ej: Usuario Inactivo)
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(data['mensaje'] ?? 'Credenciales incorrectas'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          setState(() {
+            _errorMensaje = data['mensaje'] ?? 'Credenciales incorrectas';
+          });
         }
       }
     } catch (e) {
+      // Los errores críticos de infraestructura (Apache apagado) se mantienen en SnackBar
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -105,14 +109,12 @@ class _LoginPageState extends State<LoginPage> {
             child: Container(
               constraints: const BoxConstraints(
                 maxWidth: 400,
-              ), // Centra y da buena forma en entornos Web
+              ), // Centra y estructura el diseño en entornos Web/Escritorio
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ========================================================
-                  // LOGO INSTITUCIONAL DIRECTO DESDE ASSETS (SIN CANDADO)
-                  // ========================================================
+                  // Escudo oficial de la Gobernación del Guainía
                   Image.asset(
                     'assets/logos/gobernacion.png',
                     height: 190,
@@ -154,14 +156,25 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Campo Contraseña
+                  // Campo Contraseña con detección de Enter y Error text integrado
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
-                    decoration: const InputDecoration(
+                    textInputAction: TextInputAction
+                        .done, // Muestra el botón "Listo" en teclados virtuales
+                    onFieldSubmitted: (_) {
+                      // Ejecuta el login automáticamente si se presiona ENTER en el teclado
+                      if (!_cargando) {
+                        _iniciarSesion();
+                      }
+                    },
+                    decoration: InputDecoration(
                       labelText: 'Contraseña',
-                      prefixIcon: Icon(Icons.lock),
-                      border: OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock),
+                      border: const OutlineInputBorder(),
+                      // Si hay un error del backend, se inyecta directamente aquí abajo sin alterar el diseño
+                      errorText: _errorMensaje,
+                      errorMaxLines: 2,
                     ),
                     validator: (v) {
                       if (v == null || v.isEmpty) {
