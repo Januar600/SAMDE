@@ -16,7 +16,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _cargando = false;
 
   Future<void> _iniciarSesion() async {
-    // 1. Valida los campos localmente antes de enviar
+    // Valida los campos localmente antes de enviar
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -25,7 +25,7 @@ class _LoginPageState extends State<LoginPage> {
       _cargando = true;
     });
 
-    // Tu ruta local en XAMPP
+    // Tu ruta local en XAMPP para el login
     final url = Uri.parse('http://localhost/samde_db/api/login.php');
 
     try {
@@ -33,8 +33,7 @@ class _LoginPageState extends State<LoginPage> {
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "username": _usuarioController.text
-              .trim(), // Ajustado a 'username' como espera el PHP
+          "username": _usuarioController.text.trim(),
           "password": _passwordController.text,
         }),
       );
@@ -58,7 +57,6 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
       } else {
-        // Muestra el error dinámico que devuelve el PHP (ej: "La contraseña es incorrecta")
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -107,19 +105,23 @@ class _LoginPageState extends State<LoginPage> {
             child: Container(
               constraints: const BoxConstraints(
                 maxWidth: 400,
-              ), // Centra y da buena forma en Web
+              ), // Centra y da buena forma en entornos Web
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(
-                    Icons.lock_person_outlined,
-                    size: 80,
-                    color: verdeInstitucional,
+                  // ========================================================
+                  // LOGO INSTITUCIONAL DIRECTO DESDE ASSETS (SIN CANDADO)
+                  // ========================================================
+                  Image.asset(
+                    'assets/logos/gobernacion.png',
+                    height: 190,
+                    fit: BoxFit.contain,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
+
                   const Text(
-                    'SISTEMA SAMDE',
+                    'SISTEMA DE INVENTARIO',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 28,
@@ -129,7 +131,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Secretaría de Agricultura - Guainía',
+                    'Secretaría de Agricultura Medio Ambiente y Desarrollo Economico Departamental',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),

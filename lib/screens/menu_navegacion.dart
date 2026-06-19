@@ -14,16 +14,18 @@ class MenuNavegacionPage extends StatelessWidget {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          // 1. ENCABEZADO INSTITUCIONAL
+          // ========================================================
+          // 1. ENCABEZADO INSTITUCIONAL HORIZONTAL (ACTUALIZADO)
+          // ========================================================
           Container(
-            padding: const EdgeInsets.only(
-              top: 40,
-              left: 24,
-              right: 24,
-              bottom: 16,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             decoration: const BoxDecoration(
-              color: Color(0xFFE8F5E9),
+              color: Color.fromARGB(
+                255,
+                192,
+                231,
+                195,
+              ), // Fondo verde claro institucional
               border: Border(
                 bottom: BorderSide(color: verdeInstitucional, width: 4),
               ),
@@ -31,37 +33,31 @@ class MenuNavegacionPage extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'GOBERNACIÓN DE GUAINÍA',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: verdeInstitucional,
-                        ),
-                      ),
-                      Text(
-                        'Secretaría de Agricultura, Medio Ambiente y Desarrollo Económico Departamental',
-                        style: TextStyle(fontSize: 11, color: Colors.grey[700]),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'MENÚ DE NAVEGACIÓN',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                          color: verdeInstitucional,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
+                // LADO IZQUIERDO: Logo horizontal completo (Banner)
+                Image.asset(
+                  'assets/logos/banner_gobernacion.png', // Tu nueva imagen horizontal
+                  height: 150,
+                  fit: BoxFit.contain,
+                ),
+
+                // CENTRO: Título del Menú perfectamente alineado
+                const Expanded(
+                  child: Text(
+                    'MENÚ DE NAVEGACIÓN',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                      color: verdeInstitucional,
+                      letterSpacing: 1.2,
+                    ),
                   ),
                 ),
+
+                // LADO DERECHO: Control de Sesión e Información del Usuario
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       'Usuario',
@@ -82,6 +78,7 @@ class MenuNavegacionPage extends StatelessWidget {
                     const SizedBox(height: 8),
                     ElevatedButton(
                       onPressed: () {
+                        // Te redirige a la pantalla de login '/'
                         Navigator.pushReplacementNamed(context, '/');
                       },
                       style: ElevatedButton.styleFrom(
@@ -122,7 +119,6 @@ class MenuNavegacionPage extends StatelessWidget {
                       'Registrar\nUsuarios',
                       azulBoton,
                       () {
-                        // Navegación directa añadida aquí para conectar la vista
                         Navigator.pushNamed(context, '/registrar_usuario');
                       },
                     ),

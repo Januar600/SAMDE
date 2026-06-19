@@ -3,211 +3,265 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class RegistrarUsuario extends StatefulWidget {
-  const RegistrarUsuario({super.key});
+  const RegistrarUsuario({Key? key}) : super(key: key);
 
   @override
   State<RegistrarUsuario> createState() => _RegistrarUsuarioState();
 }
 
 class _RegistrarUsuarioState extends State<RegistrarUsuario> {
-  final _formKey = GlobalKey<FormState>();
-  final _usuarioController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  // Controladores para el formulario de registro
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _contrasenaController = TextEditingController();
 
-  String _rolSeleccionado = 'consulta';
-  final List<String> _rolesDisponibles = ['admin', 'almacen', 'consulta'];
-
-  bool _cargandoRegistro = false;
-  bool _cargandoLista = true;
-  List<dynamic> _listaUsuarios = [];
+  String _rolSeleccionado = 'consulta'; // Rol por defecto en minúsculas
+  List<dynamic> listaUsuarios = []; // Lista global que viene del backend
+  bool _cargando = false;
 
   @override
   void initState() {
     super.initState();
-    _obtenerUsuarios();
+    _obtenerUsuarios(); // Carga inicial de datos
   }
 
-  // API: OBTENER USUARIOS (ESTADOS 1 Y 2)
+  // Muestra un cuadro de diálogo de advertencia si faltan requisitos
+  void _mostrarAdvertenciaRequisitos(String mensaje) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: const [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 30),
+              SizedBox(width: 10),
+              Text(
+                'Requisitos Insuficientes',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: Text(mensaje, style: const TextStyle(fontSize: 15)),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Entendido',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Función principal para obtener los usuarios desde el Backend
   Future<void> _obtenerUsuarios() async {
-    final url = Uri.parse('http://localhost/samde_db/api/listar_usuarios.php');
+    setState(() {
+      _cargando = true;
+    });
+
+    final url = Uri.parse("http://localhost/samde_db/api/listar_usuarios.php");
+
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['status'] == 'success' && data['usuarios'] != null) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'success') {
           setState(() {
-            _listaUsuarios = data['usuarios'];
-            _cargandoLista = false;
+            listaUsuarios = data['usuarios'];
           });
-          return;
         }
+      } else {
+        _mostrarSnackBar("Error en el servidor al listar usuarios.");
       }
-      setState(() {
-        _cargandoLista = false;
-      });
     } catch (e) {
+      _mostrarSnackBar("Error de conexión: $e");
+    } finally {
       setState(() {
-        _cargandoLista = false;
+        _cargando = false;
       });
-      debugPrint("Error al cargar usuarios: $e");
     }
   }
 
-  // API: REGISTRAR NUEVO USUARIO
-  Future<void> _registrar() async {
-    if (!_formKey.currentState!.validate()) return;
+  // Función para registrar un nuevo usuario con validación avanzada
+  Future<void> _registrarUsuario() async {
+    if (_usernameController.text.isEmpty ||
+        _emailController.text.isEmpty ||
+        _contrasenaController.text.isEmpty) {
+      _mostrarAdvertenciaRequisitos(
+        "Todos los campos del formulario son obligatorios. Por favor, rellena el nombre, correo y contraseña.",
+      );
+      return;
+    }
 
-    setState(() {
-      _cargandoRegistro = true;
-    });
+    // VALIDACIÓN: Verificar formato de correo electrónico antes de enviar
+    final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegExp.hasMatch(_emailController.text.trim())) {
+      _mostrarAdvertenciaRequisitos(
+        "El correo electrónico ingresado no tiene un formato válido.\n\nDebe incluir un '@' y una extensión correcta (ejemplo: usuario@correo.com).",
+      );
+      return;
+    }
 
-    final url = Uri.parse('http://localhost/samde_db/api/password_hash.php');
-
+    final url = Uri.parse("http://localhost/samde_db/api/password_hash.php");
     try {
       final response = await http.post(
         url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "username": _usuarioController.text.trim(),
+        body: {
+          "username": _usernameController.text,
           "email": _emailController.text.trim(),
-          "password": _passwordController.text,
+          "contraseña": _contrasenaController.text,
           "rol": _rolSeleccionado,
-        }),
+        },
       );
 
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && data['status'] == 'success') {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(data['mensaje'] ?? 'Usuario creado'),
-              backgroundColor: Colors.green,
-            ),
-          );
-
-          _usuarioController.clear();
-          _emailController.clear();
-          _passwordController.clear();
-          setState(() {
-            _rolSeleccionado = 'consulta';
-          });
-
-          _obtenerUsuarios();
-        }
+      final data = json.decode(response.body);
+      if (data['status'] == 'success') {
+        _mostrarSnackBar("Usuario registrado exitosamente.");
+        _usernameController.clear();
+        _emailController.clear();
+        _contrasenaController.clear();
+        _obtenerUsuarios(); // Recargamos la lista automáticamente
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(data['mensaje'] ?? 'Error'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        _mostrarAdvertenciaRequisitos("Error del Servidor: ${data['mensaje']}");
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error de conexión: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _cargandoRegistro = false;
-        });
-      }
+      _mostrarSnackBar("Error al registrar: $e");
     }
   }
 
-  // MODAL FLOTANTE Y API: EDITAR USUARIO
-  void _editarUsuario(Map<String, dynamic> usuario) {
-    final editUsuarioController = TextEditingController(
+  // Función reactiva optimizada para cambiar entre Estado 1 (Activo) y Estado 2 o 3
+  Future<void> _cambiarEstadoUsuario(int id, int nuevoEstado) async {
+    final copiaUsuariosAnteriores = List<dynamic>.from(listaUsuarios);
+
+    setState(() {
+      final index = listaUsuarios.indexWhere((u) => u['id'] == id);
+      if (index != -1) {
+        listaUsuarios[index]['estado'] = nuevoEstado;
+      }
+    });
+
+    final url = Uri.parse("http://localhost/samde_db/api/cambiar_estado.php");
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: {"id": id.toString(), "estado": nuevoEstado.toString()},
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'success') {
+          _obtenerUsuarios();
+        } else {
+          setState(() {
+            listaUsuarios = copiaUsuariosAnteriores;
+          });
+          _mostrarAdvertenciaRequisitos(
+            "No se pudo cambiar el estado: ${data['mensaje']}",
+          );
+        }
+      } else {
+        setState(() {
+          listaUsuarios = copiaUsuariosAnteriores;
+        });
+        _mostrarSnackBar(
+          "Error de comunicación (Código: ${response.statusCode}).",
+        );
+      }
+    } catch (e) {
+      setState(() {
+        listaUsuarios = copiaUsuariosAnteriores;
+      });
+      _mostrarSnackBar("Error de red: Sin conexión.");
+    }
+  }
+
+  // Lógica para abrir el Dialog flotante de edición con los datos cargados
+  void _mostrarFormularioEditar(dynamic usuario) {
+    final TextEditingController _editUsernameController = TextEditingController(
       text: usuario['username'],
     );
-    final editEmailController = TextEditingController(text: usuario['email']);
-    String editRolSeleccionado = usuario['rol'] ?? 'consulta';
-
-    final editFormKey = GlobalKey<FormState>();
+    final TextEditingController _editEmailController = TextEditingController(
+      text: usuario['email'],
+    );
+    String _editRolSeleccionado = usuario['rol'] ?? 'consulta';
 
     showDialog(
       context: context,
-      barrierDismissible: false,
       builder: (BuildContext context) {
-        const Color verdeInstitucional = Color(0xFF2E7D32);
-
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
               title: Row(
-                children: [
-                  const Icon(Icons.edit, color: verdeInstitucional),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Editar Usuario: ${usuario['username']}',
-                    style: const TextStyle(
-                      color: verdeInstitucional,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                children: const [
+                  Icon(Icons.edit, color: Colors.blue),
+                  SizedBox(width: 10),
+                  Text('Editar Usuario'),
                 ],
               ),
               content: SingleChildScrollView(
-                child: Form(
-                  key: editFormKey,
+                child: SizedBox(
+                  width: 400,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      TextFormField(
-                        controller: editUsuarioController,
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _editUsernameController,
                         decoration: const InputDecoration(
                           labelText: 'Nombre de Usuario',
                           prefixIcon: Icon(Icons.person),
+                          border: OutlineInputBorder(),
                         ),
-                        validator: (v) => v == null || v.trim().isEmpty
-                            ? 'Ingresa el nombre.'
-                            : null,
                       ),
                       const SizedBox(height: 16),
-                      TextFormField(
-                        controller: editEmailController,
-                        keyboardType: TextInputType.emailAddress,
+                      TextField(
+                        controller: _editEmailController,
                         decoration: const InputDecoration(
                           labelText: 'Correo Electrónico',
                           prefixIcon: Icon(Icons.email),
+                          border: OutlineInputBorder(),
                         ),
-                        validator: (v) => v == null || !v.contains('@')
-                            ? 'Ingresa un correo válido.'
-                            : null,
                       ),
                       const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: editRolSeleccionado,
+                      InputDecorator(
                         decoration: const InputDecoration(
                           labelText: 'Rol del Usuario',
-                          prefixIcon: Icon(Icons.badge_outlined),
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
                         ),
-                        items: _rolesDisponibles.map((String rol) {
-                          return DropdownMenuItem<String>(
-                            value: rol,
-                            child: Text(rol.toUpperCase()),
-                          );
-                        }).toList(),
-                        onChanged: (String? nuevoRol) {
-                          if (nuevoRol != null) {
-                            setDialogState(() {
-                              editRolSeleccionado = nuevoRol;
-                            });
-                          }
-                        },
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _editRolSeleccionado,
+                            isExpanded: true,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'admin',
+                                child: Text('ADMIN'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'almacen',
+                                child: Text('ALMACEN'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'consulta',
+                                child: Text('CONSULTA'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setDialogState(() {
+                                _editRolSeleccionado = value!;
+                              });
+                            },
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -215,36 +269,45 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    'CANCELAR',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: verdeInstitucional,
+                    backgroundColor: const Color(0xFF2E7D32),
                   ),
-                  onPressed: () {
-                    if (editFormKey.currentState!.validate()) {
-                      Navigator.pop(context);
-                      _actualizarUsuarioEnBD(
-                        usuario['id'].toString(),
-                        editUsuarioController.text.trim(),
-                        editEmailController.text.trim(),
-                        editRolSeleccionado,
+                  onPressed: () async {
+                    if (_editUsernameController.text.isEmpty ||
+                        _editEmailController.text.isEmpty) {
+                      _mostrarAdvertenciaRequisitos(
+                        "No puedes guardar un usuario con campos vacíos.",
                       );
+                      return;
                     }
+
+                    final emailRegExp = RegExp(
+                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                    );
+                    if (!emailRegExp.hasMatch(
+                      _editEmailController.text.trim(),
+                    )) {
+                      _mostrarAdvertenciaRequisitos(
+                        "El correo edited no posee un formato válido.",
+                      );
+                      return;
+                    }
+
+                    Navigator.of(context).pop();
+                    await _actualizarUsuario(
+                      usuario['id'],
+                      _editUsernameController.text,
+                      _editEmailController.text.trim(),
+                      _editRolSeleccionado,
+                    );
                   },
                   child: const Text(
-                    'GUARDAR',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    'Guardar Cambios',
+                    style: TextStyle(color: Colors.white),
                   ),
                 ),
               ],
@@ -255,107 +318,184 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     );
   }
 
-  Future<void> _actualizarUsuarioEnBD(
-    String id,
+  // Enviar los cambios editados a editar_usuario.php
+  Future<void> _actualizarUsuario(
+    int id,
     String username,
     String email,
     String rol,
   ) async {
-    final url = Uri.parse('http://localhost/samde_db/api/editar_usuario.php');
+    final url = Uri.parse("http://localhost/samde_db/api/editar_usuario.php");
     try {
       final response = await http.post(
         url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "id": id,
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: {
+          "id": id.toString(),
           "username": username,
           "email": email,
           "rol": rol,
-        }),
+        },
       );
 
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && data['status'] == 'success') {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(data['mensaje'] ?? 'Usuario actualizado'),
-              backgroundColor: Colors.green,
-            ),
-          );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'success') {
+          _mostrarSnackBar("Usuario actualizado con éxito.");
           _obtenerUsuarios();
+        } else {
+          _mostrarAdvertenciaRequisitos("Error: ${data['mensaje']}");
         }
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(data['mensaje'] ?? 'Error al actualizar'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        _mostrarSnackBar("Error de servidor (Código: ${response.statusCode}).");
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error de conexión: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      _mostrarSnackBar("Error de red: $e");
     }
   }
 
-  // LÓGICA: ALTERNAR ENTRE ACTIVO (1) E INACTIVO (2)
-  void _alternarDesactivacion(Map<String, dynamic> usuario) {
-    final int estadoActual = int.tryParse(usuario['estado'].toString()) ?? 1;
-    final int nuevoEstado = (estadoActual == 1) ? 2 : 1;
-
-    _enviarCambioEstadoBD(usuario['id'].toString(), nuevoEstado);
+  // Eliminar usuario mandando a Estado 3
+  void _confirmarEliminacion(int id, String username) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Ocultar Usuario"),
+        content: Text("¿Seguro que deseas enviar a $username a la papelera?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancelar"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _cambiarEstadoUsuario(id, 3);
+            },
+            child: const Text("Eliminar", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
-  // LÓGICA: MANDAR A LA PAPELERA OCULTA (ESTADO 3)
-  void _confirmarEnviarAPapelera(Map<String, dynamic> usuario) {
+  // Restaurar de la papelera
+  Future<void> _restaurarUsuario(int id) async {
+    setState(() {
+      final index = listaUsuarios.indexWhere((u) => u['id'] == id);
+      if (index != -1) {
+        listaUsuarios[index]['estado'] = 1;
+      }
+    });
+
+    final url = Uri.parse("http://localhost/samde_db/api/cambiar_estado.php");
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: {"id": id.toString(), "estado": "1"},
+      );
+      final data = json.decode(response.body);
+      if (data['status'] == 'success') {
+        _mostrarSnackBar("Usuario restaurado con éxito.");
+        _obtenerUsuarios();
+      } else {
+        _obtenerUsuarios();
+      }
+    } catch (e) {
+      _obtenerUsuarios();
+      _mostrarSnackBar("Error al restaurar: $e");
+    }
+  }
+
+  // Modal de la Papelera
+  void _mostrarPapeleraDialog() {
+    List usuariosEliminados = listaUsuarios
+        .where((u) => u['estado'] == 3)
+        .toList();
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          title: const Row(
-            children: [
+          title: Row(
+            children: const [
               Icon(Icons.delete_sweep, color: Colors.red),
               SizedBox(width: 10),
-              Text(
-                'Enviar a la Papelera',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+              Text('Papelera de Usuarios'),
             ],
           ),
-          content: Text(
-            '¿Deseas enviar al usuario "${usuario['username']}" a la sección de cuentas ocultas inactivas permanentes? Dejará de mostrarse en este listado.',
+          content: SizedBox(
+            width: 500,
+            height: 400,
+            child: usuariosEliminados.isEmpty
+                ? const Center(
+                    child: Text(
+                      'La papelera está vacía.',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: usuariosEliminados.length,
+                    itemBuilder: (context, index) {
+                      final usuario = usuariosEliminados[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 5),
+                        color: Colors.grey[100],
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 8.0,
+                          ),
+                          child: Row(
+                            children: [
+                              const CircleAvatar(
+                                backgroundColor: Colors.grey,
+                                child: Icon(Icons.person, color: Colors.white),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      usuario['username'] ?? 'Sin usuario',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      usuario['email'] ?? 'Sin correo',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.settings_backup_restore,
+                                  color: Colors.green,
+                                ),
+                                tooltip: 'Restaurar Usuario',
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  _restaurarUsuario(usuario['id']);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'CANCELAR',
-                style: TextStyle(color: Colors.grey),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () {
-                Navigator.pop(context);
-                _enviarCambioEstadoBD(usuario['id'].toString(), 3);
-              },
-              child: const Text(
-                'OCULTAR',
-                style: TextStyle(color: Colors.white),
-              ),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cerrar'),
             ),
           ],
         );
@@ -363,181 +503,132 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     );
   }
 
-  // HTTP POST unificado para cambiar el estado (1, 2 o 3)
-  Future<void> _enviarCambioEstadoBD(String id, int nuevoEstado) async {
-    final url = Uri.parse('http://localhost/samde_db/api/cambiar_estado.php');
-    try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"id": id, "estado": nuevoEstado}),
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && data['status'] == 'success') {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(data['mensaje']),
-              backgroundColor: Colors.green,
-            ),
-          );
-          _obtenerUsuarios();
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(data['mensaje'] ?? 'Error'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error de conexión: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _usuarioController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
+  void _mostrarSnackBar(String mensaje) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color verdeInstitucional = Color(0xFF2E7D32);
+    List usuariosVisibles = listaUsuarios
+        .where((u) => u['estado'] == 1 || u['estado'] == 2)
+        .toList();
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Gestión de Usuarios y Roles'),
-        backgroundColor: verdeInstitucional,
-        foregroundColor: Colors.white,
-        elevation: 0,
+        backgroundColor: const Color(0xFF2E7D32),
       ),
       body: Row(
         children: [
-          // COLUMNA IZQUIERDA: Formulario de Registro
+          // COLUMNA IZQUIERDA: FORMULARIO DE REGISTRO
           Expanded(
             flex: 2,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32.0),
-              child: Form(
-                key: _formKey,
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: SingleChildScrollView(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Icon(
                       Icons.shield_outlined,
-                      size: 60,
-                      color: verdeInstitucional,
+                      size: 80,
+                      color: Color(0xFF2E7D32),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     const Text(
                       'REGISTRAR NUEVO USUARIO',
-                      textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: verdeInstitucional,
+                        color: Color(0xFF2E7D32),
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
-
-                    TextFormField(
-                      controller: _usuarioController,
+                    TextField(
+                      controller: _usernameController,
                       decoration: const InputDecoration(
                         labelText: 'Nombre de Usuario',
                         prefixIcon: Icon(Icons.person),
+                        border: OutlineInputBorder(),
                       ),
-                      validator: (v) => v == null || v.trim().isEmpty
-                          ? 'Ingresa el usuario.'
-                          : null,
                     ),
                     const SizedBox(height: 16),
-
-                    TextFormField(
+                    TextField(
                       controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
                         labelText: 'Correo Electrónico',
                         prefixIcon: Icon(Icons.email),
+                        border: OutlineInputBorder(),
                       ),
-                      validator: (v) => v == null || !v.contains('@')
-                          ? 'Ingresa un correo válido.'
-                          : null,
                     ),
                     const SizedBox(height: 16),
-
-                    TextFormField(
-                      controller: _passwordController,
+                    TextField(
+                      controller: _contrasenaController,
                       obscureText: true,
                       decoration: const InputDecoration(
                         labelText: 'Contraseña',
                         prefixIcon: Icon(Icons.lock),
+                        border: OutlineInputBorder(),
                       ),
-                      validator: (v) => v == null || v.length < 6
-                          ? 'Mínimo 6 caracteres.'
-                          : null,
                     ),
                     const SizedBox(height: 16),
-
-                    DropdownButtonFormField<String>(
-                      value: _rolSeleccionado,
+                    InputDecorator(
                       decoration: const InputDecoration(
                         labelText: 'Rol del Usuario',
-                        prefixIcon: Icon(Icons.badge_outlined),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                       ),
-                      items: _rolesDisponibles.map((String rol) {
-                        return DropdownMenuItem<String>(
-                          value: rol,
-                          child: Text(rol.toUpperCase()),
-                        );
-                      }).toList(),
-                      onChanged: (String? nuevoRol) {
-                        if (nuevoRol != null) {
-                          setState(() {
-                            _rolSeleccionado = nuevoRol;
-                          });
-                        }
-                      },
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _rolSeleccionado,
+                          isExpanded: true,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'admin',
+                              child: Text('ADMIN'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'almacen',
+                              child: Text('ALMACEN'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'consulta',
+                              child: Text('CONSULTA'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _rolSeleccionado = value!;
+                            });
+                          },
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 24),
-
-                    ElevatedButton(
-                      onPressed: _cargandoRegistro ? null : _registrar,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: verdeInstitucional,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 45,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E7D32),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        onPressed: _registrarUsuario,
+                        child: const Text(
+                          'GUARDAR',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                      child: _cargandoRegistro
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text(
-                              'GUARDAR',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
                     ),
                   ],
                 ),
@@ -545,130 +636,161 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
             ),
           ),
 
-          const VerticalDivider(width: 1, color: Colors.grey),
+          const VerticalDivider(width: 1, thickness: 1),
 
-          // COLUMNA DERECHA: Lista de usuarios (Muestra Activos e Inactivos)
+          // COLUMNA DERECHA: LISTADO DE USUARIOS VISIBLES
           Expanded(
             flex: 3,
-            child: _cargandoLista
-                ? const Center(
-                    child: CircularProgressIndicator(color: verdeInstitucional),
-                  )
-                : _listaUsuarios.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No hay usuarios activos o inactivos en el sistema.',
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'USUARIOS EN EL SISTEMA',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2E7D32),
                     ),
-                  )
-                : Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'USUARIOS EN EL SISTEMA',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: verdeInstitucional,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: _listaUsuarios.length,
-                            // AQUÍ CORREGIDO EL PARAMETRO DE LA IMAGEN 1
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: _cargando
+                        ? const Center(child: CircularProgressIndicator())
+                        : usuariosVisibles.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'No hay usuarios activos o inactivos en el sistema.',
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: usuariosVisibles.length,
                             itemBuilder: (context, index) {
-                              final user = _listaUsuarios[index];
-                              final String estadoStr = user['estado']
-                                  .toString();
+                              final usuario = usuariosVisibles[index];
+                              final bool esActivo = usuario['estado'] == 1;
 
                               return Card(
-                                margin: const EdgeInsets.symmetric(vertical: 6),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: verdeInstitucional
-                                        .withOpacity(0.1),
-                                    child: const Icon(
-                                      Icons.person,
-                                      color: verdeInstitucional,
-                                    ),
+                                margin: const EdgeInsets.symmetric(vertical: 5),
+                                color: const Color(0xFFF1F4F1),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0,
+                                    vertical: 10.0,
                                   ),
-                                  title: Text(
-                                    user['username'] ?? '',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    '${user['email']}\nRol: ${user['rol'] ?? 'No asignado'}',
-                                  ),
-                                  isThreeLine: true,
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
+                                  child: Row(
                                     children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
+                                      const CircleAvatar(
+                                        backgroundColor: Color(0xFFD0DDD0),
+                                        child: Icon(
+                                          Icons.person,
+                                          color: Color(0xFF2E7D32),
                                         ),
-                                        decoration: BoxDecoration(
-                                          color: estadoStr == '1'
-                                              ? Colors.green[100]
-                                              : Colors.red[100],
-                                          borderRadius: BorderRadius.circular(
-                                            4,
+                                      ),
+                                      const SizedBox(width: 16),
+
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  usuario['username'] ??
+                                                      'Sin nombre',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 15,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 2,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: esActivo
+                                                        ? Colors.green[100]
+                                                        : Colors.red[100],
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          5,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    esActivo
+                                                        ? 'Activo'
+                                                        : 'Inactivo',
+                                                    style: TextStyle(
+                                                      color: esActivo
+                                                          ? Colors.green[700]
+                                                          : Colors.red[700],
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              "${usuario['email'] ?? 'Sin correo'}\nRol: ${usuario['rol']}",
+                                              style: TextStyle(
+                                                color: Colors.grey[700],
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.edit,
+                                              color: Colors.blue,
+                                              size: 22,
+                                            ),
+                                            tooltip: 'Editar Usuario',
+                                            onPressed: () =>
+                                                _mostrarFormularioEditar(
+                                                  usuario,
+                                                ),
                                           ),
-                                        ),
-                                        child: Text(
-                                          estadoStr == '1'
-                                              ? 'Activo'
-                                              : 'Inactivo',
-                                          style: TextStyle(
-                                            color: estadoStr == '1'
-                                                ? Colors.green[800]
-                                                : Colors.red[800],
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
+                                          const SizedBox(width: 4),
+                                          Switch(
+                                            value: esActivo,
+                                            activeColor: Colors.green,
+                                            onChanged: (bool value) {
+                                              int nuevoEstado = value ? 1 : 2;
+                                              _cambiarEstadoUsuario(
+                                                usuario['id'],
+                                                nuevoEstado,
+                                              );
+                                            },
                                           ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.edit,
-                                          color: Colors.blue,
-                                        ),
-                                        onPressed: () => _editarUsuario(user),
-                                        tooltip: 'Editar Usuario',
-                                      ),
-
-                                      IconButton(
-                                        icon: Icon(
-                                          estadoStr == '1'
-                                              ? Icons.toggle_on
-                                              : Icons.toggle_off,
-                                          color: estadoStr == '1'
-                                              ? Colors.green
-                                              : Colors.grey,
-                                          size: 28,
-                                        ),
-                                        onPressed: () =>
-                                            _alternarDesactivacion(user),
-                                        tooltip: estadoStr == '1'
-                                            ? 'Desactivar Cuenta'
-                                            : 'Activar Cuenta',
-                                      ),
-
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.delete,
-                                          color: Colors.red,
-                                        ),
-                                        onPressed: () =>
-                                            _confirmarEnviarAPapelera(user),
-                                        tooltip: 'Enviar a Cuentas Ocultas',
+                                          const SizedBox(width: 4),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.delete,
+                                              color: Colors.red,
+                                              size: 22,
+                                            ),
+                                            tooltip: 'Ocultar Usuario',
+                                            onPressed: () =>
+                                                _confirmarEliminacion(
+                                                  usuario['id'],
+                                                  usuario['username'],
+                                                ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -676,12 +798,18 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                               );
                             },
                           ),
-                        ),
-                      ],
-                    ),
                   ),
+                ],
+              ),
+            ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _mostrarPapeleraDialog,
+        backgroundColor: Colors.red,
+        tooltip: 'Ver Papelera',
+        child: const Icon(Icons.delete_sweep, color: Colors.white),
       ),
     );
   }
