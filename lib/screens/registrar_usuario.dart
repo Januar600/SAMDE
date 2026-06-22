@@ -10,22 +10,21 @@ class RegistrarUsuario extends StatefulWidget {
 }
 
 class _RegistrarUsuarioState extends State<RegistrarUsuario> {
-  // Controladores para el formulario de registro
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _contrasenaController = TextEditingController();
 
-  String _rolSeleccionado = 'consulta'; // Rol por defecto en minúsculas
-  List<dynamic> listaUsuarios = []; // Lista global que viene del backend
+  String _rolSeleccionado = 'consulta';
+  String _sectorSeleccionado = 'Agricultura';
+  List<dynamic> listaUsuarios = [];
   bool _cargando = false;
 
   @override
   void initState() {
     super.initState();
-    _obtenerUsuarios(); // Carga inicial de datos
+    _obtenerUsuarios();
   }
 
-  // Muestra un cuadro de diálogo de advertencia si faltan requisitos
   void _mostrarAdvertenciaRequisitos(String mensaje) {
     showDialog(
       context: context,
@@ -57,7 +56,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     );
   }
 
-  // Función principal para obtener los usuarios desde el Backend
   Future<void> _obtenerUsuarios() async {
     setState(() {
       _cargando = true;
@@ -86,7 +84,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     }
   }
 
-  // Función para registrar un nuevo usuario con validación avanzada
   Future<void> _registrarUsuario() async {
     if (_usernameController.text.isEmpty ||
         _emailController.text.isEmpty ||
@@ -97,11 +94,10 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
       return;
     }
 
-    // VALIDACIÓN: Verificar formato de correo electrónico antes de enviar
     final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegExp.hasMatch(_emailController.text.trim())) {
       _mostrarAdvertenciaRequisitos(
-        "El correo electrónico ingresado no tiene un formato válido.\n\nDebe incluir un '@' y una extensión correcta (ejemplo: usuario@correo.com).",
+        "El correo electrónico ingresado no tiene un formato válido.",
       );
       return;
     }
@@ -115,6 +111,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
           "email": _emailController.text.trim(),
           "contraseña": _contrasenaController.text,
           "rol": _rolSeleccionado,
+          "sector": _sectorSeleccionado,
         },
       );
 
@@ -124,7 +121,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
         _usernameController.clear();
         _emailController.clear();
         _contrasenaController.clear();
-        _obtenerUsuarios(); // Recargamos la lista automáticamente
+        _obtenerUsuarios();
       } else {
         _mostrarAdvertenciaRequisitos("Error del Servidor: ${data['mensaje']}");
       }
@@ -133,7 +130,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     }
   }
 
-  // Función reactiva optimizada para cambiar entre Estado 1 (Activo) y Estado 2 o 3
   Future<void> _cambiarEstadoUsuario(int id, int nuevoEstado) async {
     final copiaUsuariosAnteriores = List<dynamic>.from(listaUsuarios);
 
@@ -168,9 +164,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
         setState(() {
           listaUsuarios = copiaUsuariosAnteriores;
         });
-        _mostrarSnackBar(
-          "Error de comunicación (Código: ${response.statusCode}).",
-        );
+        _mostrarSnackBar("Error de comunicación.");
       }
     } catch (e) {
       setState(() {
@@ -180,7 +174,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     }
   }
 
-  // Lógica para abrir el Dialog flotante de edición con los datos cargados
   void _mostrarFormularioEditar(dynamic usuario) {
     final TextEditingController _editUsernameController = TextEditingController(
       text: usuario['username'],
@@ -189,6 +182,17 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
       text: usuario['email'],
     );
     String _editRolSeleccionado = usuario['rol'] ?? 'consulta';
+
+    // Si viene NULL o vacío de la base de datos, lo seteamos como "No Asignado"
+    String _editSectorSeleccionado = 'No Asignado';
+    if (usuario['sector'] != null && usuario['sector'].toString().isNotEmpty) {
+      String sectorBd = usuario['sector'].toString();
+      if (sectorBd == 'Medio Ambiente' ||
+          sectorBd == 'Agricultura' ||
+          sectorBd == 'Desarrollo Económico') {
+        _editSectorSeleccionado = sectorBd;
+      }
+    }
 
     showDialog(
       context: context,
@@ -263,6 +267,46 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 16),
+                      InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Sector',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _editSectorSeleccionado,
+                            isExpanded: true,
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'No Asignado',
+                                child: Text('NO ASIGNADO'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Medio Ambiente',
+                                child: Text('MEDIO AMBIENTE'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Agricultura',
+                                child: Text('AGRICULTURA'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'Desarrollo Económico',
+                                child: Text('DESARROLLO ECONÓMICO'),
+                              ),
+                            ],
+                            onChanged: (value) {
+                              setDialogState(() {
+                                _editSectorSeleccionado = value!;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -285,24 +329,13 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                       return;
                     }
 
-                    final emailRegExp = RegExp(
-                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                    );
-                    if (!emailRegExp.hasMatch(
-                      _editEmailController.text.trim(),
-                    )) {
-                      _mostrarAdvertenciaRequisitos(
-                        "El correo edited no posee un formato válido.",
-                      );
-                      return;
-                    }
-
                     Navigator.of(context).pop();
                     await _actualizarUsuario(
                       usuario['id'],
                       _editUsernameController.text,
                       _editEmailController.text.trim(),
                       _editRolSeleccionado,
+                      _editSectorSeleccionado,
                     );
                   },
                   child: const Text(
@@ -318,23 +351,23 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     );
   }
 
-  // Enviar los cambios editados a editar_usuario.php
   Future<void> _actualizarUsuario(
     int id,
     String username,
     String email,
     String rol,
+    String sector,
   ) async {
     final url = Uri.parse("http://localhost/samde_db/api/editar_usuario.php");
     try {
       final response = await http.post(
         url,
-        headers: {"Content-Type": "application/x-www-form-urlencoded"},
         body: {
           "id": id.toString(),
           "username": username,
           "email": email,
           "rol": rol,
+          "sector": sector,
         },
       );
 
@@ -347,14 +380,13 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
           _mostrarAdvertenciaRequisitos("Error: ${data['mensaje']}");
         }
       } else {
-        _mostrarSnackBar("Error de servidor (Código: ${response.statusCode}).");
+        _mostrarSnackBar("Error del Servidor Código: ${response.statusCode}");
       }
     } catch (e) {
       _mostrarSnackBar("Error de red: $e");
     }
   }
 
-  // Eliminar usuario mandando a Estado 3
   void _confirmarEliminacion(int id, String username) {
     showDialog(
       context: context,
@@ -378,36 +410,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     );
   }
 
-  // Restaurar de la papelera
-  Future<void> _restaurarUsuario(int id) async {
-    setState(() {
-      final index = listaUsuarios.indexWhere((u) => u['id'] == id);
-      if (index != -1) {
-        listaUsuarios[index]['estado'] = 1;
-      }
-    });
-
-    final url = Uri.parse("http://localhost/samde_db/api/cambiar_estado.php");
-    try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/x-www-form-urlencoded"},
-        body: {"id": id.toString(), "estado": "1"},
-      );
-      final data = json.decode(response.body);
-      if (data['status'] == 'success') {
-        _mostrarSnackBar("Usuario restaurado con éxito.");
-        _obtenerUsuarios();
-      } else {
-        _obtenerUsuarios();
-      }
-    } catch (e) {
-      _obtenerUsuarios();
-      _mostrarSnackBar("Error al restaurar: $e");
-    }
-  }
-
-  // Modal de la Papelera
   void _mostrarPapeleraDialog() {
     List usuariosEliminados = listaUsuarios
         .where((u) => u['estado'] == 3)
@@ -420,7 +422,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
           title: Row(
             children: const [
               Icon(Icons.delete_sweep, color: Colors.red),
-              SizedBox(width: 10),
+              SizedBox(width: 10), // Corregido el error de sintaxis previo
               Text('Papelera de Usuarios'),
             ],
           ),
@@ -479,10 +481,9 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                                   Icons.settings_backup_restore,
                                   color: Colors.green,
                                 ),
-                                tooltip: 'Restaurar Usuario',
                                 onPressed: () {
                                   Navigator.of(context).pop();
-                                  _restaurarUsuario(usuario['id']);
+                                  _cambiarEstadoUsuario(usuario['id'], 1);
                                 },
                               ),
                             ],
@@ -522,7 +523,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
       ),
       body: Row(
         children: [
-          // COLUMNA IZQUIERDA: FORMULARIO DE REGISTRO
+          // COLUMNA IZQUIERDA: FORMULARIO
           Expanded(
             flex: 2,
             child: Padding(
@@ -543,7 +544,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF2E7D32),
                       ),
-                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
                     TextField(
@@ -601,11 +601,45 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                               child: Text('CONSULTA'),
                             ),
                           ],
-                          onChanged: (value) {
-                            setState(() {
-                              _rolSeleccionado = value!;
-                            });
-                          },
+                          onChanged: (value) =>
+                              setState(() => _rolSeleccionado = value!),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Sector',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _sectorSeleccionado,
+                          isExpanded: true,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'No Asignado',
+                              child: Text('NO ASIGNADO'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Medio Ambiente',
+                              child: Text('MEDIO AMBIENTE'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Agricultura',
+                              child: Text('AGRICULTURA'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Desarrollo Económico',
+                              child: Text('DESARROLLO ECONÓMICO'),
+                            ),
+                          ],
+                          onChanged: (value) =>
+                              setState(() => _sectorSeleccionado = value!),
                         ),
                       ),
                     ),
@@ -635,10 +669,8 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
               ),
             ),
           ),
-
           const VerticalDivider(width: 1, thickness: 1),
-
-          // COLUMNA DERECHA: LISTADO DE USUARIOS VISIBLES
+          // COLUMNA DERECHA: LISTADO
           Expanded(
             flex: 3,
             child: Padding(
@@ -660,9 +692,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                         ? const Center(child: CircularProgressIndicator())
                         : usuariosVisibles.isEmpty
                         ? const Center(
-                            child: Text(
-                              'No hay usuarios activos o inactivos en el sistema.',
-                            ),
+                            child: Text('No hay usuarios activos o inactivos.'),
                           )
                         : ListView.builder(
                             itemCount: usuariosVisibles.length,
@@ -670,14 +700,16 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                               final usuario = usuariosVisibles[index];
                               final bool esActivo = usuario['estado'] == 1;
 
+                              String sectorTexto =
+                                  (usuario['sector'] ?? 'NO ASIGNADO')
+                                      .toString()
+                                      .toUpperCase();
+
                               return Card(
                                 margin: const EdgeInsets.symmetric(vertical: 5),
                                 color: const Color(0xFFF1F4F1),
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16.0,
-                                    vertical: 10.0,
-                                  ),
+                                  padding: const EdgeInsets.all(12.0),
                                   child: Row(
                                     children: [
                                       const CircleAvatar(
@@ -688,12 +720,10 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                                         ),
                                       ),
                                       const SizedBox(width: 16),
-
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
-                                          mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Row(
                                               children: [
@@ -739,7 +769,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
-                                              "${usuario['email'] ?? 'Sin correo'}\nRol: ${usuario['rol']}",
+                                              "${usuario['email'] ?? 'Sin correo'}\nRol: ${usuario['rol'].toString().toUpperCase()}  |  Sector: $sectorTexto",
                                               style: TextStyle(
                                                 color: Colors.grey[700],
                                                 fontSize: 13,
@@ -748,42 +778,32 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                                           ],
                                         ),
                                       ),
-
                                       Row(
-                                        mainAxisSize: MainAxisSize.min,
                                         children: [
                                           IconButton(
                                             icon: const Icon(
                                               Icons.edit,
                                               color: Colors.blue,
-                                              size: 22,
                                             ),
-                                            tooltip: 'Editar Usuario',
                                             onPressed: () =>
                                                 _mostrarFormularioEditar(
                                                   usuario,
                                                 ),
                                           ),
-                                          const SizedBox(width: 4),
                                           Switch(
                                             value: esActivo,
                                             activeColor: Colors.green,
-                                            onChanged: (bool value) {
-                                              int nuevoEstado = value ? 1 : 2;
-                                              _cambiarEstadoUsuario(
-                                                usuario['id'],
-                                                nuevoEstado,
-                                              );
-                                            },
+                                            onChanged: (bool value) =>
+                                                _cambiarEstadoUsuario(
+                                                  usuario['id'],
+                                                  value ? 1 : 2,
+                                                ),
                                           ),
-                                          const SizedBox(width: 4),
                                           IconButton(
                                             icon: const Icon(
                                               Icons.delete,
                                               color: Colors.red,
-                                              size: 22,
                                             ),
-                                            tooltip: 'Ocultar Usuario',
                                             onPressed: () =>
                                                 _confirmarEliminacion(
                                                   usuario['id'],
@@ -807,8 +827,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _mostrarPapeleraDialog,
-        backgroundColor: Colors.red,
-        tooltip: 'Ver Papelera',
+        backgroundColor: const Color.fromARGB(255, 227, 6, 6),
         child: const Icon(Icons.delete_sweep, color: Colors.white),
       ),
     );

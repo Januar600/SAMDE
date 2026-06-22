@@ -1,21 +1,29 @@
 import 'package:flutter/material.dart';
 
-class MenuNavegacionPage extends StatelessWidget {
-  final String username;
-
-  const MenuNavegacionPage({super.key, required this.username});
+class MenuNavegacion extends StatelessWidget {
+  const MenuNavegacion({super.key});
 
   @override
   Widget build(BuildContext context) {
     const Color verdeInstitucional = Color(0xFF2E7D32);
     const Color azulBoton = Color(0xFFB3E5FC);
 
+    // ========================================================
+    // LOGICA DE ARGUMENTOS PROTEGIDA CONTRA RECARGAS (F5)
+    // ========================================================
+    final Object? argumentosRaw = ModalRoute.of(context)!.settings.arguments;
+    final Map<String, dynamic> argumentos =
+        (argumentosRaw is Map<String, dynamic>) ? argumentosRaw : {};
+
+    final String username = argumentos['username'] ?? 'Usuario';
+    final String sectorUsuario = argumentos['sector'] ?? 'No Asignado';
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
         children: [
           // ========================================================
-          // 1. ENCABEZADO INSTITUCIONAL HORIZONTAL (ACTUALIZADO)
+          // 1. ENCABEZADO INSTITUCIONAL HORIZONTAL (DISEÑO ORIGINAL)
           // ========================================================
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -35,7 +43,7 @@ class MenuNavegacionPage extends StatelessWidget {
               children: [
                 // LADO IZQUIERDO: Logo horizontal completo (Banner)
                 Image.asset(
-                  'assets/logos/banner_gobernacion.png', // Tu nueva imagen horizontal
+                  'assets/logos/banner_gobernacion.png',
                   height: 150,
                   fit: BoxFit.contain,
                 ),
@@ -60,14 +68,6 @@ class MenuNavegacionPage extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Usuario',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                    Text(
                       username.toUpperCase(),
                       style: const TextStyle(
                         fontSize: 18,
@@ -75,10 +75,19 @@ class MenuNavegacionPage extends StatelessWidget {
                         color: Colors.black87,
                       ),
                     ),
+                    const SizedBox(height: 2),
+                    // Sector del usuario abajo del nombre
+                    Text(
+                      'Sector: $sectorUsuario',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[700],
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     ElevatedButton(
                       onPressed: () {
-                        // Te redirige a la pantalla de login '/'
                         Navigator.pushReplacementNamed(context, '/');
                       },
                       style: ElevatedButton.styleFrom(
@@ -104,7 +113,9 @@ class MenuNavegacionPage extends StatelessWidget {
             ),
           ),
 
-          // 2. BOTONES EN CUADRÍCULA
+          // ========================================================
+          // 2. BOTONES EN CUADRÍCULA (DISEÑO INTACTO)
+          // ========================================================
           Expanded(
             child: Center(
               child: SingleChildScrollView(
@@ -133,7 +144,7 @@ class MenuNavegacionPage extends StatelessWidget {
                       'Registrar\nContratos',
                       azulBoton,
                       () {
-                        Navigator.pushNamed(context, '/registrar_contracto');
+                        Navigator.pushNamed(context, '/registrar_contrato');
                       },
                     ),
                     _buildMenuButton(

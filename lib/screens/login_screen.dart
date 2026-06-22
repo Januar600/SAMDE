@@ -10,27 +10,24 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // Variables e identificadores del formulario
   final _formKey = GlobalKey<FormState>();
   final _usuarioController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _cargando = false;
 
-  // Almacena el mensaje de error del backend (ej: "Su usuario se encuentra inactivo")
+  // Almacena el mensaje de error del backend
   String? _errorMensaje;
 
   Future<void> _iniciarSesion() async {
-    // Valida los campos localmente (borde rojo nativo si están vacíos)
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
     setState(() {
       _cargando = true;
-      _errorMensaje = null; // Limpiamos errores previos al intentar de nuevo
+      _errorMensaje = null;
     });
 
-    // Ruta local en XAMPP para el login
     final url = Uri.parse('http://localhost/samde_db/api/login.php');
 
     try {
@@ -54,15 +51,20 @@ class _LoginPageState extends State<LoginPage> {
             ),
           );
 
-          // Redirección al menú principal pasando el usuario como argumento
+          // ENVIAR MÚLTIPLES ARGUMENTOS: Pasamos el usuario y su sector al menú principal
           Navigator.pushReplacementNamed(
             context,
             '/menu',
-            arguments: _usuarioController.text.trim(),
+            arguments: {
+              'username':
+                  data['usuario']['username'] ?? _usuarioController.text.trim(),
+              'sector':
+                  data['usuario']['sector'] ??
+                  'No Asignado', // Captura el nuevo dato
+            },
           );
         }
       } else {
-        // Manejo de error controlado desde el backend (ej: Usuario Inactivo)
         if (mounted) {
           setState(() {
             _errorMensaje = data['mensaje'] ?? 'Credenciales incorrectas';
@@ -70,7 +72,6 @@ class _LoginPageState extends State<LoginPage> {
         }
       }
     } catch (e) {
-      // Los errores críticos de infraestructura (Apache apagado) se mantienen en SnackBar
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -107,14 +108,11 @@ class _LoginPageState extends State<LoginPage> {
           child: Form(
             key: _formKey,
             child: Container(
-              constraints: const BoxConstraints(
-                maxWidth: 400,
-              ), // Centra y estructura el diseño en entornos Web/Escritorio
+              constraints: const BoxConstraints(maxWidth: 400),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Escudo oficial de la Gobernación del Guainía
                   Image.asset(
                     'assets/logos/gobernacion.png',
                     height: 190,
@@ -156,14 +154,12 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Campo Contraseña con detección de Enter y Error text integrado
+                  // Campo Contraseña
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
-                    textInputAction: TextInputAction
-                        .done, // Muestra el botón "Listo" en teclados virtuales
+                    textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) {
-                      // Ejecuta el login automáticamente si se presiona ENTER en el teclado
                       if (!_cargando) {
                         _iniciarSesion();
                       }
@@ -172,7 +168,6 @@ class _LoginPageState extends State<LoginPage> {
                       labelText: 'Contraseña',
                       prefixIcon: const Icon(Icons.lock),
                       border: const OutlineInputBorder(),
-                      // Si hay un error del backend, se inyecta directamente aquí abajo sin alterar el diseño
                       errorText: _errorMensaje,
                       errorMaxLines: 2,
                     ),
