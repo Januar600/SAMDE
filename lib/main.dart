@@ -36,19 +36,7 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => const LoginPage(),
-
-        '/menu': (context) {
-          // 1. Recibimos los argumentos de forma segura como un mapa dinámico genérico
-          final Map<String, dynamic> args =
-              ModalRoute.of(context)?.settings.arguments
-                  as Map<String, dynamic>? ??
-              {'username': 'Usuario', 'sector': 'No Asignado'};
-
-          // 2. CORRECCIÓN: Retornamos el componente limpio sin pasar parámetros por constructor,
-          // ya que el widget se encarga de extraerlos internamente del contexto.
-          return const MenuNavegacion();
-        },
-
+        '/menu': (context) => const MenuNavegacion(),
         '/registrar_contrato': (context) => const RegistrarContratoPage(),
         '/registrar_usuario': (context) => const RegistrarUsuario(),
       },
