@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../widgets/drawer_menu.dart';
+import '../services/storage_service.dart';
 
 class RegistrarUsuario extends StatefulWidget {
   const RegistrarUsuario({Key? key}) : super(key: key);
@@ -19,12 +21,41 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
   List<dynamic> listaUsuarios = [];
   bool _cargando = false;
 
+  // ============================================
+  // DATOS DEL USUARIO LOGUEADO
+  // ============================================
+  late String username;
+  late String sector;
+  late String rol;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final Object? argumentosRaw = ModalRoute.of(context)!.settings.arguments;
+    final Map<String, dynamic> argumentos =
+        (argumentosRaw is Map<String, dynamic>) ? argumentosRaw : {};
+
+    username = argumentos['username'] ?? 'Usuario';
+    sector = argumentos['sector'] ?? 'No Asignado';
+    rol = argumentos['rol'] ?? 'consulta';
+  }
+
   @override
   void initState() {
     super.initState();
     _obtenerUsuarios();
   }
 
+  // ============================================
+  // ABRIR DRAWER - MÉTODO SEPARADO
+  // ============================================
+  void _abrirDrawer() {
+    Scaffold.of(context).openDrawer();
+  }
+
+  // ============================================
+  // MÉTODOS EXISTENTES (sin cambios)
+  // ============================================
   void _mostrarAdvertenciaRequisitos(String mensaje) {
     showDialog(
       context: context,
@@ -183,7 +214,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     );
     String _editRolSeleccionado = usuario['rol'] ?? 'consulta';
 
-    // Si viene NULL o vacío de la base de datos, lo seteamos como "No Asignado"
     String _editSectorSeleccionado = 'No Asignado';
     if (usuario['sector'] != null && usuario['sector'].toString().isNotEmpty) {
       String sectorBd = usuario['sector'].toString();
@@ -422,7 +452,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
           title: Row(
             children: const [
               Icon(Icons.delete_sweep, color: Colors.red),
-              SizedBox(width: 10), // Corregido el error de sintaxis previo
+              SizedBox(width: 10),
               Text('Papelera de Usuarios'),
             ],
           ),
@@ -510,317 +540,427 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     ).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
+  // ============================================
+  // CONFIRMAR CIERRE DE SESIÓN
+  // ============================================
+  void _confirmarCerrarSesion(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Cerrar Sesión'),
+          content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final storage = StorageService();
+                await storage.cerrarSesion();
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                  Navigator.pushReplacementNamed(dialogContext, '/');
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text(
+                'Cerrar Sesión',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     List usuariosVisibles = listaUsuarios
         .where((u) => u['estado'] == 1 || u['estado'] == 2)
         .toList();
 
+    const Color verdeInstitucional = Color(0xFF2E7D32);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Gestión de Usuarios y Roles'),
-        backgroundColor: const Color(0xFF2E7D32),
+      drawer: DrawerMenu(
+        username: username,
+        sector: sector,
+        rol: rol,
+        selectedIndex: 1,
       ),
-      body: Row(
+      body: Column(
         children: [
-          // COLUMNA IZQUIERDA: FORMULARIO
-          Expanded(
-            flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.shield_outlined,
-                      size: 80,
-                      color: Color(0xFF2E7D32),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'REGISTRAR NUEVO USUARIO',
+          // ============================================
+          // BANNER INSTITUCIONAL CON BOTÓN DEL DRAWER
+          // ============================================
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(
+              color: Color.fromARGB(255, 192, 231, 195),
+              border: Border(
+                bottom: BorderSide(color: verdeInstitucional, width: 4),
+              ),
+            ),
+            child: Row(
+              children: [
+                // ============================================
+                // BOTÓN DEL DRAWER (HAMBURGUESA)
+                // ============================================
+                IconButton(
+                  icon: Icon(Icons.menu, color: verdeInstitucional, size: 30),
+                  onPressed: () {
+                    Scaffold.of(context).openDrawer();
+                  },
+                  tooltip: 'Abrir menú',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                Image.asset(
+                  'assets/logos/gobernacion.png',
+                  height: 50,
+                  fit: BoxFit.contain,
+                ),
+                const Expanded(
+                  child: Center(
+                    child: Text(
+                      'Gestión de Usuarios y Roles',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF2E7D32),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      controller: _usernameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre de Usuario',
-                        prefixIcon: Icon(Icons.person),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Correo Electrónico',
-                        prefixIcon: Icon(Icons.email),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _contrasenaController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Contraseña',
-                        prefixIcon: Icon(Icons.lock),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Rol del Usuario',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _rolSeleccionado,
-                          isExpanded: true,
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'admin',
-                              child: Text('ADMIN'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'almacen',
-                              child: Text('ALMACEN'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'consulta',
-                              child: Text('CONSULTA'),
-                            ),
-                          ],
-                          onChanged: (value) =>
-                              setState(() => _rolSeleccionado = value!),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Sector',
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _sectorSeleccionado,
-                          isExpanded: true,
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'No Asignado',
-                              child: Text('NO ASIGNADO'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'Medio Ambiente',
-                              child: Text('MEDIO AMBIENTE'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'Agricultura',
-                              child: Text('AGRICULTURA'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'Desarrollo Económico',
-                              child: Text('DESARROLLO ECONÓMICO'),
-                            ),
-                          ],
-                          onChanged: (value) =>
-                              setState(() => _sectorSeleccionado = value!),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 45,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E7D32),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        onPressed: _registrarUsuario,
-                        child: const Text(
-                          'GUARDAR',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                // Espacio para equilibrar
+                const SizedBox(width: 80),
+              ],
             ),
           ),
-          const VerticalDivider(width: 1, thickness: 1),
-          // COLUMNA DERECHA: LISTADO
+
+          // ============================================
+          // CONTENIDO PRINCIPAL
+          // ============================================
           Expanded(
-            flex: 3,
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'USUARIOS EN EL SISTEMA',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2E7D32),
+            child: Row(
+              children: [
+                // COLUMNA IZQUIERDA: FORMULARIO
+                Expanded(
+                  flex: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.shield_outlined,
+                            size: 80,
+                            color: Color(0xFF2E7D32),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'REGISTRAR NUEVO USUARIO',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2E7D32),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          TextField(
+                            controller: _usernameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Nombre de Usuario',
+                              prefixIcon: Icon(Icons.person),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _emailController,
+                            decoration: const InputDecoration(
+                              labelText: 'Correo Electrónico',
+                              prefixIcon: Icon(Icons.email),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _contrasenaController,
+                            obscureText: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Contraseña',
+                              prefixIcon: Icon(Icons.lock),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Rol del Usuario',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _rolSeleccionado,
+                                isExpanded: true,
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'admin',
+                                    child: Text('ADMIN'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'almacen',
+                                    child: Text('ALMACEN'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'consulta',
+                                    child: Text('CONSULTA'),
+                                  ),
+                                ],
+                                onChanged: (value) =>
+                                    setState(() => _rolSeleccionado = value!),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Sector',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _sectorSeleccionado,
+                                isExpanded: true,
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'No Asignado',
+                                    child: Text('NO ASIGNADO'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'Medio Ambiente',
+                                    child: Text('MEDIO AMBIENTE'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'Agricultura',
+                                    child: Text('AGRICULTURA'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'Desarrollo Económico',
+                                    child: Text('DESARROLLO ECONÓMICO'),
+                                  ),
+                                ],
+                                onChanged: (value) => setState(
+                                  () => _sectorSeleccionado = value!,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 45,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2E7D32),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                              onPressed: _registrarUsuario,
+                              child: const Text(
+                                'GUARDAR',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: _cargando
-                        ? const Center(child: CircularProgressIndicator())
-                        : usuariosVisibles.isEmpty
-                        ? const Center(
-                            child: Text('No hay usuarios activos o inactivos.'),
-                          )
-                        : ListView.builder(
-                            itemCount: usuariosVisibles.length,
-                            itemBuilder: (context, index) {
-                              final usuario = usuariosVisibles[index];
-                              final bool esActivo = usuario['estado'] == 1;
+                ),
+                const VerticalDivider(width: 1, thickness: 1),
+                // COLUMNA DERECHA: LISTADO
+                Expanded(
+                  flex: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'USUARIOS EN EL SISTEMA',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Expanded(
+                          child: _cargando
+                              ? const Center(child: CircularProgressIndicator())
+                              : usuariosVisibles.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    'No hay usuarios activos o inactivos.',
+                                  ),
+                                )
+                              : ListView.builder(
+                                  itemCount: usuariosVisibles.length,
+                                  itemBuilder: (context, index) {
+                                    final usuario = usuariosVisibles[index];
+                                    final bool esActivo =
+                                        usuario['estado'] == 1;
 
-                              String sectorTexto =
-                                  (usuario['sector'] ?? 'NO ASIGNADO')
-                                      .toString()
-                                      .toUpperCase();
+                                    String sectorTexto =
+                                        (usuario['sector'] ?? 'NO ASIGNADO')
+                                            .toString()
+                                            .toUpperCase();
 
-                              return Card(
-                                margin: const EdgeInsets.symmetric(vertical: 5),
-                                color: const Color(0xFFF1F4F1),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12.0),
-                                  child: Row(
-                                    children: [
-                                      const CircleAvatar(
-                                        backgroundColor: Color(0xFFD0DDD0),
-                                        child: Icon(
-                                          Icons.person,
-                                          color: Color(0xFF2E7D32),
-                                        ),
+                                    return Card(
+                                      margin: const EdgeInsets.symmetric(
+                                        vertical: 5,
                                       ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                                      color: const Color(0xFFF1F4F1),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(12.0),
+                                        child: Row(
                                           children: [
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  usuario['username'] ??
-                                                      'Sin nombre',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 15,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 6,
-                                                        vertical: 2,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: esActivo
-                                                        ? Colors.green[100]
-                                                        : Colors.red[100],
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          5,
+                                            const CircleAvatar(
+                                              backgroundColor: Color(
+                                                0xFFD0DDD0,
+                                              ),
+                                              child: Icon(
+                                                Icons.person,
+                                                color: Color(0xFF2E7D32),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    children: [
+                                                      Text(
+                                                        usuario['username'] ??
+                                                            'Sin nombre',
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 15,
                                                         ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Container(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 6,
+                                                              vertical: 2,
+                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          color: esActivo
+                                                              ? Colors
+                                                                    .green[100]
+                                                              : Colors.red[100],
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                5,
+                                                              ),
+                                                        ),
+                                                        child: Text(
+                                                          esActivo
+                                                              ? 'Activo'
+                                                              : 'Inactivo',
+                                                          style: TextStyle(
+                                                            color: esActivo
+                                                                ? Colors
+                                                                      .green[700]
+                                                                : Colors
+                                                                      .red[700],
+                                                            fontSize: 11,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
-                                                  child: Text(
-                                                    esActivo
-                                                        ? 'Activo'
-                                                        : 'Inactivo',
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    "${usuario['email'] ?? 'Sin correo'}\nRol: ${usuario['rol'].toString().toUpperCase()}  |  Sector: $sectorTexto",
                                                     style: TextStyle(
-                                                      color: esActivo
-                                                          ? Colors.green[700]
-                                                          : Colors.red[700],
-                                                      fontSize: 11,
-                                                      fontWeight:
-                                                          FontWeight.bold,
+                                                      color: Colors.grey[700],
+                                                      fontSize: 13,
                                                     ),
                                                   ),
+                                                ],
+                                              ),
+                                            ),
+                                            Row(
+                                              children: [
+                                                IconButton(
+                                                  icon: const Icon(
+                                                    Icons.edit,
+                                                    color: Colors.blue,
+                                                  ),
+                                                  onPressed: () =>
+                                                      _mostrarFormularioEditar(
+                                                        usuario,
+                                                      ),
+                                                ),
+                                                Switch(
+                                                  value: esActivo,
+                                                  activeColor: Colors.green,
+                                                  onChanged: (bool value) =>
+                                                      _cambiarEstadoUsuario(
+                                                        usuario['id'],
+                                                        value ? 1 : 2,
+                                                      ),
+                                                ),
+                                                IconButton(
+                                                  icon: const Icon(
+                                                    Icons.delete,
+                                                    color: Colors.red,
+                                                  ),
+                                                  onPressed: () =>
+                                                      _confirmarEliminacion(
+                                                        usuario['id'],
+                                                        usuario['username'],
+                                                      ),
                                                 ),
                                               ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              "${usuario['email'] ?? 'Sin correo'}\nRol: ${usuario['rol'].toString().toUpperCase()}  |  Sector: $sectorTexto",
-                                              style: TextStyle(
-                                                color: Colors.grey[700],
-                                                fontSize: 13,
-                                              ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                      Row(
-                                        children: [
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.edit,
-                                              color: Colors.blue,
-                                            ),
-                                            onPressed: () =>
-                                                _mostrarFormularioEditar(
-                                                  usuario,
-                                                ),
-                                          ),
-                                          Switch(
-                                            value: esActivo,
-                                            activeColor: Colors.green,
-                                            onChanged: (bool value) =>
-                                                _cambiarEstadoUsuario(
-                                                  usuario['id'],
-                                                  value ? 1 : 2,
-                                                ),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.delete,
-                                              color: Colors.red,
-                                            ),
-                                            onPressed: () =>
-                                                _confirmarEliminacion(
-                                                  usuario['id'],
-                                                  usuario['username'],
-                                                ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
+                                    );
+                                  },
                                 ),
-                              );
-                            },
-                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
