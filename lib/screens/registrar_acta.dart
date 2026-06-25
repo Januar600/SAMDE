@@ -12,6 +12,9 @@ class RegistrarActaPage extends StatefulWidget {
 }
 
 class _RegistrarActaPageState extends State<RegistrarActaPage> {
+  // ✅ CORRECCIÓN: GlobalKey para controlar el Scaffold y abrir el drawer
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   final _formKey = GlobalKey<FormState>();
   bool _cargando = false;
   bool _mostrandoLista = false;
@@ -198,6 +201,42 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     );
   }
 
+  // ============================================
+  // CONFIRMAR CIERRE DE SESIÓN
+  // ============================================
+  void _confirmarCerrarSesion(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Cerrar Sesión'),
+          content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final storage = StorageService();
+                await storage.cerrarSesion();
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                  Navigator.pushReplacementNamed(dialogContext, '/');
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text(
+                'Cerrar Sesión',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _tituloController.dispose();
@@ -213,6 +252,8 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     const Color verdeInstitucional = Color(0xFF2E7D32);
 
     return Scaffold(
+      // ✅ CORRECCIÓN: key asignada al Scaffold
+      key: _scaffoldKey,
       drawer: DrawerMenu(
         username: username,
         sector: sector,
@@ -222,7 +263,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       body: Column(
         children: [
           // ============================================
-          // BANNER INSTITUCIONAL (AJUSTADO)
+          // BANNER INSTITUCIONAL
           // ============================================
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -234,28 +275,24 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
             ),
             child: Row(
               children: [
-                // ============================================
-                // BOTÓN DRAWER + LOGO (IZQUIERDA)
-                // ============================================
+                // ✅ CORRECCIÓN: usa _scaffoldKey igual que menu_navegacion.dart
                 IconButton(
                   icon: Icon(Icons.menu, color: verdeInstitucional, size: 30),
                   onPressed: () {
-                    Scaffold.of(context).openDrawer();
+                    _scaffoldKey.currentState?.openDrawer();
                   },
                   tooltip: 'Abrir menú',
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
                 const SizedBox(width: 8),
+                // Logo
                 Image.asset(
                   'assets/logos/banner_gobernacion.png',
                   height: 110,
                   fit: BoxFit.contain,
                 ),
-
-                // ============================================
-                // TÍTULO CENTRADO
-                // ============================================
+                // Título centrado
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -268,11 +305,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                     ),
                   ),
                 ),
-
-                // ============================================
-                // ESPACIO VACÍO PARA EQUILIBRAR (QUITAR ICONOS)
-                // ============================================
-                const SizedBox(width: 80),
               ],
             ),
           ),
@@ -295,9 +327,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // ============================================
-                      // CONTENIDO: FORMULARIO O LISTA
-                      // ============================================
                       _mostrandoLista ? _buildListaActas() : _buildFormulario(),
                       const SizedBox(height: 16),
 
@@ -618,42 +647,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
           );
         }).toList(),
       ],
-    );
-  }
-
-  // ============================================
-  // CONFIRMAR CIERRE DE SESIÓN
-  // ============================================
-  void _confirmarCerrarSesion(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Cerrar Sesión'),
-          content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final storage = StorageService();
-                await storage.cerrarSesion();
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop();
-                  Navigator.pushReplacementNamed(dialogContext, '/');
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text(
-                'Cerrar Sesión',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 }

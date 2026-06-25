@@ -44,9 +44,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // ============================================
-  // MÉTODO PARA EJECUTAR LOGIN
-  // ============================================
   Future<void> _iniciarSesion() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -59,76 +56,30 @@ class _LoginPageState extends State<LoginPage> {
     final url = Uri.parse('http://localhost/samde_db/api/login.php');
 
     try {
-      final String username = _usuarioController.text.trim();
-      final String password = _passwordController.text;
-
-      print('📤 Enviando: username="$username", password="$password"');
-
       final response = await http.post(
         url,
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: jsonEncode({'username': username, 'password': password}),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "username": _usuarioController.text.trim(),
+          "password": _passwordController.text,
+        }),
       );
 
-      print('📥 Status Code: ${response.statusCode}');
-      print('📥 Response Body: ${response.body}');
-
-      if (response.body.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error: El servidor no respondió'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        setState(() => _cargando = false);
-        return;
-      }
-
-      Map<String, dynamic> data;
-      try {
-        data = jsonDecode(response.body);
-        print('📥 Datos decodificados: $data');
-      } catch (e) {
-        print('❌ Error decodificando JSON: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error en la respuesta del servidor: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        setState(() => _cargando = false);
-        return;
-      }
+      final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['status'] == 'success') {
         if (mounted) {
           final userData = data['usuario'] ?? data['data'];
 
-          if (userData == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Error: Datos de usuario no recibidos'),
-                backgroundColor: Colors.red,
-              ),
-            );
-            setState(() => _cargando = false);
-            return;
-          }
-
-          final String username = userData['username']?.toString() ?? '';
-          final String email = userData['email']?.toString() ?? '';
+          // ============================================
+          // CORREGIDO: SIN ALERTAS
+          // ============================================
+          final String username = userData['username'] ?? '';
+          final String email = userData['email'] ?? '';
           final String rolString =
-              userData['rol']?.toString()?.toLowerCase() ?? 'consulta';
-          final String sector = userData['sector']?.toString() ?? 'No Asignado';
-          final String nombreCompleto =
-              userData['nombre_completo']?.toString() ?? username;
+              (userData['rol'] as String?)?.toLowerCase() ?? 'consulta';
+          final String sector = userData['sector'] ?? 'No Asignado';
+          final String nombreCompleto = userData['nombre_completo'] ?? username;
 
           print('✅ Usuario: $username');
           print('✅ Rol: $rolString');
@@ -179,7 +130,6 @@ class _LoginPageState extends State<LoginPage> {
         }
       }
     } catch (e) {
-      print('❌ Error en la petición: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -293,15 +243,11 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Secretaría de Agricultura Medio Ambiente y Desarrollo Económico Departamental',
+                    'Secretaría de Agricultura, Medio Ambiente y Desarrollo Económico Departamental',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 40),
-
-                  // ============================================
-                  // CAMPO USUARIO
-                  // ============================================
                   TextFormField(
                     controller: _usuarioController,
                     decoration: const InputDecoration(
@@ -315,18 +261,11 @@ class _LoginPageState extends State<LoginPage> {
                       }
                       return null;
                     },
-                    // ============================================
-                    // AL PRESIONAR ENTER EN USUARIO → IR A CONTRASEÑA
-                    // ============================================
                     onFieldSubmitted: (_) {
                       FocusScope.of(context).nextFocus();
                     },
                   ),
                   const SizedBox(height: 20),
-
-                  // ============================================
-                  // CAMPO CONTRASEÑA
-                  // ============================================
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
@@ -353,18 +292,11 @@ class _LoginPageState extends State<LoginPage> {
                       }
                       return null;
                     },
-                    // ============================================
-                    // AL PRESIONAR ENTER EN CONTRASEÑA → EJECUTAR LOGIN
-                    // ============================================
                     onFieldSubmitted: (_) {
                       _iniciarSesion();
                     },
                   ),
                   const SizedBox(height: 32),
-
-                  // ============================================
-                  // BOTÓN INGRESAR
-                  // ============================================
                   ElevatedButton(
                     onPressed: _cargando ? null : _iniciarSesion,
                     style: ElevatedButton.styleFrom(

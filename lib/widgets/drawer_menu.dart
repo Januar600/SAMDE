@@ -46,7 +46,7 @@ class DrawerMenu extends StatelessWidget {
                 children: [
                   Image.asset(
                     'assets/logos/gobernacion.png',
-                    height: 50,
+                    height: 70,
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 8),

@@ -12,6 +12,11 @@ class RegistrarUsuario extends StatefulWidget {
 }
 
 class _RegistrarUsuarioState extends State<RegistrarUsuario> {
+  // ============================================
+  // GLOBALKEY PARA EL DRAWER
+  // ============================================
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _contrasenaController = TextEditingController();
@@ -21,9 +26,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
   List<dynamic> listaUsuarios = [];
   bool _cargando = false;
 
-  // ============================================
-  // DATOS DEL USUARIO LOGUEADO
-  // ============================================
   late String username;
   late String sector;
   late String rol;
@@ -44,13 +46,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
   void initState() {
     super.initState();
     _obtenerUsuarios();
-  }
-
-  // ============================================
-  // ABRIR DRAWER - MÉTODO SEPARADO
-  // ============================================
-  void _abrirDrawer() {
-    Scaffold.of(context).openDrawer();
   }
 
   // ============================================
@@ -277,8 +272,12 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                             isExpanded: true,
                             items: const [
                               DropdownMenuItem(
-                                value: 'admin',
-                                child: Text('ADMIN'),
+                                value: 'administrador',
+                                child: Text('ADMINISTRADOR'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'administrativo',
+                                child: Text('ADMINISTRATIVO'),
                               ),
                               DropdownMenuItem(
                                 value: 'almacen',
@@ -585,6 +584,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     const Color verdeInstitucional = Color(0xFF2E7D32);
 
     return Scaffold(
+      key: _scaffoldKey,
       drawer: DrawerMenu(
         username: username,
         sector: sector,
@@ -594,7 +594,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
       body: Column(
         children: [
           // ============================================
-          // BANNER INSTITUCIONAL CON BOTÓN DEL DRAWER
+          // BANNER INSTITUCIONAL
           // ============================================
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -606,13 +606,10 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
             ),
             child: Row(
               children: [
-                // ============================================
-                // BOTÓN DEL DRAWER (HAMBURGUESA)
-                // ============================================
                 IconButton(
                   icon: Icon(Icons.menu, color: verdeInstitucional, size: 30),
                   onPressed: () {
-                    Scaffold.of(context).openDrawer();
+                    _scaffoldKey.currentState?.openDrawer();
                   },
                   tooltip: 'Abrir menú',
                   padding: EdgeInsets.zero,
@@ -620,8 +617,8 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                 ),
                 const SizedBox(width: 8),
                 Image.asset(
-                  'assets/logos/gobernacion.png',
-                  height: 50,
+                  'assets/logos/banner_gobernacion.png',
+                  height: 110,
                   fit: BoxFit.contain,
                 ),
                 const Expanded(
@@ -636,8 +633,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                     ),
                   ),
                 ),
-                // Espacio para equilibrar
-                const SizedBox(width: 80),
               ],
             ),
           ),
@@ -657,7 +652,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                       child: Column(
                         children: [
                           const Icon(
-                            Icons.shield_outlined,
+                            Icons.person_add,
                             size: 80,
                             color: Color(0xFF2E7D32),
                           ),
@@ -714,8 +709,12 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                                 isExpanded: true,
                                 items: const [
                                   DropdownMenuItem(
-                                    value: 'admin',
-                                    child: Text('ADMIN'),
+                                    value: 'administrador',
+                                    child: Text('ADMINISTRADOR'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'administrativo',
+                                    child: Text('ADMINISTRATIVO'),
                                   ),
                                   DropdownMenuItem(
                                     value: 'almacen',

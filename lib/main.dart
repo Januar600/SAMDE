@@ -6,7 +6,6 @@ import 'screens/registrar_usuario.dart';
 import 'screens/registrar_acta.dart';
 import 'screens/registrar_egreso.dart';
 import 'screens/registrar_ingreso.dart';
-import 'services/storage_service.dart'; // ← NUEVO
 
 void main() {
   runApp(const MyApp());

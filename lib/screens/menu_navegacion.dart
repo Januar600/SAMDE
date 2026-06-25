@@ -43,11 +43,14 @@ class MenuNavegacion extends StatelessWidget {
     // ========================================================
     // PERMISOS POR ROL
     // ========================================================
-    final bool esAdmin = rol == 'admin';
+    final bool esAdmin = rol == 'administrador'; // ← CORREGIDO
     final bool esAlmacen = rol == 'almacen';
+    final bool esAdministrativo = rol == 'administrativo'; // ← NUEVO
     final bool puedeVerUsuarios = esAdmin;
-    final bool puedeVerSecciones = esAdmin || esAlmacen;
-    final bool esSoloConsulta = !esAdmin && !esAlmacen;
+    final bool puedeVerSecciones =
+        esAdmin || esAlmacen || esAdministrativo; // ← ACTUALIZADO
+    final bool esSoloConsulta =
+        !esAdmin && !esAlmacen && !esAdministrativo; // ← ACTUALIZADO
 
     // ============================================
     // CONTROLLADOR DEL DRAWER
@@ -82,7 +85,7 @@ class MenuNavegacion extends StatelessWidget {
                 // LOGO EXPANDIDO - OCUPA TODO EL ESPACIO IZQUIERDO
                 // ============================================
                 Expanded(
-                  flex: 4,
+                  flex: 2,
                   child: Image.asset(
                     'assets/logos/banner_gobernacion.png',
                     height: 130,
@@ -135,7 +138,7 @@ class MenuNavegacion extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          'ROL: ${rol.toUpperCase()}',
+                          ' ${rol.toUpperCase()}',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -145,7 +148,7 @@ class MenuNavegacion extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Sector: $sectorUsuario',
+                        ' $sectorUsuario',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
