@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../services/storage_service.dart';
 import '../widgets/drawer_menu.dart';
 
 class RegistrarContratoPage extends StatefulWidget {
@@ -10,9 +9,6 @@ class RegistrarContratoPage extends StatefulWidget {
 }
 
 class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
-  // ============================================
-  // GLOBALKEY PARA EL DRAWER
-  // ============================================
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   late String username;
@@ -29,42 +25,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     username = argumentos['username'] ?? 'Usuario';
     sector = argumentos['sector'] ?? 'No Asignado';
     rol = argumentos['rol'] ?? 'consulta';
-  }
-
-  // ============================================
-  // CONFIRMAR CIERRE DE SESIÓN
-  // ============================================
-  void _confirmarCerrarSesion(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Cerrar Sesión'),
-          content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final storage = StorageService();
-                await storage.cerrarSesion();
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop();
-                  Navigator.pushReplacementNamed(dialogContext, '/');
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text(
-                'Cerrar Sesión',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
@@ -94,24 +54,19 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
             ),
             child: Row(
               children: [
-                // Botón del Drawer
                 IconButton(
                   icon: Icon(Icons.menu, color: verdeInstitucional, size: 30),
-                  onPressed: () {
-                    _scaffoldKey.currentState?.openDrawer();
-                  },
+                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                   tooltip: 'Abrir menú',
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
                 const SizedBox(width: 8),
-                // Logo
                 Image.asset(
                   'assets/logos/banner_gobernacion.png',
                   height: 110,
                   fit: BoxFit.contain,
                 ),
-                // Título centrado
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -146,9 +101,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // ============================================
-                      // CONTENIDO PRINCIPAL
-                      // ============================================
                       Container(
                         padding: const EdgeInsets.all(40),
                         decoration: BoxDecoration(

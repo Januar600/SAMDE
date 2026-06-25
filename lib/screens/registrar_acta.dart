@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../services/storage_service.dart';
 import '../widgets/drawer_menu.dart';
 
 class RegistrarActaPage extends StatefulWidget {
@@ -204,38 +203,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
   // ============================================
   // CONFIRMAR CIERRE DE SESIÓN
   // ============================================
-  void _confirmarCerrarSesion(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Cerrar Sesión'),
-          content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final storage = StorageService();
-                await storage.cerrarSesion();
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop();
-                  Navigator.pushReplacementNamed(dialogContext, '/');
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text(
-                'Cerrar Sesión',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   @override
   void dispose() {

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/drawer_menu.dart';
-import '../services/storage_service.dart';
 
 class RegistrarUsuario extends StatefulWidget {
   const RegistrarUsuario({Key? key}) : super(key: key);
@@ -12,9 +11,6 @@ class RegistrarUsuario extends StatefulWidget {
 }
 
 class _RegistrarUsuarioState extends State<RegistrarUsuario> {
-  // ============================================
-  // GLOBALKEY PARA EL DRAWER
-  // ============================================
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final TextEditingController _usernameController = TextEditingController();
@@ -48,9 +44,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     _obtenerUsuarios();
   }
 
-  // ============================================
-  // MÉTODOS EXISTENTES (sin cambios)
-  // ============================================
   void _mostrarAdvertenciaRequisitos(String mensaje) {
     showDialog(
       context: context,
@@ -83,20 +76,14 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
   }
 
   Future<void> _obtenerUsuarios() async {
-    setState(() {
-      _cargando = true;
-    });
-
+    setState(() => _cargando = true);
     final url = Uri.parse("http://localhost/samde_db/api/listar_usuarios.php");
-
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'success') {
-          setState(() {
-            listaUsuarios = data['usuarios'];
-          });
+          setState(() => listaUsuarios = data['usuarios']);
         }
       } else {
         _mostrarSnackBar("Error en el servidor al listar usuarios.");
@@ -104,9 +91,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     } catch (e) {
       _mostrarSnackBar("Error de conexión: $e");
     } finally {
-      setState(() {
-        _cargando = false;
-      });
+      setState(() => _cargando = false);
     }
   }
 
@@ -115,19 +100,17 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
         _emailController.text.isEmpty ||
         _contrasenaController.text.isEmpty) {
       _mostrarAdvertenciaRequisitos(
-        "Todos los campos del formulario son obligatorios. Por favor, rellena el nombre, correo y contraseña.",
+        "Todos los campos del formulario son obligatorios.",
       );
       return;
     }
-
     final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegExp.hasMatch(_emailController.text.trim())) {
       _mostrarAdvertenciaRequisitos(
-        "El correo electrónico ingresado no tiene un formato válido.",
+        "El correo electrónico no tiene un formato válido.",
       );
       return;
     }
-
     final url = Uri.parse("http://localhost/samde_db/api/password_hash.php");
     try {
       final response = await http.post(
@@ -140,7 +123,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
           "sector": _sectorSeleccionado,
         },
       );
-
       final data = json.decode(response.body);
       if (data['status'] == 'success') {
         _mostrarSnackBar("Usuario registrado exitosamente.");
@@ -158,14 +140,10 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
 
   Future<void> _cambiarEstadoUsuario(int id, int nuevoEstado) async {
     final copiaUsuariosAnteriores = List<dynamic>.from(listaUsuarios);
-
     setState(() {
       final index = listaUsuarios.indexWhere((u) => u['id'] == id);
-      if (index != -1) {
-        listaUsuarios[index]['estado'] = nuevoEstado;
-      }
+      if (index != -1) listaUsuarios[index]['estado'] = nuevoEstado;
     });
-
     final url = Uri.parse("http://localhost/samde_db/api/cambiar_estado.php");
     try {
       final response = await http.post(
@@ -173,52 +151,43 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
         headers: {"Content-Type": "application/x-www-form-urlencoded"},
         body: {"id": id.toString(), "estado": nuevoEstado.toString()},
       );
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'success') {
           _obtenerUsuarios();
         } else {
-          setState(() {
-            listaUsuarios = copiaUsuariosAnteriores;
-          });
+          setState(() => listaUsuarios = copiaUsuariosAnteriores);
           _mostrarAdvertenciaRequisitos(
             "No se pudo cambiar el estado: ${data['mensaje']}",
           );
         }
       } else {
-        setState(() {
-          listaUsuarios = copiaUsuariosAnteriores;
-        });
+        setState(() => listaUsuarios = copiaUsuariosAnteriores);
         _mostrarSnackBar("Error de comunicación.");
       }
     } catch (e) {
-      setState(() {
-        listaUsuarios = copiaUsuariosAnteriores;
-      });
+      setState(() => listaUsuarios = copiaUsuariosAnteriores);
       _mostrarSnackBar("Error de red: Sin conexión.");
     }
   }
 
   void _mostrarFormularioEditar(dynamic usuario) {
-    final TextEditingController _editUsernameController = TextEditingController(
+    final editUsernameController = TextEditingController(
       text: usuario['username'],
     );
-    final TextEditingController _editEmailController = TextEditingController(
-      text: usuario['email'],
-    );
-    String _editRolSeleccionado = usuario['rol'] ?? 'consulta';
-
-    String _editSectorSeleccionado = 'No Asignado';
+    final editEmailController = TextEditingController(text: usuario['email']);
+    String editRolSeleccionado = usuario['rol'] ?? 'consulta';
+    String editSectorSeleccionado = 'No Asignado';
     if (usuario['sector'] != null && usuario['sector'].toString().isNotEmpty) {
       String sectorBd = usuario['sector'].toString();
-      if (sectorBd == 'Medio Ambiente' ||
-          sectorBd == 'Agricultura' ||
-          sectorBd == 'Desarrollo Económico') {
-        _editSectorSeleccionado = sectorBd;
+      if ([
+        'Medio Ambiente',
+        'Agricultura',
+        'Desarrollo Económico',
+      ].contains(sectorBd)) {
+        editSectorSeleccionado = sectorBd;
       }
     }
-
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -240,7 +209,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                     children: [
                       const SizedBox(height: 10),
                       TextField(
-                        controller: _editUsernameController,
+                        controller: editUsernameController,
                         decoration: const InputDecoration(
                           labelText: 'Nombre de Usuario',
                           prefixIcon: Icon(Icons.person),
@@ -249,7 +218,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                       ),
                       const SizedBox(height: 16),
                       TextField(
-                        controller: _editEmailController,
+                        controller: editEmailController,
                         decoration: const InputDecoration(
                           labelText: 'Correo Electrónico',
                           prefixIcon: Icon(Icons.email),
@@ -268,7 +237,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
-                            value: _editRolSeleccionado,
+                            value: editRolSeleccionado,
                             isExpanded: true,
                             items: const [
                               DropdownMenuItem(
@@ -288,11 +257,9 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                                 child: Text('CONSULTA'),
                               ),
                             ],
-                            onChanged: (value) {
-                              setDialogState(() {
-                                _editRolSeleccionado = value!;
-                              });
-                            },
+                            onChanged: (value) => setDialogState(
+                              () => editRolSeleccionado = value!,
+                            ),
                           ),
                         ),
                       ),
@@ -308,7 +275,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
-                            value: _editSectorSeleccionado,
+                            value: editSectorSeleccionado,
                             isExpanded: true,
                             items: const [
                               DropdownMenuItem(
@@ -328,11 +295,9 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                                 child: Text('DESARROLLO ECONÓMICO'),
                               ),
                             ],
-                            onChanged: (value) {
-                              setDialogState(() {
-                                _editSectorSeleccionado = value!;
-                              });
-                            },
+                            onChanged: (value) => setDialogState(
+                              () => editSectorSeleccionado = value!,
+                            ),
                           ),
                         ),
                       ),
@@ -350,21 +315,20 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                     backgroundColor: const Color(0xFF2E7D32),
                   ),
                   onPressed: () async {
-                    if (_editUsernameController.text.isEmpty ||
-                        _editEmailController.text.isEmpty) {
+                    if (editUsernameController.text.isEmpty ||
+                        editEmailController.text.isEmpty) {
                       _mostrarAdvertenciaRequisitos(
                         "No puedes guardar un usuario con campos vacíos.",
                       );
                       return;
                     }
-
                     Navigator.of(context).pop();
                     await _actualizarUsuario(
                       usuario['id'],
-                      _editUsernameController.text,
-                      _editEmailController.text.trim(),
-                      _editRolSeleccionado,
-                      _editSectorSeleccionado,
+                      editUsernameController.text,
+                      editEmailController.text.trim(),
+                      editRolSeleccionado,
+                      editSectorSeleccionado,
                     );
                   },
                   child: const Text(
@@ -399,7 +363,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
           "sector": sector,
         },
       );
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'success') {
@@ -443,7 +406,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     List usuariosEliminados = listaUsuarios
         .where((u) => u['estado'] == 3)
         .toList();
-
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -539,48 +501,11 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     ).showSnackBar(SnackBar(content: Text(mensaje)));
   }
 
-  // ============================================
-  // CONFIRMAR CIERRE DE SESIÓN
-  // ============================================
-  void _confirmarCerrarSesion(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Cerrar Sesión'),
-          content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final storage = StorageService();
-                await storage.cerrarSesion();
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop();
-                  Navigator.pushReplacementNamed(dialogContext, '/');
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text(
-                'Cerrar Sesión',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     List usuariosVisibles = listaUsuarios
         .where((u) => u['estado'] == 1 || u['estado'] == 2)
         .toList();
-
     const Color verdeInstitucional = Color(0xFF2E7D32);
 
     return Scaffold(
@@ -608,9 +533,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
               children: [
                 IconButton(
                   icon: Icon(Icons.menu, color: verdeInstitucional, size: 30),
-                  onPressed: () {
-                    _scaffoldKey.currentState?.openDrawer();
-                  },
+                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                   tooltip: 'Abrir menú',
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -633,6 +556,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                     ),
                   ),
                 ),
+                const SizedBox(width: 80),
               ],
             ),
           ),
@@ -827,12 +751,10 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                                     final usuario = usuariosVisibles[index];
                                     final bool esActivo =
                                         usuario['estado'] == 1;
-
                                     String sectorTexto =
                                         (usuario['sector'] ?? 'NO ASIGNADO')
                                             .toString()
                                             .toUpperCase();
-
                                     return Card(
                                       margin: const EdgeInsets.symmetric(
                                         vertical: 5,

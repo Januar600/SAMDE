@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../services/storage_service.dart';
 import '../widgets/drawer_menu.dart';
 
 class RegistrarIngresoPage extends StatefulWidget {
@@ -10,9 +9,6 @@ class RegistrarIngresoPage extends StatefulWidget {
 }
 
 class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
-  // ============================================
-  // GLOBALKEY PARA EL DRAWER
-  // ============================================
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   late String username;
@@ -29,42 +25,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     username = argumentos['username'] ?? 'Usuario';
     sector = argumentos['sector'] ?? 'No Asignado';
     rol = argumentos['rol'] ?? 'consulta';
-  }
-
-  // ============================================
-  // CONFIRMAR CIERRE DE SESIÓN
-  // ============================================
-  void _confirmarCerrarSesion(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Cerrar Sesión'),
-          content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final storage = StorageService();
-                await storage.cerrarSesion();
-                if (dialogContext.mounted) {
-                  Navigator.of(dialogContext).pop();
-                  Navigator.pushReplacementNamed(dialogContext, '/');
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text(
-                'Cerrar Sesión',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
@@ -96,9 +56,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
               children: [
                 IconButton(
                   icon: Icon(Icons.menu, color: verdeInstitucional, size: 30),
-                  onPressed: () {
-                    _scaffoldKey.currentState?.openDrawer();
-                  },
+                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                   tooltip: 'Abrir menú',
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
