@@ -37,7 +37,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         username: username,
         sector: sector,
         rol: rol,
-        selectedIndex: 5,
+        selectedIndex: 3,
       ),
       body: Column(
         children: [

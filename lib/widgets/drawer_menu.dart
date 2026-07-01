@@ -1,4 +1,3 @@
-// lib/widgets/drawer_menu.dart
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 
@@ -46,7 +45,7 @@ class DrawerMenu extends StatelessWidget {
                 children: [
                   Image.asset(
                     'assets/logos/gobernacion.png',
-                    height: 70,
+                    height: 50,
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 8),
@@ -111,8 +110,9 @@ class DrawerMenu extends StatelessWidget {
             const SizedBox(height: 4),
 
             // ============================================
-            // OPCIONES DEL MENÚ
+            // OPCIONES DEL MENÚ (NUEVO ORDEN)
             // ============================================
+            // 1. INICIO
             _buildMenuItem(
               context,
               icon: Icons.dashboard,
@@ -121,6 +121,7 @@ class DrawerMenu extends StatelessWidget {
               selectedIndex: selectedIndex,
               route: '/menu',
             ),
+            // 2. REGISTRAR USUARIOS
             _buildMenuItem(
               context,
               icon: Icons.person_add,
@@ -129,22 +130,25 @@ class DrawerMenu extends StatelessWidget {
               selectedIndex: selectedIndex,
               route: '/registrar_usuario',
             ),
-            _buildMenuItem(
-              context,
-              icon: Icons.description,
-              title: 'Registrar Actas',
-              index: 2,
-              selectedIndex: selectedIndex,
-              route: '/registrar_acta',
-            ),
+            // 3. REGISTRAR CONTRATOS
             _buildMenuItem(
               context,
               icon: Icons.assignment,
               title: 'Registrar Contratos',
-              index: 3,
+              index: 2,
               selectedIndex: selectedIndex,
               route: '/registrar_contrato',
             ),
+            // 4. REGISTRAR INGRESOS
+            _buildMenuItem(
+              context,
+              icon: Icons.add_shopping_cart,
+              title: 'Registrar Ingresos',
+              index: 3,
+              selectedIndex: selectedIndex,
+              route: '/registrar_ingreso',
+            ),
+            // 5. REGISTRAR EGRESOS
             _buildMenuItem(
               context,
               icon: Icons.inventory_2,
@@ -153,13 +157,14 @@ class DrawerMenu extends StatelessWidget {
               selectedIndex: selectedIndex,
               route: '/registrar_egreso',
             ),
+            // 6. REGISTRAR ACTAS
             _buildMenuItem(
               context,
-              icon: Icons.add_shopping_cart,
-              title: 'Registrar Ingresos',
+              icon: Icons.description,
+              title: 'Registrar Actas',
               index: 5,
               selectedIndex: selectedIndex,
-              route: '/registrar_ingreso',
+              route: '/registrar_acta',
             ),
 
             const Spacer(),
@@ -204,8 +209,10 @@ class DrawerMenu extends StatelessWidget {
     final bool isSelected = selectedIndex == index;
     const Color verdeInstitucional = Color(0xFF2E7D32);
 
-    // Ocultar "Registrar Usuarios" si no es admin
-    if (title == 'Registrar Usuarios' && rol != 'admin') {
+    // ============================================
+    // FILTRO POR ROL: Registrar Usuarios solo para administrador
+    // ============================================
+    if (title == 'Registrar Usuarios' && rol != 'administrador') {
       return const SizedBox.shrink();
     }
 
