@@ -36,8 +36,11 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
   bool _cargando = false;
   bool _mostrandoLista = false;
   List<Map<String, dynamic>> _contratos = [];
+  List<Map<String, dynamic>> _contratosFiltrados = [];
 
-  // null = modo crear; int = modo editar (id del contrato)
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
   int? _editandoId;
 
   static const String _baseUrl = 'http://localhost/samde_db/api/contratos';
@@ -56,9 +59,345 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
   void initState() {
     super.initState();
     _cargarContratos();
+    _searchController.addListener(_filtrarContratos);
   }
 
-  // ── ITEMS ───────────────────────────────────────────────────
+  void _filtrarContratos() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase().trim();
+      if (_searchQuery.isEmpty) {
+        _contratosFiltrados = List.from(_contratos);
+      } else {
+        _contratosFiltrados = _contratos.where((contrato) {
+          final proveedor = (contrato['proveedor'] ?? '').toLowerCase();
+          final numero = (contrato['numero_contrato'] ?? '').toLowerCase();
+          final objeto = (contrato['objeto_contrato'] ?? '').toLowerCase();
+          final estado = (contrato['estado'] ?? '').toLowerCase();
+          return proveedor.contains(_searchQuery) ||
+              numero.contains(_searchQuery) ||
+              objeto.contains(_searchQuery) ||
+              estado.contains(_searchQuery);
+        }).toList();
+      }
+    });
+  }
+
+  // ── FORMATEAR CON SEPARADORES DE MILES ──────────────────────
+  String _formatearConPuntos(dynamic valor) {
+    if (valor == null) return '0';
+
+    final double numero = valor is double
+        ? valor
+        : double.tryParse(valor.toString()) ?? 0;
+
+    final int entero = numero.round();
+    final String numeroStr = entero.toString();
+
+    String resultado = '';
+    int contador = 0;
+    for (int i = numeroStr.length - 1; i >= 0; i--) {
+      resultado = numeroStr[i] + resultado;
+      contador++;
+      if (contador % 3 == 0 && i != 0) {
+        resultado = '.' + resultado;
+      }
+    }
+
+    if (numero != entero) {
+      final decimales = numero.toString().split('.')[1];
+      if (decimales.isNotEmpty) {
+        resultado += '.$decimales';
+      }
+    }
+
+    return resultado;
+  }
+
+  // ── VISTA PREVIA DEL CONTRATO ──────────────────────────────
+  void _mostrarVistaPrevia(Map<String, dynamic> contrato) {
+    final items = contrato['items'] as List? ?? [];
+    final String numero = contrato['numero_contrato'] ?? 'N/A';
+    final String proveedor = contrato['proveedor'] ?? 'N/A';
+    final String objeto = contrato['objeto_contrato'] ?? 'N/A';
+    final String fechaInicio = contrato['fecha_inicio'] ?? 'N/A';
+    final String fechaFin = contrato['fecha_fin'] ?? 'N/A';
+    final String estado = contrato['estado'] ?? 'N/A';
+    final double valorTotal =
+        double.tryParse(contrato['valor_total']?.toString() ?? '0') ?? 0;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.assignment, color: Colors.green.shade700),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Detalle del Contrato #$numero',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 700,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoRow('Proveedor', proveedor),
+                  _buildInfoRow('Número', numero),
+                  _buildInfoRow('Fecha Inicio', fechaInicio),
+                  _buildInfoRow('Fecha Fin', fechaFin),
+                  _buildInfoRow('Objetivo', objeto),
+                  _buildInfoRow(
+                    'Valor Total',
+                    '\$${_formatearConPuntos(valorTotal)}',
+                  ),
+                  _buildInfoRow(
+                    'Estado',
+                    estado,
+                    color: _getEstadoColor(estado),
+                  ),
+                  const Divider(height: 24),
+
+                  const Text(
+                    'Items del Contrato',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2E7D32),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  if (items.isEmpty)
+                    const Text(
+                      'No hay items registrados',
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                    )
+                  else
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          columnSpacing: 12,
+                          headingRowHeight: 36,
+                          headingRowColor: MaterialStateProperty.all(
+                            Colors.green.shade50,
+                          ),
+                          columns: const [
+                            DataColumn(
+                              label: Text(
+                                '#',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Código',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Item',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Descripción',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Unidad',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Cantidad',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'V. Unitario',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            DataColumn(
+                              label: Text(
+                                'Subtotal',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                          rows: items.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final item = entry.value;
+                            final cantidad =
+                                double.tryParse(
+                                  item['cantidad']?.toString() ?? '0',
+                                ) ??
+                                0;
+                            final valorUnitario =
+                                double.tryParse(
+                                  item['valor_unitario']?.toString() ?? '0',
+                                ) ??
+                                0;
+                            final subtotal = cantidad * valorUnitario;
+
+                            return DataRow(
+                              cells: [
+                                DataCell(Text('${index + 1}')),
+                                DataCell(
+                                  Text(
+                                    item['codigo']?.toString() ?? '-',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                DataCell(
+                                  Text(
+                                    item['nombre']?.toString() ?? 'N/A',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    width: 120,
+                                    child: Text(
+                                      item['descripcion']?.toString() ?? '-',
+                                      style: const TextStyle(fontSize: 11),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  Text(
+                                    item['unidad']?.toString() ?? '-',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                DataCell(
+                                  Text(
+                                    _formatearConPuntos(cantidad),
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                DataCell(
+                                  Text(
+                                    '\$${_formatearConPuntos(valorUnitario)}',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                DataCell(
+                                  Text(
+                                    '\$${_formatearConPuntos(subtotal)}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: Color(0xFF2E7D32),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  if (items.isNotEmpty) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          const Text(
+                            'TOTAL: ',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            '\$${_formatearConPuntos(valorTotal)}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2E7D32),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ── CONSTRUIR FILA DE INFORMACIÓN ───────────────────────────
+  Widget _buildInfoRow(String label, String value, {Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(': ', style: TextStyle(color: Colors.grey.shade600)),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(fontWeight: FontWeight.w500, color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── AGREGAR ITEM ─────────────────────────────────────────────
   void _agregarItem() {
     if (_itemNombreController.text.isEmpty ||
         _itemCantidadController.text.isEmpty ||
@@ -270,6 +609,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
       if (response.statusCode == 200 && data['success'] == true) {
         setState(() {
           _contratos = List<Map<String, dynamic>>.from(data['data'] ?? []);
+          _contratosFiltrados = List.from(_contratos);
         });
       }
     } catch (e) {
@@ -392,6 +732,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     _itemUnidadController.dispose();
     _itemCantidadController.dispose();
     _itemValorUnitarioController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -412,7 +753,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
       ),
       body: Column(
         children: [
-          // ── BANNER ─────────────────────────────────────────
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: const BoxDecoration(
@@ -448,17 +788,38 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                   ),
                 ),
                 if (!modoEdicion)
-                  IconButton(
-                    icon: Icon(
-                      _mostrandoLista ? Icons.add : Icons.list,
-                      color: verde,
-                      size: 28,
+                  // ✅ BOTÓN CON TEXTO "VER LISTADO DE CONTRATOS"
+                  SizedBox(
+                    height: 36,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() => _mostrandoLista = !_mostrandoLista);
+                        if (_mostrandoLista) _cargarContratos();
+                      },
+                      icon: Icon(
+                        _mostrandoLista ? Icons.add : Icons.list,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: Text(
+                        _mostrandoLista ? 'Nuevo' : 'Ver Listado',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _mostrandoLista
+                            ? verde
+                            : Colors.blue.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 2,
+                      ),
                     ),
-                    onPressed: () {
-                      setState(() => _mostrandoLista = !_mostrandoLista);
-                      if (_mostrandoLista) _cargarContratos();
-                    },
-                    tooltip: _mostrandoLista ? 'Nuevo registro' : 'Ver listado',
                   ),
                 if (modoEdicion)
                   IconButton(
@@ -473,7 +834,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
             ),
           ),
 
-          // ── CONTENIDO ──────────────────────────────────────
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -580,19 +940,31 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
         const Divider(height: 20, thickness: 1),
         const SizedBox(height: 8),
 
-        TextFormField(
-          controller: _proveedorController,
-          decoration: _deco('Proveedor *'),
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Ingrese el proveedor' : null,
-        ),
-        const SizedBox(height: 14),
-
-        TextFormField(
-          controller: _numeroController,
-          decoration: _deco('Número del Contrato *', hint: 'Ej: 001-2026'),
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Ingrese el número' : null,
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _proveedorController,
+                decoration: _deco('Proveedor *'),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Ingrese el proveedor'
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: TextFormField(
+                controller: _numeroController,
+                decoration: _deco(
+                  'Número del Contrato *',
+                  hint: 'Ej: 001-2026',
+                ),
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Ingrese el número'
+                    : null,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 14),
 
@@ -830,19 +1202,19 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                           ),
                           DataCell(
                             Text(
-                              item['cantidad'].toString(),
+                              _formatearConPuntos(item['cantidad']),
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
                           DataCell(
                             Text(
-                              '\$${(item['valor_unitario'] as double).toStringAsFixed(0)}',
+                              '\$${_formatearConPuntos(item['valor_unitario'])}',
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
                           DataCell(
                             Text(
-                              '\$${(item['subtotal'] as double).toStringAsFixed(0)}',
+                              '\$${_formatearConPuntos(item['subtotal'])}',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -870,7 +1242,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
               ),
         const SizedBox(height: 12),
 
-        // Formulario agregar item
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -1012,45 +1383,17 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                   ),
           ),
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          height: 40,
-          child: OutlinedButton(
-            onPressed: () {
-              if (modoEdicion) {
-                _limpiarFormulario();
-                setState(() => _mostrandoLista = true);
-              } else {
-                Navigator.pushReplacementNamed(
-                  context,
-                  '/menu',
-                  arguments: {
-                    'username': username,
-                    'sector': sector,
-                    'rol': rol,
-                  },
-                );
-              }
-            },
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: Colors.grey.shade400),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: Text(
-              modoEdicion ? 'Cancelar edición' : 'Volver al Menú Principal',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-            ),
-          ),
-        ),
       ],
     );
   }
 
-  // ── LISTA DE CONTRATOS ──────────────────────────────────────
+  // ── LISTA DE CONTRATOS CON BÚSQUEDA ────────────────────────
   Widget _buildListaContratos(Color verde) {
+    final listaMostrar = _searchQuery.isEmpty
+        ? _contratos
+        : _contratosFiltrados;
+    final bool esAdmin = rol == 'administrador';
+
     if (_contratos.isEmpty && !_cargando) {
       return Center(
         child: Card(
@@ -1096,179 +1439,226 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     return RefreshIndicator(
       onRefresh: _cargarContratos,
       color: verde,
-      child: ListView.builder(
+      child: ListView(
         padding: const EdgeInsets.all(16),
-        itemCount: _contratos.length + 1,
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Text(
-                    'Total: ${_contratos.length} contratos',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: '🔍 Buscar por proveedor o codigo de contrato',
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: verde, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.grey),
+                        onPressed: () {
+                          _searchController.clear();
+                          _filtrarContratos();
+                        },
+                      )
+                    : null,
+              ),
+              onChanged: (_) => _filtrarContratos(),
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Text(
+                  'Total: ${listaMostrar.length} contratos',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const Spacer(),
+                if (_cargando)
+                  SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: verde,
                     ),
                   ),
-                  const Spacer(),
-                  if (_cargando)
-                    SizedBox(
-                      height: 16,
-                      width: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: verde,
+              ],
+            ),
+          ),
+
+          ...listaMostrar.map((contrato) {
+            final estado = contrato['estado'] ?? '';
+            final items = contrato['items'] as List? ?? [];
+            final id = contrato['id'] is int
+                ? contrato['id'] as int
+                : int.tryParse(contrato['id'].toString()) ?? 0;
+            final numero = contrato['numero_contrato'] ?? 'N/A';
+            final valorTotal =
+                double.tryParse(contrato['valor_total']?.toString() ?? '0') ??
+                0;
+
+            return InkWell(
+              onTap: () => _mostrarVistaPrevia(contrato),
+              borderRadius: BorderRadius.circular(10),
+              child: Card(
+                elevation: 1,
+                margin: const EdgeInsets.only(bottom: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(color: Colors.grey.shade200),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: verde.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '#$numero',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: verde,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getEstadoColor(estado).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              estado,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: _getEstadoColor(estado),
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: Icon(
+                              Icons.edit_outlined,
+                              color: Colors.orange.shade700,
+                              size: 20,
+                            ),
+                            tooltip: 'Editar contrato',
+                            onPressed: () {
+                              _prepararEdicion(contrato);
+                            },
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          if (esAdmin) ...[
+                            const SizedBox(width: 2),
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: Colors.red.shade400,
+                                size: 20,
+                              ),
+                              tooltip: 'Eliminar contrato',
+                              onPressed: () {
+                                _eliminarContrato(id, numero);
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                ],
+                      const SizedBox(height: 6),
+                      Text(
+                        contrato['proveedor'] ?? 'Sin proveedor',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        contrato['objeto_contrato'] ?? 'Sin objeto',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Text(
+                            '\$${_formatearConPuntos(valorTotal)}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: verde,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            contrato['fecha_inicio'] ?? '',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                          const Spacer(),
+                          Icon(
+                            Icons.shopping_bag,
+                            size: 14,
+                            color: Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${items.length} items',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
             );
-          }
-
-          final contrato = _contratos[index - 1];
-          final estado = contrato['estado'] ?? '';
-          final items = contrato['items'] as List? ?? [];
-          final id = contrato['id'] is int
-              ? contrato['id'] as int
-              : int.tryParse(contrato['id'].toString()) ?? 0;
-          final numero = contrato['numero_contrato'] ?? 'N/A';
-
-          return Card(
-            elevation: 1,
-            margin: const EdgeInsets.only(bottom: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: Colors.grey.shade200),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: verde.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '#$numero',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: verde,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getEstadoColor(estado).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          estado,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: _getEstadoColor(estado),
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      // ── Botón EDITAR ────────────────────────────
-                      IconButton(
-                        icon: Icon(
-                          Icons.edit_outlined,
-                          color: Colors.orange.shade700,
-                          size: 20,
-                        ),
-                        tooltip: 'Editar contrato',
-                        onPressed: () => _prepararEdicion(contrato),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                      const SizedBox(width: 12),
-                      // ── Botón ELIMINAR ──────────────────────────
-                      IconButton(
-                        icon: Icon(
-                          Icons.delete_outline,
-                          color: Colors.red.shade400,
-                          size: 20,
-                        ),
-                        tooltip: 'Eliminar contrato',
-                        onPressed: () => _eliminarContrato(id, numero),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    contrato['proveedor'] ?? 'Sin proveedor',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    contrato['objeto_contrato'] ?? 'Sin objeto',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Text(
-                        '\$${contrato['valor_total'] ?? '0'}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: verde,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        contrato['fecha_inicio'] ?? '',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                      const Spacer(),
-                      Icon(
-                        Icons.shopping_bag,
-                        size: 14,
-                        color: Colors.grey.shade500,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${items.length} items',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
+          }),
+        ],
       ),
     );
   }
