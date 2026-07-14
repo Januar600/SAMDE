@@ -687,37 +687,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     if (fecha != null) ctrl.text = fecha.toIso8601String().substring(0, 10);
   }
 
-  void _confirmarCerrarSesion(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Cerrar Sesión'),
-        content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final storage = StorageService();
-              await storage.cerrarSesion();
-              if (ctx.mounted) {
-                Navigator.of(ctx).pop();
-                Navigator.pushReplacementNamed(ctx, '/');
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text(
-              'Cerrar Sesión',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _proveedorController.dispose();

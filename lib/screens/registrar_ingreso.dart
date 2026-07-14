@@ -70,27 +70,20 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     _searchController.addListener(_filtrarIngresos);
   }
 
-  // -------- ✅ FUNCIÓN PARA FORMATEAR FECHA --------
+  // -------- ✅ SELECCIONAR FECHA CON DATEPICKER (IGUAL QUE CONTRATOS) --------
+  Future<void> _pickDate(TextEditingController ctrl) async {
+    final fecha = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (fecha != null) ctrl.text = fecha.toIso8601String().substring(0, 10);
+  }
+
+  // -------- ✅ FUNCIÓN PARA FORMATEAR FECHA (SIMPLIFICADA) --------
   String _formatearFechaParaBD(String fecha) {
     if (fecha.isEmpty) return '';
-
-    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(fecha)) {
-      return fecha;
-    }
-
-    String fechaLimpia = fecha.replaceAll('/', '-');
-    final partes = fechaLimpia.split('-');
-
-    if (partes.length == 3) {
-      final dia = partes[0].padLeft(2, '0');
-      final mes = partes[1].padLeft(2, '0');
-      final anio = partes[2];
-
-      if (anio.length == 4) {
-        return '$anio-$mes-$dia';
-      }
-    }
-
     return fecha;
   }
 
@@ -499,13 +492,26 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- MOSTRAR DIÁLOGO DE DETALLE (CORREGIDO - CON .trim()) --------
+  // -------- MOSTRAR DIÁLOGO DE DETALLE (CORREGIDO) --------
   void _mostrarDialogoDetalle(
     Map<String, dynamic> ingresoData,
     List<Map<String, dynamic>> detalles,
   ) {
-    // ✅ OBTENER LA OBSERVACIÓN LIMPIA
+    // ✅ DEBUG: Ver qué datos llegan
+    print('═══════════════════════════════════════');
+    print('📋 DATOS DEL INGRESO:');
+    print('  usuario_registro: ${ingresoData['usuario_registro']}');
+    print('  usuario_nombre: ${ingresoData['usuario_nombre']}');
+    print('  usuario_id: ${ingresoData['usuario_id']}');
+    print('═══════════════════════════════════════');
+
     String observacion = (ingresoData['observacion'] ?? '').toString().trim();
+
+    // ✅ CORREGIDO: Mostrar usuario_nombre o usuario_registro
+    String usuario =
+        ingresoData['usuario_nombre'] ??
+        ingresoData['usuario_registro'] ??
+        'N/A';
 
     showDialog(
       context: context,
@@ -540,9 +546,8 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                   _buildInfoRow('Bodega', ingresoData['bodega'] ?? 'N/A'),
                   _buildInfoRow(
                     'Usuario',
-                    ingresoData['usuario_registro'] ?? 'N/A',
-                  ),
-                  // ✅ OBSERVACIÓN CON .trim() PARA EVITAR ESPACIOS EXTRA
+                    usuario,
+                  ), // ✅ USAR VARIABLE CORREGIDA
                   if (observacion.isNotEmpty)
                     _buildInfoRow('Observación', observacion),
                   const Divider(height: 24),
@@ -979,7 +984,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         await _cargarIngresos();
       } else {
         _mostrarMensaje(
-          '❌ ${data['message'] ?? 'Error al eliminar'}',
+          ' ${data['message'] ?? 'Error al eliminar'}',
           Colors.red,
         );
       }
@@ -1293,13 +1298,12 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // -------- CAMPO DE BÚSQUEDA --------
           Container(
             margin: const EdgeInsets.only(bottom: 12),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: '🔍 Buscar por número, contrato, bodega...',
+                hintText: ' Buscar por número, contrato, bodega...',
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -1329,7 +1333,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
             ),
           ),
 
-          // -------- CONTADOR DE INGRESOS --------
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Row(
@@ -1375,14 +1378,12 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
             ),
           ),
 
-          // -------- LISTA DE INGRESOS FILTRADOS --------
           ..._ingresosFiltrados.map(
             (ingreso) => _buildCardIngreso(ingreso, verde),
           ),
 
           const SizedBox(height: 12),
 
-          // -------- BOTÓN VOLVER AL FORMULARIO --------
           SizedBox(
             width: double.infinity,
             height: 40,
@@ -1477,7 +1478,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     );
   }
 
-  // -------- SECCIÓN: DETALLES DEL INGRESO (CON COLUMNA CONTRATO) --------
+  // -------- SECCIÓN: DETALLES DEL INGRESO --------
   Widget _buildSeccionDetalles(Color verde) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1724,7 +1725,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         const Divider(height: 20, thickness: 1),
         const SizedBox(height: 8),
 
-        // -------- FILA 1: USUARIO + NÚMERO DE INGRESO --------
         Row(
           children: [
             Expanded(
@@ -1767,7 +1767,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         ),
         const SizedBox(height: 14),
 
-        // -------- FILA 2: BODEGA + FECHA INGRESO --------
         Row(
           children: [
             Expanded(
@@ -1799,8 +1798,10 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
             Expanded(
               child: TextFormField(
                 controller: _fechaIngresoController,
-                decoration: _inputDeco('Fecha Ingreso *', hint: 'DD/MM/YYYY'),
+                decoration: _inputDeco('Fecha Ingreso *', hint: 'YYYY-MM-DD'),
                 style: const TextStyle(fontSize: 14),
+                readOnly: true,
+                onTap: () => _pickDate(_fechaIngresoController),
                 validator: (v) => (v == null || v.trim().isEmpty)
                     ? 'Ingrese fecha ingreso'
                     : null,
@@ -1810,7 +1811,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         ),
         const SizedBox(height: 14),
 
-        // -------- FILA 3: AÑO + CONTRATO --------
         Row(
           children: [
             Expanded(
@@ -1874,7 +1874,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         ),
         const SizedBox(height: 14),
 
-        // -------- FILA 4: OBSERVACIÓN --------
         TextFormField(
           controller: _observacionController,
           maxLines: 2,
@@ -1899,7 +1898,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
       ),
       body: Column(
         children: [
-          // -------- BANNER --------
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: const BoxDecoration(
@@ -1943,7 +1941,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                     ),
                   ),
                 ),
-                // ✅ BOTÓN CON TEXTO "VER LISTADO" / "NUEVO"
                 if (!_modoEdicion)
                   SizedBox(
                     height: 36,
@@ -1990,7 +1987,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
             ),
           ),
 
-          // -------- CONTENIDO --------
           Expanded(
             child: Container(
               decoration: BoxDecoration(
