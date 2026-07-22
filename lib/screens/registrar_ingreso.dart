@@ -791,24 +791,30 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
           anioContrato = fechaIngreso.substring(0, 4);
         }
 
-        if (anioContrato.isNotEmpty) {
-          await _cargarContratosPorAnio(anioContrato);
+        // 1. Asegurar que el año esté en la lista de años disponibles
+        if (anioContrato.isNotEmpty &&
+            !_aniosDisponibles.contains(anioContrato)) {
+          _aniosDisponibles.add(anioContrato);
+          _aniosDisponibles.sort();
         }
 
-        if (_contratosDisponibles.isEmpty) {
-          await _cargarTodosLosContratos();
-        }
+        // 2. Cargar todos los contratos para tener el mayor contexto posible
+        await _cargarTodosLosContratos();
 
         final contratoId = _convertirANumero(ingresoData['contrato_id']);
+        final numeroContrato = ingresoData['numero_contrato'] ?? 'N/A';
+
+        // 3. Verificar si el contrato ya está en la lista
         bool contratoExiste = _contratosDisponibles.any(
           (c) => c['id'] == contratoId,
         );
 
+        // 4. SI NO EXISTE, lo agregamos manualmente para que el dropdown pueda mostrarlo
         if (!contratoExiste) {
-          await _cargarTodosLosContratos();
-          contratoExiste = _contratosDisponibles.any(
-            (c) => c['id'] == contratoId,
-          );
+          _contratosDisponibles.add({
+            'id': contratoId,
+            'numero_contrato': numeroContrato,
+          });
         }
 
         setState(() {
@@ -820,31 +826,25 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
           _observacionController.text = ingresoData['observacion'] ?? '';
 
           _anioSeleccionado = anioContrato;
+          _contratoSeleccionado =
+              contratoId; // Ahora siempre tendrá un valor válido
 
-          if (contratoExiste) {
-            _contratoSeleccionado = contratoId;
-          } else {
-            _contratoSeleccionado = null;
-            _mostrarMensaje(
-              '⚠️ El contrato #$contratoId no está disponible',
-              Colors.orange,
-            );
-          }
-
-          _itemsContrato = [];
           _detallesIngreso = detallesData.map((detalle) {
             return {
               'id_item_contrato': _convertirANumero(
                 detalle['id_item_contrato'],
               ),
               'nombre_item': detalle['nombre_item']?.toString() ?? '',
+              'descripcion': detalle['descripcion']?.toString() ?? '',
               'cantidad_contratada': _convertirADouble(
                 detalle['cantidad_contratada'],
               ),
               'cantidad_ingresada': _convertirADouble(
                 detalle['cantidad_ingresada'],
               ),
-              'precio_unitario': _convertirADouble(detalle['valor_unitario']),
+              'precio_unitario': _convertirADouble(
+                detalle['valor_unitario'] ?? detalle['precio_unitario'] ?? 0,
+              ),
             };
           }).toList();
         });

@@ -21,7 +21,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
   final _formKey = GlobalKey<FormState>();
   final _numeroEgresoController = TextEditingController();
   final _fechaEgresoController = TextEditingController();
-  final _motivoController = TextEditingController();
   final _observacionController = TextEditingController();
   final _searchController = TextEditingController();
 
@@ -350,7 +349,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
         'usuario_id': usuarioId,
         'usuario_registro': username,
         'fecha': _fechaEgresoController.text.trim(),
-        'motivo': _motivoController.text.trim(),
         'observacion': _observacionController.text.trim(),
         'detalles': _detallesEgreso
             .where((d) => _toDouble(d['cantidad_egresada']) > 0)
@@ -400,9 +398,9 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
               'id': _egresoEditandoId,
+              'numero_egreso': _numeroEgresoController.text.trim(),
               'id_bodega': BODEGA_FIJA_ID,
               'fecha': _fechaEgresoController.text.trim(),
-              'motivo': _motivoController.text.trim(),
               'observacion': _observacionController.text.trim(),
               'detalles': _detallesEgreso
                   .map(
@@ -741,7 +739,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
 
             _numeroEgresoController.text = egresoData['numero_egreso'] ?? '';
             _fechaEgresoController.text = fechaEgreso;
-            _motivoController.text = egresoData['motivo'] ?? '';
             _observacionController.text = egresoData['observacion'] ?? '';
 
             _anioSeleccionado = anioContrato;
@@ -855,7 +852,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
   void _limpiarFormulario() {
     _numeroEgresoController.clear();
     _fechaEgresoController.clear();
-    _motivoController.clear();
     _observacionController.clear();
     for (final c in _cantidadControllers) {
       c.dispose();
@@ -1202,15 +1198,11 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           children: [
             Expanded(
               child: TextFormField(
-                controller: _motivoController,
-                decoration: _deco('Motivo (opcional)'),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: TextFormField(
                 controller: _observacionController,
+                maxLines: 3,
+                minLines: 2,
                 decoration: _deco('Observación', alignLabel: true),
+                style: const TextStyle(fontSize: 14),
               ),
             ),
           ],
@@ -1916,7 +1908,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
   void dispose() {
     _numeroEgresoController.dispose();
     _fechaEgresoController.dispose();
-    _motivoController.dispose();
     _observacionController.dispose();
     _searchController.dispose();
     for (final c in _cantidadControllers) {

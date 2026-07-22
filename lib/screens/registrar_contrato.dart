@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/drawer_menu.dart';
-import '../services/storage_service.dart';
 
 class RegistrarContratoPage extends StatefulWidget {
   const RegistrarContratoPage({super.key});

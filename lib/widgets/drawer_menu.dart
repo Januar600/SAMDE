@@ -110,7 +110,7 @@ class DrawerMenu extends StatelessWidget {
             const SizedBox(height: 4),
 
             // ============================================
-            // OPCIONES DEL MENÚ (NUEVO ORDEN)
+            // OPCIONES DEL MENÚ
             // ============================================
             // 1. INICIO
             _buildMenuItem(
@@ -165,6 +165,15 @@ class DrawerMenu extends StatelessWidget {
               index: 5,
               selectedIndex: selectedIndex,
               route: '/registrar_acta',
+            ),
+            // 7. HISTORIAL DE MOVIMIENTOS (NUEVO)
+            _buildMenuItem(
+              context,
+              icon: Icons.history,
+              title: 'Historial de Movimientos',
+              index: 6,
+              selectedIndex: selectedIndex,
+              route: '/historial_movimientos',
             ),
 
             const Spacer(),

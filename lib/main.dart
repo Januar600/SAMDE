@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:inventario_y_actas_samde/screens/movimientos.dart';
 import 'screens/login_screen.dart';
 import 'screens/menu_navegacion.dart';
 import 'screens/registrar_contrato.dart';
@@ -6,6 +7,11 @@ import 'screens/registrar_usuario.dart';
 import 'screens/registrar_acta.dart';
 import 'screens/registrar_egreso.dart';
 import 'screens/registrar_ingreso.dart';
+// consultas
+import 'screens/consultar_actas.dart';
+import 'screens/consultar_egreso.dart';
+import 'screens/consultar_ingresos.dart';
+import 'screens/consultar_contrato.dart';
 
 void main() {
   runApp(const MyApp());
@@ -50,6 +56,12 @@ class MyApp extends StatelessWidget {
         '/registrar_contrato': (context) => const RegistrarContratoPage(),
         '/registrar_egreso': (context) => const RegistrarEgresoPage(),
         '/registrar_ingreso': (context) => const RegistrarIngresoPage(),
+        '/historial_movimientos': (context) => const HistorialMovimientosPage(),
+        // consultas de registros
+        '/consultar_actas': (context) => const ConsultarActasPage(),
+        '/consultar_egreso': (context) => const ConsultarEgresoPage(),
+        '/consultar_ingreso': (context) => const ConsultarIngresoPage(),
+        '/consultar_contrato': (context) => const ConsultarContratoPage(),
       },
     );
   }

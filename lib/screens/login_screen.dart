@@ -25,22 +25,31 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _verificarSesion() async {
-    final estaLogueado = await _storage.estaLogueado();
-    if (estaLogueado && mounted) {
-      final userData = await _storage.obtenerUsuario();
-      if (mounted) {
-        Navigator.pushReplacementNamed(
-          context,
-          '/menu',
-          arguments: {
-            'username': userData['username'],
-            'sector': userData['sector'],
-            'rol': userData['rol'],
-            'nombreCompleto': userData['nombreCompleto'],
-            'email': userData['email'],
-          },
-        );
+    try {
+      final estaLogueado = await _storage.estaLogueado();
+      if (estaLogueado && mounted) {
+        final userData = await _storage.obtenerUsuario();
+        if (mounted) {
+          Navigator.pushReplacementNamed(
+            context,
+            '/menu',
+            arguments: {
+              'username': userData['username'] ?? 'Usuario',
+              'sector': userData['sector'] ?? 'No Asignado',
+              'rol': userData['rol'] ?? 'consulta',
+              'nombreCompleto':
+                  userData['nombreCompleto'] ??
+                  userData['username'] ??
+                  'Usuario',
+              'email': userData['email'] ?? '',
+            },
+          );
+        }
       }
+    } catch (e) {
+      print('❌ Error al verificar sesión: $e');
+      // Si hay datos corruptos, limpiamos para forzar el login manual
+      await _storage.cerrarSesion();
     }
   }
 
@@ -56,14 +65,17 @@ class _LoginPageState extends State<LoginPage> {
     final url = Uri.parse('http://localhost/samde_db/api/login.php');
 
     try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "username": _usuarioController.text.trim(),
-          "password": _passwordController.text,
-        }),
-      );
+      // ✅ AGREGADO: Timeout de 10 segundos para evitar carga infinita
+      final response = await http
+          .post(
+            url,
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({
+              "username": _usuarioController.text.trim(),
+              "password": _passwordController.text,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       final data = jsonDecode(response.body);
 
@@ -71,19 +83,12 @@ class _LoginPageState extends State<LoginPage> {
         if (mounted) {
           final userData = data['usuario'] ?? data['data'];
 
-          // ============================================
-          // CORREGIDO: SIN ALERTAS
-          // ============================================
           final String username = userData['username'] ?? '';
           final String email = userData['email'] ?? '';
           final String rolString =
               (userData['rol'] as String?)?.toLowerCase() ?? 'consulta';
           final String sector = userData['sector'] ?? 'No Asignado';
           final String nombreCompleto = userData['nombre_completo'] ?? username;
-
-          print('✅ Usuario: $username');
-          print('✅ Rol: $rolString');
-          print('✅ Sector: $sector');
 
           await _storage.guardarUsuario(
             username: username,
@@ -93,24 +98,26 @@ class _LoginPageState extends State<LoginPage> {
             email: email,
           );
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('¡Bienvenido $nombreCompleto!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('¡Bienvenido $nombreCompleto!'),
+                backgroundColor: Colors.green,
+              ),
+            );
 
-          Navigator.pushReplacementNamed(
-            context,
-            '/menu',
-            arguments: {
-              'username': username,
-              'sector': sector,
-              'rol': rolString,
-              'nombreCompleto': nombreCompleto,
-              'email': email,
-            },
-          );
+            Navigator.pushReplacementNamed(
+              context,
+              '/menu',
+              arguments: {
+                'username': username,
+                'sector': sector,
+                'rol': rolString,
+                'nombreCompleto': nombreCompleto,
+                'email': email,
+              },
+            );
+          }
         }
       } else if (response.statusCode == 403) {
         if (mounted) {
@@ -130,15 +137,20 @@ class _LoginPageState extends State<LoginPage> {
         }
       }
     } catch (e) {
+      // ✅ Esto ahora se disparará si el servidor tarda más de 10s o está apagado
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error de conexión: $e'),
+            content: Text(
+              'Error de conexión: Verifica que el servidor esté activo. ($e)',
+            ),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
     } finally {
+      // ✅ Siempre se ejecuta, quitando el spinner
       if (mounted) {
         setState(() {
           _cargando = false;
