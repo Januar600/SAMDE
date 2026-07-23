@@ -2,63 +2,79 @@ import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 import '../widgets/drawer_menu.dart';
 
-class MenuNavegacion extends StatelessWidget {
+class MenuNavegacion extends StatefulWidget {
   const MenuNavegacion({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    const Color verdeInstitucional = Color(0xFF2E7D32);
-    const Color azulBoton = Color(0xFFB3E5FC);
+  State<MenuNavegacion> createState() => _MenuNavegacionState();
+}
 
-    // ========================================================
-    // ARGUMENTOS: username, sector y rol
-    // ========================================================
+class _MenuNavegacionState extends State<MenuNavegacion> {
+  static const Color verdeInstitucional = Color(0xFF2E7D32);
+  static const Color azulBoton = Color(0xFFB3E5FC);
+
+  bool _argumentosListos = false;
+  late Map<String, dynamic> _argumentos;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_argumentosListos) return; // evita recargar en cada rebuild
+
     final Object? argumentosRaw = ModalRoute.of(context)!.settings.arguments;
-    Map<String, dynamic> argumentos = (argumentosRaw is Map<String, dynamic>)
-        ? argumentosRaw
-        : {};
 
-    if (argumentos.isEmpty) {
-      final storage = StorageService();
-      final futureData = storage.obtenerUsuario();
-      argumentos = {
-        'username': 'Usuario',
-        'sector': 'No Asignado',
-        'rol': 'consulta',
-        'nombreCompleto': 'Usuario',
-        'email': '',
+    if (argumentosRaw is Map<String, dynamic> && argumentosRaw.isNotEmpty) {
+      _argumentos = argumentosRaw;
+      _argumentosListos = true;
+    } else {
+      // Mientras no haya argumentos, cargamos desde el storage de forma controlada
+      _cargarDesdeStorage();
+    }
+  }
+
+  Future<void> _cargarDesdeStorage() async {
+    final storage = StorageService();
+    final data = await storage.obtenerUsuario();
+
+    if (!mounted) return;
+
+    setState(() {
+      _argumentos = {
+        'username': data['username'] ?? 'Usuario',
+        'sector': data['sector'] ?? 'No Asignado',
+        'rol': data['rol'] ?? 'consulta',
+        'nombreCompleto':
+            data['nombreCompleto'] ?? data['username'] ?? 'Usuario',
+        'email': data['email'] ?? '',
       };
-      futureData.then((data) {
-        print('Datos cargados: $data');
-      });
+      _argumentosListos = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_argumentosListos) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final String username = argumentos['username'] ?? 'Usuario';
-    final String sectorUsuario = argumentos['sector'] ?? 'No Asignado';
-    final String rol = (argumentos['rol'] ?? 'consulta')
+    final String username = _argumentos['username'] ?? 'Usuario';
+    final String sectorUsuario = _argumentos['sector'] ?? 'No Asignado';
+    final String rol = (_argumentos['rol'] ?? 'consulta')
         .toString()
         .toLowerCase();
-    final String nombreCompleto = argumentos['nombreCompleto'] ?? username;
+    final String nombreCompleto = _argumentos['nombreCompleto'] ?? username;
 
     // ========================================================
     // PERMISOS POR ROL
     // ========================================================
-    final bool esAdmin = rol == 'administrador'; // ← CORREGIDO
+    final bool esAdmin = rol == 'administrador';
     final bool esAlmacen = rol == 'almacen';
-    final bool esAdministrativo = rol == 'administrativo'; // ← NUEVO
+    final bool esAdministrativo = rol == 'administrativo';
     final bool puedeVerUsuarios = esAdmin;
-    final bool puedeVerSecciones =
-        esAdmin || esAlmacen || esAdministrativo; // ← ACTUALIZADO
-    final bool esSoloConsulta =
-        !esAdmin && !esAlmacen && !esAdministrativo; // ← ACTUALIZADO
-
-    // ============================================
-    // CONTROLLADOR DEL DRAWER
-    // ============================================
-    final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+    final bool puedeVerSecciones = esAdmin || esAlmacen || esAdministrativo;
+    final bool esSoloConsulta = !esAdmin && !esAlmacen && !esAdministrativo;
 
     return Scaffold(
-      key: _scaffoldKey,
       backgroundColor: Colors.white,
       drawer: DrawerMenu(
         username: username,
@@ -81,9 +97,6 @@ class MenuNavegacion extends StatelessWidget {
             ),
             child: Row(
               children: [
-                // ============================================
-                // LOGO EXPANDIDO - OCUPA TODO EL ESPACIO IZQUIERDO
-                // ============================================
                 Expanded(
                   flex: 2,
                   child: Image.asset(
@@ -92,10 +105,6 @@ class MenuNavegacion extends StatelessWidget {
                     fit: BoxFit.contain,
                   ),
                 ),
-
-                // ============================================
-                // TÍTULO CENTRADO
-                // ============================================
                 const Expanded(
                   flex: 2,
                   child: Text(
@@ -109,10 +118,6 @@ class MenuNavegacion extends StatelessWidget {
                     ),
                   ),
                 ),
-
-                // ============================================
-                // INFORMACIÓN DEL USUARIO
-                // ============================================
                 Expanded(
                   flex: 2,
                   child: Column(
@@ -197,15 +202,22 @@ class MenuNavegacion extends StatelessWidget {
               children: [
                 // ============================================
                 // BOTÓN DEL DRAWER (HAMBURGUESA)
+                // Usamos Builder para obtener un context que SÍ
+                // está debajo del Scaffold en el árbol de widgets.
+                // Esto evita el "trabón" en el primer uso porque
+                // ya no depende de un GlobalKey que recién se está
+                // asentando en el primer frame.
                 // ============================================
-                IconButton(
-                  icon: Icon(Icons.menu, color: verdeInstitucional, size: 28),
-                  onPressed: () {
-                    _scaffoldKey.currentState?.openDrawer();
-                  },
-                  tooltip: 'Abrir menú',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                Builder(
+                  builder: (innerContext) => IconButton(
+                    icon: Icon(Icons.menu, color: verdeInstitucional, size: 28),
+                    onPressed: () {
+                      Scaffold.of(innerContext).openDrawer();
+                    },
+                    tooltip: 'Abrir menú',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -341,7 +353,7 @@ class MenuNavegacion extends StatelessWidget {
   // ========================================================
   Color _getRolColor(String rol) {
     switch (rol) {
-      case 'admin':
+      case 'administrador':
         return Colors.red;
       case 'almacen':
         return Colors.blue;

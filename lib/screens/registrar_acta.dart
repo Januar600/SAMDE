@@ -11,19 +11,28 @@ class RegistrarActaPage extends StatefulWidget {
 }
 
 class _RegistrarActaPageState extends State<RegistrarActaPage> {
-  // ✅ CORRECCIÓN: GlobalKey para controlar el Scaffold y abrir el drawer
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final _formKey = GlobalKey<FormState>();
   bool _cargando = false;
-  bool _mostrandoLista = false;
-  List<Map<String, dynamic>> _actas = [];
+  bool _mostrandoFormulario = true;
 
-  final _tituloController = TextEditingController();
-  final _descripcionController = TextEditingController();
-  final _numeroActaController = TextEditingController();
-  final _fechaController = TextEditingController();
+  // Controladores para el formulario
+  final _idActaController = TextEditingController();
+  final _consecutivoController = TextEditingController();
+  final _fechaActaController = TextEditingController();
   final _responsableController = TextEditingController();
+  final _recibeController = TextEditingController();
+  final _observacionesController = TextEditingController();
+
+  // Detalles de entrega
+  List<Map<String, dynamic>> _detalles = [];
+  final _idDetalleController = TextEditingController();
+  final _nombreItemController = TextEditingController();
+  final _cantidadEntregaController = TextEditingController();
+  final _cantidadDisponibleController = TextEditingController();
+  final _cantidadContratadaController = TextEditingController();
+  final _cantidadYaEntregadaController = TextEditingController();
 
   late String username;
   late String sector;
@@ -41,26 +50,104 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     rol = argumentos['rol'] ?? 'consulta';
   }
 
-  // ============================================
-  // MÉTODOS (registrar, cargar, eliminar, etc.)
-  // ============================================
-  Future<void> _registrarActa() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _seleccionarFecha(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      locale: const Locale('es', 'ES'),
+    );
+    if (picked != null) {
+      setState(() {
+        _fechaActaController.text =
+            '${picked.day.toString().padLeft(2, '0')}/'
+            '${picked.month.toString().padLeft(2, '0')}/'
+            '${picked.year}';
+      });
+    }
+  }
+
+  void _agregarDetalle() {
+    if (_nombreItemController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ingrese el nombre del ítem'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _detalles.add({
+        'idDetalleActa': _idDetalleController.text.trim() ?? '(Nuevo)',
+        'nombreItem': _nombreItemController.text.trim(),
+        'idActa': _idActaController.text.trim(),
+        'cantidadEntrega': int.tryParse(_cantidadEntregaController.text) ?? 0,
+        'cantidadDisponible':
+            int.tryParse(_cantidadDisponibleController.text) ?? 0,
+        'cantidadContratada':
+            int.tryParse(_cantidadContratadaController.text) ?? 0,
+        'cantidadYaEntregada':
+            int.tryParse(_cantidadYaEntregadaController.text) ?? 0,
+      });
+    });
+
+    // Limpiar campos de detalle
+    _idDetalleController.clear();
+    _nombreItemController.clear();
+    _cantidadEntregaController.clear();
+    _cantidadDisponibleController.clear();
+    _cantidadContratadaController.clear();
+    _cantidadYaEntregadaController.clear();
+  }
+
+  void _eliminarDetalle(int index) {
+    setState(() {
+      _detalles.removeAt(index);
+    });
+  }
+
+  Future<void> _guardarEntrega() async {
+    if (_idActaController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ingrese el ID del Acta'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (_detalles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Agregue al menos un detalle de entrega'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
     setState(() => _cargando = true);
 
-    final url = Uri.parse('http://localhost/samde_db/api/registrar_acta.php');
+    final url = Uri.parse(
+      'http://localhost/samde_db/api/registrar_entrega.php',
+    );
 
     try {
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          'numero_acta': _numeroActaController.text.trim(),
-          'titulo': _tituloController.text.trim(),
-          'descripcion': _descripcionController.text.trim(),
-          'fecha': _fechaController.text.trim(),
+          'idActa': _idActaController.text.trim(),
+          'consecutivoActa': _consecutivoController.text.trim(),
+          'fechaActa': _fechaActaController.text.trim(),
           'responsable': _responsableController.text.trim(),
+          'recibe': _recibeController.text.trim(),
+          'observaciones': _observacionesController.text.trim(),
+          'detalles': _detalles,
           'usuario_registro': username,
           'sector': sector,
         }),
@@ -72,15 +159,14 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         _limpiarFormulario();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Acta registrada exitosamente'),
+            content: Text('✅ Entrega registrada exitosamente'),
             backgroundColor: Colors.green,
           ),
         );
-        await _cargarActas();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(data['mensaje'] ?? 'Error al registrar acta'),
+            content: Text(data['mensaje'] ?? 'Error al registrar entrega'),
             backgroundColor: Colors.red,
           ),
         );
@@ -97,120 +183,36 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     }
   }
 
-  Future<void> _cargarActas() async {
-    setState(() => _cargando = true);
-    final url = Uri.parse('http://localhost/samde_db/api/listar_actas.php');
-
-    try {
-      final response = await http.get(url);
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 200 && data['status'] == 'success') {
-        setState(() {
-          _actas = List<Map<String, dynamic>>.from(data['data'] ?? []);
-        });
-      }
-    } catch (e) {
-      print('Error cargando actas: $e');
-    } finally {
-      if (mounted) setState(() => _cargando = false);
-    }
-  }
-
   void _limpiarFormulario() {
-    _tituloController.clear();
-    _descripcionController.clear();
-    _numeroActaController.clear();
-    _fechaController.clear();
+    _idActaController.clear();
+    _consecutivoController.clear();
+    _fechaActaController.clear();
     _responsableController.clear();
+    _recibeController.clear();
+    _observacionesController.clear();
+    _detalles.clear();
+    _idDetalleController.clear();
+    _nombreItemController.clear();
+    _cantidadEntregaController.clear();
+    _cantidadDisponibleController.clear();
+    _cantidadContratadaController.clear();
+    _cantidadYaEntregadaController.clear();
   }
-
-  Future<void> _seleccionarFecha(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      locale: const Locale('es', 'ES'),
-    );
-    if (picked != null) {
-      setState(() {
-        _fechaController.text =
-            '${picked.day.toString().padLeft(2, '0')}/'
-            '${picked.month.toString().padLeft(2, '0')}/'
-            '${picked.year}';
-      });
-    }
-  }
-
-  Future<void> _eliminarActa(int id) async {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Eliminar Acta'),
-          content: const Text(
-            '¿Estás seguro de que deseas eliminar esta acta?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.of(dialogContext).pop();
-                final url = Uri.parse(
-                  'http://localhost/samde_db/api/eliminar_acta.php',
-                );
-                try {
-                  final response = await http.post(
-                    url,
-                    headers: {"Content-Type": "application/json"},
-                    body: jsonEncode({'id': id}),
-                  );
-                  final data = jsonDecode(response.body);
-                  if (response.statusCode == 200 &&
-                      data['status'] == 'success') {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('✅ Acta eliminada'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                    await _cargarActas();
-                  }
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error de conexión: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text(
-                'Eliminar',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // ============================================
-  // CONFIRMAR CIERRE DE SESIÓN
-  // ============================================
 
   @override
   void dispose() {
-    _tituloController.dispose();
-    _descripcionController.dispose();
-    _numeroActaController.dispose();
-    _fechaController.dispose();
+    _idActaController.dispose();
+    _consecutivoController.dispose();
+    _fechaActaController.dispose();
     _responsableController.dispose();
+    _recibeController.dispose();
+    _observacionesController.dispose();
+    _idDetalleController.dispose();
+    _nombreItemController.dispose();
+    _cantidadEntregaController.dispose();
+    _cantidadDisponibleController.dispose();
+    _cantidadContratadaController.dispose();
+    _cantidadYaEntregadaController.dispose();
     super.dispose();
   }
 
@@ -219,18 +221,17 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     const Color verdeInstitucional = Color(0xFF2E7D32);
 
     return Scaffold(
-      // ✅ CORRECCIÓN: key asignada al Scaffold
       key: _scaffoldKey,
       drawer: DrawerMenu(
         username: username,
         sector: sector,
         rol: rol,
-        selectedIndex: 2,
+        selectedIndex: 5,
       ),
       body: Column(
         children: [
           // ============================================
-          // BANNER INSTITUCIONAL
+          // BANNER INSTITUCIONAL (SIN CAMBIOS)
           // ============================================
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -242,7 +243,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
             ),
             child: Row(
               children: [
-                // ✅ CORRECCIÓN: usa _scaffoldKey igual que menu_navegacion.dart
                 IconButton(
                   icon: Icon(Icons.menu, color: verdeInstitucional, size: 30),
                   onPressed: () {
@@ -253,17 +253,15 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                   constraints: const BoxConstraints(),
                 ),
                 const SizedBox(width: 8),
-                // Logo
                 Image.asset(
                   'assets/logos/banner_gobernacion.png',
                   height: 110,
                   fit: BoxFit.contain,
                 ),
-                // Título centrado
                 const Expanded(
                   child: Center(
                     child: Text(
-                      'Registrar Actas',
+                      'Entrega de Actas',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -288,51 +286,514 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                   colors: [Colors.green.shade50, Colors.white],
                 ),
               ),
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _mostrandoLista ? _buildListaActas() : _buildFormulario(),
-                      const SizedBox(height: 16),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    // ============================================
+                    // FORMULARIO PRINCIPAL - ESTILO IMAGEN
+                    // ============================================
+                    Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Título
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.assignment,
+                                    color: verdeInstitucional,
+                                    size: 28,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    'Registrar Entrega de Acta',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: verdeInstitucional,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 24),
 
-                      // ============================================
-                      // BOTÓN VOLVER
-                      // ============================================
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pushReplacementNamed(
-                              context,
-                              '/menu',
-                              arguments: {
-                                'username': username,
-                                'sector': sector,
-                                'rol': rol,
-                              },
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey.shade300,
-                            foregroundColor: Colors.black87,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Volver al Menú Principal',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
+                              // Campos principales
+                              _buildCampoTexto(
+                                'IdActa (Nuevo)',
+                                controller: _idActaController,
+                                hint: 'Nuevo',
+                              ),
+                              const SizedBox(height: 12),
+
+                              _buildCampoConBoton(
+                                'ConsecutivoActa',
+                                controller: _consecutivoController,
+                                hint: 'Cargar Acta de Entrega',
+                              ),
+                              const SizedBox(height: 12),
+
+                              _buildCampoFecha(
+                                'FechaActa',
+                                controller: _fechaActaController,
+                              ),
+                              const SizedBox(height: 12),
+
+                              _buildCampoTexto(
+                                'ResponsableEntrega',
+                                controller: _responsableController,
+                              ),
+                              const SizedBox(height: 12),
+
+                              _buildCampoTexto(
+                                'Recibe',
+                                controller: _recibeController,
+                              ),
+                              const SizedBox(height: 12),
+
+                              _buildCampoTexto(
+                                'Observaciones',
+                                controller: _observacionesController,
+                                maxLines: 2,
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Fecha de creación automática
+                              Row(
+                                children: [
+                                  const Text(
+                                    'FechaCreacion',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Text(
+                                    '25/06/2026',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ============================================
+                    // SECCIÓN DETALLES DE ENTREGA
+                    // ============================================
+                    Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Detalles de Entrega',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: verdeInstitucional,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Tabla de detalles
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                children: [
+                                  // Encabezados
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(8),
+                                        topRight: Radius.circular(8),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        _buildHeaderCell(
+                                          'IdDetalleActa',
+                                          flex: 1,
+                                        ),
+                                        _buildHeaderCell(
+                                          'Nombre Item',
+                                          flex: 2,
+                                        ),
+                                        _buildHeaderCell('IdActa', flex: 1),
+                                        _buildHeaderCell(
+                                          'Cant. Entrega',
+                                          flex: 1,
+                                        ),
+                                        _buildHeaderCell(
+                                          'Cant. Disponible',
+                                          flex: 1,
+                                        ),
+                                        _buildHeaderCell(
+                                          'Cant. Contratada',
+                                          flex: 1,
+                                        ),
+                                        _buildHeaderCell(
+                                          'Cant. ya Entregada',
+                                          flex: 1,
+                                        ),
+                                        const SizedBox(width: 30),
+                                      ],
+                                    ),
+                                  ),
+                                  // Filas de detalles
+                                  ..._detalles.asMap().entries.map((entry) {
+                                    int index = entry.key;
+                                    var detalle = entry.value;
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        border: Border(
+                                          top: BorderSide(
+                                            color: Colors.grey.shade200,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          _buildCell(
+                                            detalle['idDetalleActa'] ??
+                                                '(Nuevo)',
+                                            flex: 1,
+                                          ),
+                                          _buildCell(
+                                            detalle['nombreItem'] ?? '',
+                                            flex: 2,
+                                          ),
+                                          _buildCell(
+                                            detalle['idActa'] ?? '',
+                                            flex: 1,
+                                          ),
+                                          _buildCell(
+                                            detalle['cantidadEntrega']
+                                                    ?.toString() ??
+                                                '0',
+                                            flex: 1,
+                                          ),
+                                          _buildCell(
+                                            detalle['cantidadDisponible']
+                                                    ?.toString() ??
+                                                '0',
+                                            flex: 1,
+                                          ),
+                                          _buildCell(
+                                            detalle['cantidadContratada']
+                                                    ?.toString() ??
+                                                '0',
+                                            flex: 1,
+                                          ),
+                                          _buildCell(
+                                            detalle['cantidadYaEntregada']
+                                                    ?.toString() ??
+                                                '0',
+                                            flex: 1,
+                                          ),
+                                          IconButton(
+                                            icon: Icon(
+                                              Icons.delete_outline,
+                                              color: Colors.red.shade300,
+                                              size: 18,
+                                            ),
+                                            onPressed: () =>
+                                                _eliminarDetalle(index),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                  if (_detalles.isEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 20,
+                                      ),
+                                      child: Text(
+                                        'No hay detalles registrados',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ),
+                                    ),
+                                  // Registro y búsqueda
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade50,
+                                      border: Border(
+                                        top: BorderSide(
+                                          color: Colors.grey.shade200,
+                                        ),
+                                      ),
+                                      borderRadius: const BorderRadius.only(
+                                        bottomLeft: Radius.circular(8),
+                                        bottomRight: Radius.circular(8),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Text(
+                                          'Registro: ${_detalles.length} de ${_detalles.length}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Text(
+                                          'Sin filtro',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade600,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: Colors.grey.shade300,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'Buscar',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // Campos para agregar nuevo detalle
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Agregar Detalle',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: verdeInstitucional,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 1,
+                                        child: _buildDetalleField(
+                                          'IdDetalle',
+                                          _idDetalleController,
+                                          hint: '(Nuevo)',
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: 2,
+                                        child: _buildDetalleField(
+                                          'Nombre Item',
+                                          _nombreItemController,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: 1,
+                                        child: _buildDetalleField(
+                                          'Cant. Entrega',
+                                          _cantidadEntregaController,
+                                          isNumber: true,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: 1,
+                                        child: _buildDetalleField(
+                                          'Cant. Disponible',
+                                          _cantidadDisponibleController,
+                                          isNumber: true,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 1,
+                                        child: _buildDetalleField(
+                                          'Cant. Contratada',
+                                          _cantidadContratadaController,
+                                          isNumber: true,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: 1,
+                                        child: _buildDetalleField(
+                                          'Cant. ya Entregada',
+                                          _cantidadYaEntregadaController,
+                                          isNumber: true,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      SizedBox(
+                                        height: 50,
+                                        child: ElevatedButton(
+                                          onPressed: _agregarDetalle,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: verdeInstitucional,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          child: const Text('Agregar'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // Botones Guardar y Volver
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: _cargando
+                                        ? null
+                                        : _guardarEntrega,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: verdeInstitucional,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: _cargando
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text(
+                                            'GUARDAR ENTREGA',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.pushReplacementNamed(
+                                        context,
+                                        '/menu',
+                                        arguments: {
+                                          'username': username,
+                                          'sector': sector,
+                                          'rol': rol,
+                                        },
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.grey.shade300,
+                                      foregroundColor: Colors.black87,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      'Volver al Menú',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -343,277 +804,146 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
   }
 
   // ============================================
-  // CONSTRUIR FORMULARIO
+  // WIDGETS AUXILIARES
   // ============================================
-  Widget _buildFormulario() {
-    const Color verdeInstitucional = Color(0xFF2E7D32);
 
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.description, color: verdeInstitucional, size: 28),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Registrar Acta de Entrega',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: verdeInstitucional,
-                    ),
-                  ),
-                ],
+  Widget _buildCampoTexto(
+    String label, {
+    required TextEditingController controller,
+    String? hint,
+    int maxLines = 1,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      validator: (v) =>
+          (v == null || v.trim().isEmpty) ? 'Campo requerido' : null,
+    );
+  }
+
+  Widget _buildCampoConBoton(
+    String label, {
+    required TextEditingController controller,
+    String? hint,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextFormField(
+            controller: controller,
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: hint,
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
               ),
-              const Divider(height: 24),
-              TextFormField(
-                controller: _numeroActaController,
-                decoration: const InputDecoration(
-                  labelText: 'Número de Acta',
-                  prefixIcon: Icon(Icons.numbers),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Ingrese el número de acta'
-                    : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _tituloController,
-                decoration: const InputDecoration(
-                  labelText: 'Título del Acta',
-                  prefixIcon: Icon(Icons.title),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Ingrese el título'
-                    : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _descripcionController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Descripción',
-                  prefixIcon: Icon(Icons.description),
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Ingrese una descripción'
-                    : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _fechaController,
-                decoration: InputDecoration(
-                  labelText: 'Fecha (DD/MM/YYYY)',
-                  prefixIcon: const Icon(Icons.calendar_today),
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.calendar_today),
-                    onPressed: () => _seleccionarFecha(context),
-                  ),
-                ),
-                readOnly: true,
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Seleccione una fecha'
-                    : null,
-                onTap: () => _seleccionarFecha(context),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _responsableController,
-                decoration: const InputDecoration(
-                  labelText: 'Responsable',
-                  prefixIcon: Icon(Icons.person),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Ingrese el responsable'
-                    : null,
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _cargando ? null : _registrarActa,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: verdeInstitucional,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: _cargando
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'REGISTRAR ACTA',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
+        const SizedBox(width: 8),
+        ElevatedButton(
+          onPressed: () {
+            // Acción para cargar acta de entrega
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Cargar Acta de Entrega'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.grey.shade300,
+            foregroundColor: Colors.black87,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          child: const Text('Cargar'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCampoFecha(
+    String label, {
+    required TextEditingController controller,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextFormField(
+            controller: controller,
+            decoration: InputDecoration(
+              labelText: label,
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.calendar_today, size: 20),
+                onPressed: () => _seleccionarFecha(context),
+              ),
+            ),
+            readOnly: true,
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Seleccione fecha' : null,
+            onTap: () => _seleccionarFecha(context),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderCell(String text, {int flex = 1}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+          color: Colors.black87,
+        ),
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
 
-  // ============================================
-  // CONSTRUIR LISTA DE ACTAS
-  // ============================================
-  Widget _buildListaActas() {
-    const Color verdeInstitucional = Color(0xFF2E7D32);
+  Widget _buildCell(String text, {int flex = 1}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 12),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
 
-    if (_actas.isEmpty && !_cargando) {
-      return Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(40.0),
-          child: Column(
-            children: [
-              Icon(Icons.inbox, size: 80, color: Colors.grey.shade400),
-              const SizedBox(height: 16),
-              Text(
-                'No hay actas registradas',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Registra una nueva acta para comenzar',
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Total: ${_actas.length} actas',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey.shade600,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ..._actas.map((acta) {
-          return Card(
-            elevation: 2,
-            margin: const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: Colors.grey.shade200),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: verdeInstitucional.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          'Acta #${acta['numero_acta'] ?? 'N/A'}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: verdeInstitucional,
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        acta['fecha'] ?? 'Sin fecha',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    acta['titulo'] ?? 'Sin título',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    acta['descripcion'] ?? 'Sin descripción',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.person, size: 14, color: Colors.grey.shade500),
-                      const SizedBox(width: 4),
-                      Text(
-                        acta['responsable'] ?? 'Sin responsable',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (rol == 'admin')
-                        IconButton(
-                          icon: Icon(
-                            Icons.delete_outline,
-                            color: Colors.red.shade300,
-                            size: 20,
-                          ),
-                          onPressed: () => _eliminarActa(acta['id'] ?? 0),
-                          tooltip: 'Eliminar acta',
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        }).toList(),
-      ],
+  Widget _buildDetalleField(
+    String label,
+    TextEditingController controller, {
+    String? hint,
+    bool isNumber = false,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        isDense: true,
+      ),
+      style: const TextStyle(fontSize: 12),
     );
   }
 }
