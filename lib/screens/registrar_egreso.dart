@@ -22,6 +22,8 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
   final _numeroEgresoController = TextEditingController();
   final _fechaEgresoController = TextEditingController();
   final _observacionController = TextEditingController();
+  final _objetoContratoController =
+      TextEditingController(); // ✅ NUEVO: Controller para el objeto del contrato
   final _searchController = TextEditingController();
 
   // ── CONTROLADORES POR FILA (cantidad a egresar) ────────────
@@ -71,14 +73,17 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     _searchController.addListener(_filtrarEgresos);
   }
 
-  // ── INICIALIZAR CONTROLLERS DE CANTIDAD ────────────────────
+  // ── INICIALIZAR CONTROLLERS DE CANTIDAD ───────────────────
   void _inicializarControllersCantidad() {
     for (final c in _cantidadControllers) {
       c.dispose();
     }
 
     _cantidadControllers = _detallesEgreso.map((detalle) {
-      final cantidad = detalle['cantidad_egresada'] ?? 0.0;
+      final cantidad = _modoEdicion
+          ? (detalle['cantidad_adicional'] ?? 0.0)
+          : (detalle['cantidad_egresada'] ?? 0.0);
+
       return TextEditingController(
         text: cantidad == 0.0 ? '' : _formatearNumero(cantidad),
       );
@@ -135,7 +140,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     return int.tryParse(v.toString().trim()) ?? 0;
   }
 
-  // ── FILTRAR EGRESOS ────────────────────────────────────────
+  // ─ FILTRAR EGRESOS ────────────────────────────────────────
   void _filtrarEgresos() {
     setState(() {
       _searchQuery = _searchController.text.toLowerCase().trim();
@@ -156,11 +161,14 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     });
   }
 
-  // ── VALIDAR STOCK ──────────────────────────────────────────
+  // ✅ VALIDACIÓN DE STOCK MEJORADA PARA EDICIÓN
   bool _validarStock() {
-    final itemsConCantidad = _detallesEgreso
-        .where((d) => _toDouble(d['cantidad_egresada']) > 0)
-        .toList();
+    final itemsConCantidad = _detallesEgreso.where((d) {
+      final val = _modoEdicion
+          ? _toDouble(d['cantidad_adicional'])
+          : _toDouble(d['cantidad_egresada']);
+      return val > 0;
+    }).toList();
 
     if (itemsConCantidad.isEmpty) {
       _snack('Debe egresar al menos un item con cantidad > 0', Colors.orange);
@@ -169,16 +177,35 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
 
     for (final detalle in itemsConCantidad) {
       final double stock = _toDouble(detalle['stock_disponible']);
-      final double egresar = _toDouble(detalle['cantidad_egresada']);
+      final double baseEgresada = _modoEdicion
+          ? _toDouble(detalle['cantidad_egresada'])
+          : 0.0;
+      final double adicional = _modoEdicion
+          ? _toDouble(detalle['cantidad_adicional'])
+          : _toDouble(detalle['cantidad_egresada']);
 
-      if (egresar > stock) {
-        _snack(
-          '⚠️ Stock insuficiente en "${detalle['nombre_item']}". '
-          'Disponible: ${_formatearNumero(stock)}, '
-          'Solicitado: ${_formatearNumero(egresar)}',
-          Colors.red,
-        );
-        return false;
+      final double totalProyectado = baseEgresada + adicional;
+
+      if (_modoEdicion) {
+        if (adicional > stock) {
+          _snack(
+            '⚠️ Stock insuficiente en "${detalle['nombre_item']}". '
+            'Disponible: ${_formatearNumero(stock)}, '
+            'Solicitado (adicional): ${_formatearNumero(adicional)}',
+            Colors.red,
+          );
+          return false;
+        }
+      } else {
+        if (totalProyectado > stock) {
+          _snack(
+            '⚠️ Stock insuficiente en "${detalle['nombre_item']}". '
+            'Disponible: ${_formatearNumero(stock)}, '
+            'Solicitado: ${_formatearNumero(totalProyectado)}',
+            Colors.red,
+          );
+          return false;
+        }
       }
     }
     return true;
@@ -194,13 +221,15 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }.toList()..sort();
   }
 
-  // ── CARGAR CONTRATOS POR AÑO ───────────────────────────────
+  // ── CARGAR CONTRATOS POR AÑO ──────────────────────────────
   Future<void> _cargarContratosPorAnio(String anio) async {
     setState(() {
       _cargando = true;
       _contratosDisponibles = [];
       _itemsContrato = [];
       _detallesEgreso = [];
+      _objetoContratoController.clear(); // ✅ Limpiar objeto
+      _contratoNumero = '';
     });
     try {
       final r = await http
@@ -214,8 +243,9 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
               .where((c) => (c['fecha_inicio'] ?? '').startsWith(anio))
               .toList();
         });
-        if (_contratosDisponibles.isEmpty)
+        if (_contratosDisponibles.isEmpty) {
           _snack('No hay contratos para el año $anio', Colors.orange);
+        }
       }
     } catch (e) {
       _snack('Error cargando contratos: $e', Colors.red);
@@ -224,7 +254,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }
   }
 
-  // ✅ FIX: NUEVO MÉTODO - Cargar TODOS los contratos (sin filtro de año)
+  // ✅ Cargar TODOS los contratos (sin filtro de año)
   Future<void> _cargarTodosLosContratos() async {
     try {
       final r = await http
@@ -258,6 +288,12 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     _contratoNumero =
         contratoObj['numero_contrato']?.toString() ?? contratoId.toString();
 
+    // ✅ ACTUALIZAR EL OBJETO DEL CONTRATO VIA CONTROLLER
+    _objetoContratoController.text =
+        contratoObj['objeto_contrato']?.toString() ??
+        contratoObj['objeto']?.toString() ??
+        'No especificado';
+
     try {
       final url = '$_baseUrl/egresos/obtener_stock.php?contrato_id=$contratoId';
 
@@ -277,7 +313,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             _itemsContrato = items;
 
             _detallesEgreso = items.map((item) {
-              // ✅ CONVERSIÓN EXPLÍCITA PARA total_ingresado Y total_egresado
               final totalIngresadoRaw = item['total_ingresado'];
               final totalIngresado = totalIngresadoRaw is int
                   ? totalIngresadoRaw.toDouble()
@@ -301,6 +336,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                 'total_egresado': totalEgresado,
                 'stock_disponible': _toDouble(item['stock_disponible']),
                 'cantidad_egresada': 0.0,
+                'cantidad_adicional': 0.0,
                 'precio_unitario': _toDouble(item['precio_unitario']),
               };
             }).toList();
@@ -318,21 +354,34 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }
   }
 
-  // ── ACTUALIZAR CANTIDAD EGRESADA ───────────────────────────
+  // ✅ ACTUALIZAR CANTIDAD MANEJANDO MODO EDICIÓN
   void _actualizarCantidad(int index, String valor) {
     final cantidad = double.tryParse(valor) ?? 0;
-    final stock = _toDouble(_detallesEgreso[index]['stock_disponible']);
+    final detalle = _detallesEgreso[index];
+    final stock = _toDouble(detalle['stock_disponible']);
 
     setState(() {
-      _detallesEgreso[index]['cantidad_egresada'] = cantidad;
+      if (_modoEdicion) {
+        _detallesEgreso[index]['cantidad_adicional'] = cantidad;
+      } else {
+        _detallesEgreso[index]['cantidad_egresada'] = cantidad;
+      }
     });
 
-    if (cantidad > stock && stock > 0) {
-      _snack('⚠️ Excede stock (${_formatearNumero(stock)})', Colors.red);
+    if (_modoEdicion && cantidad > stock && stock >= 0) {
+      _snack(
+        '⚠️ Excede stock. Disponible: ${_formatearNumero(stock)}',
+        Colors.red,
+      );
+    } else if (!_modoEdicion && cantidad > stock && stock >= 0) {
+      _snack(
+        '⚠️ Excede stock. Disponible: ${_formatearNumero(stock)}',
+        Colors.red,
+      );
     }
   }
 
-  // ── REGISTRAR EGRESO ───────────────────────────────────────
+  // ── REGISTRAR EGRESO ──────────────────────────────────────
   Future<void> _registrarEgreso() async {
     if (!_formKey.currentState!.validate()) return;
     if (_contratoSeleccionado == null) {
@@ -344,6 +393,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     setState(() => _cargando = true);
     try {
       final body = {
+        'contrato_id': _contratoSeleccionado,
         'numero_egreso': _numeroEgresoController.text.trim(),
         'id_bodega': BODEGA_FIJA_ID,
         'usuario_id': usuarioId,
@@ -392,6 +442,23 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     if (!_validarStock()) return;
     setState(() => _cargando = true);
     try {
+      final detallesActualizados = _detallesEgreso
+          .where((d) {
+            final base = _toDouble(d['cantidad_egresada']);
+            final adicional = _toDouble(d['cantidad_adicional']);
+            return (base + adicional) > 0;
+          })
+          .map((d) {
+            final base = _toDouble(d['cantidad_egresada']);
+            final adicional = _toDouble(d['cantidad_adicional']);
+            return {
+              'item_contrato_id': d['id_item_contrato'],
+              'cantidad': base + adicional,
+              'precio_unitario': d['precio_unitario'],
+            };
+          })
+          .toList();
+
       final r = await http
           .post(
             Uri.parse('$_baseUrl/egresos/actualizar_egreso.php'),
@@ -402,15 +469,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
               'id_bodega': BODEGA_FIJA_ID,
               'fecha': _fechaEgresoController.text.trim(),
               'observacion': _observacionController.text.trim(),
-              'detalles': _detallesEgreso
-                  .map(
-                    (d) => {
-                      'item_contrato_id': d['id_item_contrato'],
-                      'cantidad': d['cantidad_egresada'],
-                      'precio_unitario': d['precio_unitario'],
-                    },
-                  )
-                  .toList(),
+              'detalles': detallesActualizados,
             }),
           )
           .timeout(const Duration(seconds: 10));
@@ -560,7 +619,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       columnSpacing: 12,
-                      headingRowColor: MaterialStateProperty.all(
+                      headingRowColor: WidgetStateProperty.all(
                         Colors.green.shade50,
                       ),
                       columns: const [
@@ -676,14 +735,11 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     );
   }
 
-  // ✅ FIX: MÉTODO CORREGIDO - Cargar egreso para editar con stock
+  // ✅ MÉTODO CORREGIDO - Cargar egreso para editar con stock
   Future<void> _cargarEgresoParaEditar(int egresoId) async {
     setState(() => _cargando = true);
 
     try {
-      print('═══════════════════════════════════════');
-      print(' CARGANDO EGRESO #$egresoId PARA EDITAR');
-
       final response = await http
           .get(Uri.parse('$_baseUrl/egresos/obtener_egreso.php?id=$egresoId'))
           .timeout(
@@ -692,7 +748,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           );
 
       final data = jsonDecode(response.body);
-      print('📡 Response: ${response.statusCode}');
 
       if (response.statusCode == 200 && data['success'] == true) {
         final egresoData = data['data']['egreso'];
@@ -700,39 +755,25 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           data['data']['detalles'] as List,
         );
 
-        print(' Contrato ID del egreso: ${egresoData['contrato_id']}');
-        print(' Total detalles a cargar: ${detallesData.length}');
-
         final String fechaEgreso = egresoData['fecha'] ?? '';
         String anioContrato = '';
         if (fechaEgreso.isNotEmpty && fechaEgreso.length >= 4) {
           anioContrato = fechaEgreso.substring(0, 4);
         }
 
-        // 1️⃣ Cargar TODOS los contratos primero
-        print('🔄 Cargando TODOS los contratos...');
         await _cargarTodosLosContratos();
-        print('✅ Total contratos cargados: ${_contratosDisponibles.length}');
 
-        // 2️⃣ Obtener el contrato_id
         final contratoIdDelEgreso =
             int.tryParse(egresoData['contrato_id']?.toString() ?? '0') ?? 0;
 
-        // 3️ Buscar el contrato en la lista
         final contratoEncontrado = _contratosDisponibles.firstWhere(
           (c) => _toInt(c['id']) == contratoIdDelEgreso,
           orElse: () => {},
         );
 
-        print('✅ Contrato encontrado: ${contratoEncontrado.isNotEmpty}');
-
         if (contratoEncontrado.isNotEmpty) {
-          // 4️⃣ Cargar items del contrato (esto trae el stock REAL)
-          print('📦 Cargando items del contrato $contratoIdDelEgreso...');
           await _cargarItemsContrato(contratoIdDelEgreso);
-          print('✅ Items cargados: ${_detallesEgreso.length}');
 
-          // 5️ Actualizar UI
           setState(() {
             _modoEdicion = true;
             _egresoEditandoId = egresoId;
@@ -746,11 +787,12 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             _contratoNumero =
                 contratoEncontrado['numero_contrato']?.toString() ?? '';
 
-            print('🎯 Contrato seleccionado: $_contratoSeleccionado');
-            print('🎯 Número contrato: $_contratoNumero');
+            // ✅ ACTUALIZAR OBJETO DEL CONTRATO VIA CONTROLLER
+            _objetoContratoController.text =
+                contratoEncontrado['objeto_contrato']?.toString() ??
+                contratoEncontrado['objeto']?.toString() ??
+                'No especificado';
 
-            // 6️⃣ Actualizar las cantidades egresadas
-            // ⚠️ IMPORTANTE: NO modificar el stock disponible
             for (var detalleEgreso in detallesData) {
               final itemId =
                   int.tryParse(
@@ -768,28 +810,14 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
               );
 
               if (index != -1) {
-                // ✅ Solo actualizar la cantidad egresada, NO el stock
                 _detallesEgreso[index]['cantidad_egresada'] = cantidadEgresada;
-
-                print('  ✅ Item #$itemId:');
-                print('     - Cantidad egresada: $cantidadEgresada');
-                print(
-                  '     - Stock disponible (real): ${_detallesEgreso[index]['stock_disponible']}',
-                );
-                print(
-                  '     - Total ingresado: ${_detallesEgreso[index]['total_ingresado']}',
-                );
-              } else {
-                print('  ❌ Item #$itemId NO encontrado');
+                _detallesEgreso[index]['cantidad_adicional'] = 0.0;
               }
             }
 
-            // 7️⃣ REINICIALIZAR controllers
             _inicializarControllersCantidad();
-            print('✅ Controllers reinicializados');
           });
         } else {
-          print('❌ ERROR: Contrato #$contratoIdDelEgreso no encontrado');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -800,7 +828,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           }
         }
 
-        print('═══════════════════════════════════════');
         setState(() => _mostrandoLista = false);
       } else {
         if (mounted) {
@@ -853,6 +880,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     _numeroEgresoController.clear();
     _fechaEgresoController.clear();
     _observacionController.clear();
+    _objetoContratoController.clear(); // ✅ Limpiar controller
     for (final c in _cantidadControllers) {
       c.dispose();
     }
@@ -889,7 +917,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
 
   // ══════════════════════════════════════════════════════════
   // BUILD
-  // ══════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     const Color verde = Color(0xFF2E7D32);
@@ -999,7 +1027,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.all(16),
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 800),
+                          constraints: const BoxConstraints(maxWidth: 1000),
                           child: Form(
                             key: _formKey,
                             child: Card(
@@ -1133,7 +1161,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: _anioSeleccionado,
+                initialValue: _anioSeleccionado,
                 hint: const Text('Año contrato *'),
                 isExpanded: true,
                 items: _aniosDisponibles
@@ -1148,6 +1176,8 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                           _contratosDisponibles = [];
                           _itemsContrato = [];
                           _detallesEgreso = [];
+                          _objetoContratoController.clear(); // ✅ Limpiar
+                          _contratoNumero = '';
                         });
                         if (v != null) _cargarContratosPorAnio(v);
                       },
@@ -1158,8 +1188,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             const SizedBox(width: 14),
             Expanded(
               child: DropdownButtonFormField<int>(
-                // ✅ FIX: Validar que el valor esté en la lista antes de asignarlo
-                value:
+                initialValue:
                     _contratoSeleccionado != null &&
                         _contratosDisponibles.any(
                           (c) => _toInt(c['id']) == _contratoSeleccionado,
@@ -1170,7 +1199,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                 isExpanded: true,
                 items: _contratosDisponibles
                     .map(
-                      (c) => DropdownMenuItem(
+                      (c) => DropdownMenuItem<int>(
                         value: _toInt(c['id']),
                         child: Text(c['numero_contrato'] ?? ''),
                       ),
@@ -1183,6 +1212,25 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                           _contratoSeleccionado = v;
                           _itemsContrato = [];
                           _detallesEgreso = [];
+
+                          // ✅ EXTRAER OBJETO Y NÚMERO DEL CONTRATO SELECCIONADO
+                          final contratoSeleccionado = _contratosDisponibles
+                              .firstWhere(
+                                (c) => _toInt(c['id']) == v,
+                                orElse: () => {},
+                              );
+
+                          _contratoNumero =
+                              contratoSeleccionado['numero_contrato']
+                                  ?.toString() ??
+                              '';
+
+                          // ✅ ACTUALIZAR EL CONTROLLER DIRECTAMENTE
+                          _objetoContratoController.text =
+                              contratoSeleccionado['objeto_contrato']
+                                  ?.toString() ??
+                              contratoSeleccionado['objeto']?.toString() ??
+                              'No especificado';
                         });
                         if (v != null) _cargarItemsContrato(v);
                       },
@@ -1194,18 +1242,29 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
         ),
         const SizedBox(height: 14),
 
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _observacionController,
-                maxLines: 3,
-                minLines: 2,
-                decoration: _deco('Observación', alignLabel: true),
-                style: const TextStyle(fontSize: 14),
-              ),
+        // ✅ CAMPO: Objeto del Contrato (usando controller)
+        TextFormField(
+          controller: _objetoContratoController, // ✅ USAR CONTROLLER
+          readOnly: true,
+          maxLines: 2,
+          decoration: _deco('Objeto del Contrato', alignLabel: true).copyWith(
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300),
             ),
-          ],
+          ),
+          style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+        ),
+        const SizedBox(height: 14),
+
+        TextFormField(
+          controller: _observacionController,
+          maxLines: 3,
+          minLines: 2,
+          decoration: _deco('Observación', alignLabel: true),
+          style: const TextStyle(fontSize: 14),
         ),
       ],
     );
@@ -1283,23 +1342,11 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
               child: DataTable(
                 columnSpacing: 12,
                 headingRowHeight: 36,
-                headingRowColor: MaterialStateProperty.all(
-                  Colors.green.shade50,
-                ),
+                headingRowColor: WidgetStateProperty.all(Colors.green.shade50),
                 columns: [
                   DataColumn(
                     label: Text(
                       '#',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                  DataColumn(
-                    label: Text(
-                      'Contrato',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -1319,16 +1366,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                   ),
                   DataColumn(
                     label: Text(
-                      'Descripción',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                  DataColumn(
-                    label: Text(
                       'Cant. Ingresada',
                       style: TextStyle(
                         fontSize: 12,
@@ -1337,9 +1374,20 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                       ),
                     ),
                   ),
+                  if (_modoEdicion)
+                    DataColumn(
+                      label: Text(
+                        'Cant. Egresada (Base)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: verde,
+                        ),
+                      ),
+                    ),
                   DataColumn(
                     label: Text(
-                      'Cant. Egresada',
+                      'Stock Disponible',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -1349,17 +1397,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                   ),
                   DataColumn(
                     label: Text(
-                      'Stock disponible',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                  DataColumn(
-                    label: Text(
-                      'Cant. a Egresar *',
+                      _modoEdicion ? 'Cant. Adicional *' : 'Cant. a Egresar *',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -1372,68 +1410,30 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                   final i = entry.key;
                   final detalle = entry.value;
 
-                  // ✅ LEER TODOS LOS VALORES
                   final ingresada = _toDouble(detalle['total_ingresado']);
-                  final egresadaTotal = _toDouble(detalle['total_egresado']);
+                  final baseEgresada = _toDouble(detalle['cantidad_egresada']);
+                  final adicional = _toDouble(detalle['cantidad_adicional']);
                   final stock = _toDouble(detalle['stock_disponible']);
-                  final cantidadNueva = _toDouble(detalle['cantidad_egresada']);
-                  final excede = cantidadNueva > stock && cantidadNueva > 0;
+
+                  final cantidadMostrar = _modoEdicion
+                      ? adicional
+                      : _toDouble(detalle['cantidad_egresada']);
+
+                  final excede = _modoEdicion
+                      ? (adicional > stock && adicional > 0)
+                      : (cantidadMostrar > stock && cantidadMostrar > 0);
 
                   return DataRow(
                     cells: [
-                      // #
                       DataCell(
                         Text('${i + 1}', style: const TextStyle(fontSize: 12)),
                       ),
-
-                      // Contrato
-                      DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: verde.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            _contratoNumero,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: verde,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // Nombre item
                       DataCell(
                         Text(
                           detalle['nombre_item'] ?? '',
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),
-
-                      // Descripción
-                      DataCell(
-                        SizedBox(
-                          width: 140,
-                          child: Text(
-                            detalle['descripcion'] ?? '-',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey.shade600,
-                              fontStyle: FontStyle.italic,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-
-                      // ✅ COLUMNA: Cantidad Ingresada (azul)
                       DataCell(
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -1455,31 +1455,28 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                           ),
                         ),
                       ),
-
-                      // ✅ COLUMNA: Cantidad Egresada (naranja)
-                      DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.orange.shade200),
-                          ),
-                          child: Text(
-                            _formatearNumero(egresadaTotal),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.orange.shade700,
+                      if (_modoEdicion)
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.orange.shade200),
+                            ),
+                            child: Text(
+                              _formatearNumero(baseEgresada),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange.shade700,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-
-                      // Stock disponible (verde)
                       DataCell(
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -1509,8 +1506,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                           ),
                         ),
                       ),
-
-                      // Cantidad a Egresar (campo editable)
                       DataCell(
                         SizedBox(
                           width: 100,
@@ -1536,7 +1531,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                               isDense: true,
                               filled: excede,
                               fillColor: excede ? Colors.red.shade50 : null,
-                              errorText: excede ? 'Excede stock' : null,
+                              errorText: excede ? 'Excede' : null,
                               errorStyle: const TextStyle(fontSize: 9),
                             ),
                             onChanged: (v) => _actualizarCantidad(i, v),
@@ -1553,7 +1548,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     );
   }
 
-  // ── BOTONES ────────────────────────────────────────────────
+  // ─ BOTONES ────────────────────────────────────────────────
   Widget _buildBotones(Color verde) {
     return Column(
       children: [
@@ -1844,31 +1839,33 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          TextButton.icon(
-                            onPressed: () => _eliminarEgreso(
-                              _toInt(egreso['id']),
-                              egreso['numero_egreso'] ?? '',
-                            ),
-                            icon: Icon(
-                              Icons.delete,
-                              color: Colors.red.shade600,
-                              size: 18,
-                            ),
-                            label: Text(
-                              'Eliminar',
-                              style: TextStyle(
+                          // ✅ CAMBIO: Solo mostrar si es admin o administrativo
+                          if (rol == 'administrador' || rol == 'administrativo')
+                            TextButton.icon(
+                              onPressed: () => _eliminarEgreso(
+                                _toInt(egreso['id']),
+                                egreso['numero_egreso'] ?? '',
+                              ),
+                              icon: Icon(
+                                Icons.delete,
                                 color: Colors.red.shade600,
-                                fontSize: 12,
+                                size: 18,
+                              ),
+                              label: Text(
+                                'Eliminar',
+                                style: TextStyle(
+                                  color: Colors.red.shade600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                             ),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                              ),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
                         ],
                       ),
                     ],
@@ -1909,6 +1906,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     _numeroEgresoController.dispose();
     _fechaEgresoController.dispose();
     _observacionController.dispose();
+    _objetoContratoController.dispose(); // ✅ LIBERAR MEMORIA
     _searchController.dispose();
     for (final c in _cantidadControllers) {
       c.dispose();

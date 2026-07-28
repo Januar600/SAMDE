@@ -488,7 +488,7 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
                                     ],
                                   ),
                                 );
-                              }).toList(),
+                              }),
 
                             // Footer con total
                             Container(

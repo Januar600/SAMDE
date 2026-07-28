@@ -77,7 +77,7 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
     for (int i = numeroStr.length - 1; i >= 0; i--) {
       resultado = numeroStr[i] + resultado;
       contador++;
-      if (contador % 3 == 0 && i != 0) resultado = '.' + resultado;
+      if (contador % 3 == 0 && i != 0) resultado = '.$resultado';
     }
     return '\$$resultado';
   }
@@ -442,7 +442,7 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
                                     ],
                                   ),
                                 );
-                              }).toList(),
+                              }),
 
                             // Footer Total
                             Container(

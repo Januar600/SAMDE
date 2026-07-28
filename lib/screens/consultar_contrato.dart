@@ -67,7 +67,7 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
     for (int i = numeroStr.length - 1; i >= 0; i--) {
       resultado = numeroStr[i] + resultado;
       contador++;
-      if (contador % 3 == 0 && i != 0) resultado = '.' + resultado;
+      if (contador % 3 == 0 && i != 0) resultado = '.$resultado';
     }
     if (numero != entero) {
       final decimales = numero.toString().split('.');
@@ -438,7 +438,7 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
                                     ],
                                   ),
                                 );
-                              }).toList(),
+                              }),
 
                             // Footer Total
                             Container(

@@ -14,7 +14,6 @@ class MenuNavegacion extends StatefulWidget {
 
 class _MenuNavegacionState extends State<MenuNavegacion> {
   static const Color verdeInstitucional = Color(0xFF2E7D32);
-  //static const Color azulBoton = Color(0xFFB3E5FC);
 
   bool _argumentosListos = false;
   late Map<String, dynamic> _argumentos;
@@ -81,7 +80,7 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
         }
       }
     } catch (e) {
-      print(' Error cargando estadísticas: $e');
+      debugPrint('Error cargando estadísticas: $e');
       if (mounted) {
         setState(() => _cargandoStats = false);
       }
@@ -108,17 +107,23 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
     final bool esAdmin = rol == 'administrador';
     final bool esAlmacen = rol == 'almacen';
     final bool esAdministrativo = rol == 'administrativo';
+    final bool esConsulta = rol == 'consulta';
+
     final bool puedeVerUsuarios = esAdmin;
-    final bool puedeVerSecciones = esAdmin || esAlmacen || esAdministrativo;
+    // ✅ Ahora consulta también puede ver acciones rápidas
+    final bool puedeVerSecciones =
+        esAdmin || esAlmacen || esAdministrativo || esConsulta;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      drawer: DrawerMenu(
-        username: username,
-        sector: sectorUsuario,
-        rol: rol,
-        selectedIndex: 0,
-      ),
+      drawer: esConsulta
+          ? null // 🚫 No Drawer para rol consulta
+          : DrawerMenu(
+              username: username,
+              sector: sectorUsuario,
+              rol: rol,
+              selectedIndex: 0,
+            ),
       body: Column(
         children: [
           // HEADER
@@ -132,19 +137,20 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
             ),
             child: Row(
               children: [
-                Builder(
-                  builder: (ctx) => IconButton(
-                    icon: const Icon(
-                      Icons.menu,
-                      color: verdeInstitucional,
-                      size: 30,
+                if (!esConsulta) // 🚫 Ocultar botón menú en rol consulta
+                  Builder(
+                    builder: (ctx) => IconButton(
+                      icon: const Icon(
+                        Icons.menu,
+                        color: verdeInstitucional,
+                        size: 30,
+                      ),
+                      onPressed: () => Scaffold.of(ctx).openDrawer(),
+                      tooltip: 'Abrir menú de navegación',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                     ),
-                    onPressed: () => Scaffold.of(ctx).openDrawer(),
-                    tooltip: 'Abrir menú de navegación',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
                   ),
-                ),
                 const SizedBox(width: 8),
                 Expanded(
                   flex: 2,
@@ -188,7 +194,7 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: _getRolColor(rol).withOpacity(0.15),
+                          color: _getRolColor(rol).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -255,7 +261,7 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
                     ),
                     const SizedBox(height: 24),
 
-                    // 1. ACCIONES RÁPIDAS (ARRIBA)
+                    // ✅ Acciones rápidas visibles también para consulta
                     if (puedeVerSecciones || puedeVerUsuarios) ...[
                       _buildSectionTitle('Acciones Rápidas', Icons.bolt),
                       const SizedBox(height: 16),
@@ -264,46 +270,34 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
                         spacing: 16,
                         runSpacing: 16,
                         children: [
-                          if (puedeVerSecciones)
-                            _buildActionCard(
-                              context,
-                              'consultar Actas',
-                              Icons.assignment_turned_in,
-                              Colors.blue.shade50,
-                              '/consultar_actas',
-                            ),
-                          if (puedeVerSecciones)
-                            _buildActionCard(
-                              context,
-                              'Consultar Egreso',
-                              Icons.remove_shopping_cart,
-                              Colors.orange.shade50,
-                              '/consultar_egreso',
-                            ),
-                          if (puedeVerSecciones)
-                            _buildActionCard(
-                              context,
-                              'Consultar Ingreso',
-                              Icons.add_shopping_cart,
-                              Colors.green.shade50,
-                              '/consultar_ingreso',
-                            ),
-                          if (puedeVerSecciones)
-                            _buildActionCard(
-                              context,
-                              'Consultar Contrato',
-                              Icons.file_present,
-                              Colors.purple.shade50,
-                              '/consultar_contrato',
-                            ),
-                          if (puedeVerUsuarios)
-                            _buildActionCard(
-                              context,
-                              'Gestionar Usuarios',
-                              Icons.people,
-                              Colors.red.shade50,
-                              '/registrar_usuario',
-                            ),
+                          _buildActionCard(
+                            context,
+                            'Consultar Actas',
+                            Icons.assignment_turned_in,
+                            Colors.blue.shade50,
+                            '/consultar_actas',
+                          ),
+                          _buildActionCard(
+                            context,
+                            'Consultar Egreso',
+                            Icons.remove_shopping_cart,
+                            Colors.orange.shade50,
+                            '/consultar_egreso',
+                          ),
+                          _buildActionCard(
+                            context,
+                            'Consultar Ingreso',
+                            Icons.add_shopping_cart,
+                            Colors.green.shade50,
+                            '/consultar_ingreso',
+                          ),
+                          _buildActionCard(
+                            context,
+                            'Consultar Contrato',
+                            Icons.file_present,
+                            Colors.purple.shade50,
+                            '/consultar_contrato',
+                          ),
                         ],
                       ),
                       const SizedBox(height: 32),
@@ -464,10 +458,15 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
                     const SizedBox(height: 32),
 
                     // 4. Actividad Reciente
-                    _buildSectionTitle('Movimientos Recientes', Icons.history),
-                    const SizedBox(height: 16),
-                    _buildRecentActivityList(),
-                    const SizedBox(height: 24),
+                    if (!(esAlmacen || esConsulta)) ...[
+                      _buildSectionTitle(
+                        'Movimientos Recientes',
+                        Icons.history,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildRecentActivityList(),
+                      const SizedBox(height: 24),
+                    ],
                   ],
                 ),
               ),
@@ -496,7 +495,7 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(icon, color: color, size: 28),
@@ -625,7 +624,26 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
         children: movimientos.asMap().entries.map((entry) {
           final index = entry.key;
           final mov = entry.value;
+
           final esEntrega = mov['tipo'] == 'ENTREGA';
+          final esIngreso = mov['tipo'] == 'INGRESO';
+          final esEgreso = mov['tipo'] == 'EGRESO';
+
+          final colorFondo = esEntrega
+              ? Colors.blue.shade50
+              : (esIngreso ? Colors.green.shade50 : Colors.orange.shade50);
+          final colorIcono = esEntrega
+              ? Colors.blue
+              : (esIngreso ? Colors.green : Colors.orange);
+          final icono = esEntrega
+              ? Icons.delivery_dining
+              : (esIngreso
+                    ? Icons.add_shopping_cart
+                    : Icons.remove_shopping_cart);
+          final tipoLabel = esEntrega
+              ? 'ENTREGA'
+              : (esIngreso ? 'INGRESO' : 'EGRESO');
+
           return Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -642,18 +660,10 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: esEntrega
-                        ? Colors.blue.shade50
-                        : Colors.orange.shade50,
+                    color: colorFondo,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    esEntrega
-                        ? Icons.delivery_dining
-                        : Icons.remove_shopping_cart,
-                    color: esEntrega ? Colors.blue : Colors.orange,
-                    size: 24,
-                  ),
+                  child: Icon(icono, color: colorIcono, size: 24),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -683,19 +693,15 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: esEntrega
-                        ? Colors.blue.shade50
-                        : Colors.orange.shade50,
+                    color: colorFondo,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '${mov['tipo']} ${mov['cantidad']}',
+                    tipoLabel, // ✅ CORREGIDO: Ya no muestra el número
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: esEntrega
-                          ? Colors.blue.shade700
-                          : Colors.orange.shade700,
+                      color: colorIcono,
                     ),
                   ),
                 ),
@@ -903,7 +909,7 @@ class FlBarChart extends StatelessWidget {
 }
 
 // ========================================================
-// GRÁFICO CIRCULAR - DISTRIBUCIÓN
+// GRÁFICO CIRCULAR - DISTRIBUCIÓN (SIN TOOLTIPS)
 // ========================================================
 class FlPieChart extends StatefulWidget {
   final double ingresos;
@@ -926,9 +932,16 @@ class _FlPieChartState extends State<FlPieChart> {
 
   @override
   Widget build(BuildContext context) {
+    final total = widget.ingresos + widget.egresos + widget.entregas;
+
+    if (total <= 0) {
+      return const Center(child: Text('No hay datos para mostrar'));
+    }
+
     return PieChart(
       PieChartData(
         pieTouchData: PieTouchData(
+          enabled: true,
           touchCallback: (FlTouchEvent event, pieTouchResponse) {
             setState(() {
               if (!event.isInterestedForInteractions ||
@@ -949,13 +962,13 @@ class _FlPieChartState extends State<FlPieChart> {
       ),
     );
   }
-
+// 
   List<PieChartSectionData> _showingSections() {
     final total = widget.ingresos + widget.egresos + widget.entregas;
 
     return List.generate(3, (i) {
       final isTouched = i == touchedIndex;
-      final radius = isTouched ? 65.0 : 60.0;
+      final radius = isTouched ? 125.0 : 115.0;
 
       double value;
       Color color;
@@ -964,15 +977,15 @@ class _FlPieChartState extends State<FlPieChart> {
       if (i == 0) {
         value = widget.ingresos;
         color = Colors.green;
-        title = 'Ingresos';
+        title = 'Ingresos\n${value.toInt()}';
       } else if (i == 1) {
         value = widget.egresos;
         color = Colors.orange;
-        title = 'Egresos';
+        title = 'Egresos\n${value.toInt()}';
       } else {
         value = widget.entregas;
         color = Colors.blue;
-        title = 'Entregas';
+        title = 'Entregas\n${value.toInt()}';
       }
 
       final percentage = total > 0
@@ -981,11 +994,11 @@ class _FlPieChartState extends State<FlPieChart> {
 
       return PieChartSectionData(
         value: value,
-        title: '$percentage%',
+        title: '$title\n$percentage%',
         radius: radius,
         color: color,
         titleStyle: TextStyle(
-          fontSize: isTouched ? 14 : 12,
+          fontSize: isTouched ? 13 : 11,
           fontWeight: FontWeight.bold,
           color: Colors.white,
         ),

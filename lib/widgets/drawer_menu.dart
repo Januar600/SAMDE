@@ -224,6 +224,10 @@ class DrawerMenu extends StatelessWidget {
     if (title == 'Registrar Usuarios' && rol != 'administrador') {
       return const SizedBox.shrink();
     }
+    // FILTRO POR ROL: Historial de Movimientos oculto para almacen
+    if (title == 'Historial de Movimientos' && rol == 'almacen') {
+      return const SizedBox.shrink();
+    }
 
     return ListTile(
       leading: Icon(

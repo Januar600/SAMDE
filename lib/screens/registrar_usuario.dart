@@ -4,7 +4,7 @@ import 'dart:convert';
 import '../widgets/drawer_menu.dart';
 
 class RegistrarUsuario extends StatefulWidget {
-  const RegistrarUsuario({Key? key}) : super(key: key);
+  const RegistrarUsuario({super.key});
 
   @override
   State<RegistrarUsuario> createState() => _RegistrarUsuarioState();
@@ -18,7 +18,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
   final TextEditingController _contrasenaController = TextEditingController();
 
   String _rolSeleccionado = 'consulta';
-  String _sectorSeleccionado = 'Agricultura';
+  String _sectorSeleccionado = 'Agropecuario';
   List<dynamic> listaUsuarios = [];
   bool _cargando = false;
 
@@ -176,13 +176,15 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
       text: usuario['username'],
     );
     final editEmailController = TextEditingController(text: usuario['email']);
+    final editPasswordController = TextEditingController();
+    bool ocultarPassword = true;
     String editRolSeleccionado = usuario['rol'] ?? 'consulta';
     String editSectorSeleccionado = 'No Asignado';
     if (usuario['sector'] != null && usuario['sector'].toString().isNotEmpty) {
       String sectorBd = usuario['sector'].toString();
       if ([
         'Medio Ambiente',
-        'Agricultura',
+        'Agropecuario',
         'Desarrollo Económico',
       ].contains(sectorBd)) {
         editSectorSeleccionado = sectorBd;
@@ -223,6 +225,29 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                           labelText: 'Correo Electrónico',
                           prefixIcon: Icon(Icons.email),
                           border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      TextField(
+                        controller: editPasswordController,
+                        obscureText: ocultarPassword,
+                        decoration: InputDecoration(
+                          labelText: 'Nueva Contraseña',
+                          prefixIcon: const Icon(Icons.lock),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              ocultarPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () {
+                              setDialogState(() {
+                                ocultarPassword = !ocultarPassword;
+                              });
+                            },
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -287,8 +312,8 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                                 child: Text('MEDIO AMBIENTE'),
                               ),
                               DropdownMenuItem(
-                                value: 'Agricultura',
-                                child: Text('AGRICULTURA'),
+                                value: 'Agropecuario',
+                                child: Text('AGROPECUARIO'),
                               ),
                               DropdownMenuItem(
                                 value: 'Desarrollo Económico',
@@ -329,6 +354,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                       editEmailController.text.trim(),
                       editRolSeleccionado,
                       editSectorSeleccionado,
+                      editPasswordController.text,
                     );
                   },
                   child: const Text(
@@ -350,6 +376,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     String email,
     String rol,
     String sector,
+    String password,
   ) async {
     final url = Uri.parse("http://localhost/samde_db/api/editar_usuario.php");
     try {
@@ -361,6 +388,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
           "email": email,
           "rol": rol,
           "sector": sector,
+          "password": password,
         },
       );
       if (response.statusCode == 200) {
@@ -678,8 +706,8 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                                     child: Text('MEDIO AMBIENTE'),
                                   ),
                                   DropdownMenuItem(
-                                    value: 'Agricultura',
-                                    child: Text('AGRICULTURA'),
+                                    value: 'Agropecuario',
+                                    child: Text('AGROPECUARIO'),
                                   ),
                                   DropdownMenuItem(
                                     value: 'Desarrollo Económico',
@@ -850,7 +878,8 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                                                 ),
                                                 Switch(
                                                   value: esActivo,
-                                                  activeColor: Colors.green,
+                                                  activeThumbColor:
+                                                      Colors.green,
                                                   onChanged: (bool value) =>
                                                       _cambiarEstadoUsuario(
                                                         usuario['id'],

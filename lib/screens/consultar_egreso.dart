@@ -441,7 +441,7 @@ class _ConsultarEgresoPageState extends State<ConsultarEgresoPage> {
                                     ],
                                   ),
                                 );
-                              }).toList(),
+                              }),
 
                             // Footer con total
                             Container(

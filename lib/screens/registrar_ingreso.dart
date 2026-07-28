@@ -21,6 +21,8 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
   final _numeroIngresoController = TextEditingController();
   final _fechaIngresoController = TextEditingController();
   final _observacionController = TextEditingController();
+  final _objetoContratoController =
+      TextEditingController(); // ✅ Objeto del contrato
   final _searchController = TextEditingController();
 
   // -------- VARIABLES DE BÚSQUEDA --------
@@ -70,7 +72,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     _searchController.addListener(_filtrarIngresos);
   }
 
-  // -------- ✅ SELECCIONAR FECHA CON DATEPICKER (IGUAL QUE CONTRATOS) --------
+  // -------- ✅ SELECCIONAR FECHA CON DATEPICKER --------
   Future<void> _pickDate(TextEditingController ctrl) async {
     final fecha = await showDatePicker(
       context: context,
@@ -81,7 +83,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     if (fecha != null) ctrl.text = fecha.toIso8601String().substring(0, 10);
   }
 
-  // -------- ✅ FUNCIÓN PARA FORMATEAR FECHA (SIMPLIFICADA) --------
+  // -------- ✅ FUNCIÓN PARA FORMATEAR FECHA --------
   String _formatearFechaParaBD(String fecha) {
     if (fecha.isEmpty) return '';
     return fecha;
@@ -129,7 +131,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
       resultado = numeroStr[i] + resultado;
       contador++;
       if (contador % 3 == 0 && i != 0) {
-        resultado = '.' + resultado;
+        resultado = '.$resultado';
       }
     }
 
@@ -190,11 +192,11 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
   // -------- CARGAR AÑOS DISPONIBLES --------
   void _cargarAnios() {
     final anioActual = DateTime.now().year;
-    _aniosDisponibles = [
+    _aniosDisponibles = {
       (anioActual - 2).toString(),
       (anioActual - 1).toString(),
       ...List.generate(10, (index) => (anioActual + index).toString()),
-    ].toSet().toList()..sort();
+    }.toList()..sort();
   }
 
   // -------- CARGAR CONTRATOS POR AÑO --------
@@ -203,6 +205,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     _contratosDisponibles = [];
     _itemsContrato = [];
     _detallesIngreso = [];
+    _objetoContratoController.clear();
 
     try {
       final response = await http
@@ -492,22 +495,12 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- MOSTRAR DIÁLOGO DE DETALLE (CORREGIDO) --------
+  // -------- MOSTRAR DIÁLOGO DE DETALLE --------
   void _mostrarDialogoDetalle(
     Map<String, dynamic> ingresoData,
     List<Map<String, dynamic>> detalles,
   ) {
-    // ✅ DEBUG: Ver qué datos llegan
-    print('═══════════════════════════════════════');
-    print('📋 DATOS DEL INGRESO:');
-    print('  usuario_registro: ${ingresoData['usuario_registro']}');
-    print('  usuario_nombre: ${ingresoData['usuario_nombre']}');
-    print('  usuario_id: ${ingresoData['usuario_id']}');
-    print('═══════════════════════════════════════');
-
     String observacion = (ingresoData['observacion'] ?? '').toString().trim();
-
-    // ✅ CORREGIDO: Mostrar usuario_nombre o usuario_registro
     String usuario =
         ingresoData['usuario_nombre'] ??
         ingresoData['usuario_registro'] ??
@@ -544,10 +537,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                     ingresoData['numero_contrato'] ?? 'N/A',
                   ),
                   _buildInfoRow('Bodega', ingresoData['bodega'] ?? 'N/A'),
-                  _buildInfoRow(
-                    'Usuario',
-                    usuario,
-                  ), // ✅ USAR VARIABLE CORREGIDA
+                  _buildInfoRow('Usuario', usuario),
                   if (observacion.isNotEmpty)
                     _buildInfoRow('Observación', observacion),
                   const Divider(height: 24),
@@ -578,7 +568,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                         child: DataTable(
                           columnSpacing: 12,
                           headingRowHeight: 36,
-                          headingRowColor: MaterialStateProperty.all(
+                          headingRowColor: WidgetStateProperty.all(
                             Colors.green.shade50,
                           ),
                           columns: const [
@@ -791,31 +781,33 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
           anioContrato = fechaIngreso.substring(0, 4);
         }
 
-        // 1. Asegurar que el año esté en la lista de años disponibles
         if (anioContrato.isNotEmpty &&
             !_aniosDisponibles.contains(anioContrato)) {
           _aniosDisponibles.add(anioContrato);
           _aniosDisponibles.sort();
         }
 
-        // 2. Cargar todos los contratos para tener el mayor contexto posible
         await _cargarTodosLosContratos();
 
         final contratoId = _convertirANumero(ingresoData['contrato_id']);
         final numeroContrato = ingresoData['numero_contrato'] ?? 'N/A';
 
-        // 3. Verificar si el contrato ya está en la lista
         bool contratoExiste = _contratosDisponibles.any(
           (c) => c['id'] == contratoId,
         );
 
-        // 4. SI NO EXISTE, lo agregamos manualmente para que el dropdown pueda mostrarlo
         if (!contratoExiste) {
           _contratosDisponibles.add({
             'id': contratoId,
             'numero_contrato': numeroContrato,
           });
         }
+
+        // ✅ EXTRAE EL OBJETO DEL CONTRATO SELECCIONADO PARA LA EDICIÓN
+        final contratoEditando = _contratosDisponibles.firstWhere(
+          (c) => c['id'] == contratoId,
+          orElse: () => {},
+        );
 
         setState(() {
           _modoEdicion = true;
@@ -825,9 +817,15 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
           _fechaIngresoController.text = fechaIngreso;
           _observacionController.text = ingresoData['observacion'] ?? '';
 
+          // ✅ ASIGNA EL OBJETO AL CAMPO
+          _objetoContratoController.text =
+              contratoEditando['objeto_contrato']?.toString() ??
+              contratoEditando['objeto']?.toString() ??
+              ingresoData['objeto_contrato']?.toString() ??
+              'No especificado';
+
           _anioSeleccionado = anioContrato;
-          _contratoSeleccionado =
-              contratoId; // Ahora siempre tendrá un valor válido
+          _contratoSeleccionado = contratoId;
 
           _detallesIngreso = detallesData.map((detalle) {
             return {
@@ -984,7 +982,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         await _cargarIngresos();
       } else {
         _mostrarMensaje(
-          ' ${data['message'] ?? 'Error al eliminar'}',
+          '❌ ${data['message'] ?? 'Error al eliminar'}',
           Colors.red,
         );
       }
@@ -1029,6 +1027,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     _numeroIngresoController.clear();
     _fechaIngresoController.clear();
     _observacionController.clear();
+    _objetoContratoController.clear();
     _anioSeleccionado = null;
     _contratoSeleccionado = null;
     _contratosDisponibles = [];
@@ -1070,6 +1069,10 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
 
   // -------- CONSTRUIR TARJETA DE INGRESO --------
   Widget _buildCardIngreso(Map<String, dynamic> ingreso, Color verde) {
+    // -------- VERIFICAR SI EL USUARIO PUEDE ELIMINAR --------
+    final bool puedeEliminar =
+        (rol == 'administrador' || rol == 'administrativo');
+
     return InkWell(
       onTap: () => _verIngresoDetalle(ingreso),
       borderRadius: BorderRadius.circular(10),
@@ -1190,6 +1193,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  // -------- BOTÓN EDITAR (SIEMPRE VISIBLE) --------
                   TextButton.icon(
                     onPressed: () => _cargarIngresoParaEditar(
                       int.parse(ingreso['id'].toString()),
@@ -1213,31 +1217,34 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  TextButton.icon(
-                    onPressed: () => _eliminarIngreso(
-                      int.parse(ingreso['id'].toString()),
-                      ingreso['numero_ingreso'] ?? '',
-                    ),
-                    icon: Icon(
-                      Icons.delete,
-                      color: Colors.red.shade600,
-                      size: 18,
-                    ),
-                    label: Text(
-                      'Eliminar',
-                      style: TextStyle(
+                  // -------- BOTÓN ELIMINAR (SOLO ADMIN Y ADMINISTRATIVO) --------
+                  if (puedeEliminar) ...[
+                    const SizedBox(width: 4),
+                    TextButton.icon(
+                      onPressed: () => _eliminarIngreso(
+                        int.parse(ingreso['id'].toString()),
+                        ingreso['numero_ingreso'] ?? '',
+                      ),
+                      icon: Icon(
+                        Icons.delete,
                         color: Colors.red.shade600,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        size: 18,
+                      ),
+                      label: Text(
+                        'Eliminar',
+                        style: TextStyle(
+                          color: Colors.red.shade600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     ),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ],
@@ -1556,12 +1563,11 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                     child: DataTable(
                       columnSpacing: 12,
                       headingRowHeight: 36,
-                      headingRowColor: MaterialStateProperty.all(
+                      headingRowColor: WidgetStateProperty.all(
                         Colors.green.shade50,
                       ),
                       columns: [
                         _buildDataColumn('#', verde),
-                        _buildDataColumn('Contrato', verde),
                         _buildDataColumn('Item', verde),
                         _buildDataColumn('Descripción', verde),
                         _buildDataColumn('Cant. Contratada', verde),
@@ -1583,26 +1589,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                               Text(
                                 '${index + 1}',
                                 style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            DataCell(
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: verde.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  _contratoSeleccionado?.toString() ?? '-',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: verde,
-                                  ),
-                                ),
                               ),
                             ),
                             DataCell(
@@ -1681,11 +1667,13 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                                           value,
                                         ),
                                     validator: (value) {
-                                      if (value == null || value.isEmpty)
+                                      if (value == null || value.isEmpty) {
                                         return null;
+                                      }
                                       final cantidad = double.tryParse(value);
-                                      if (cantidad == null || cantidad < 0)
+                                      if (cantidad == null || cantidad < 0) {
                                         return 'Inválido';
+                                      }
                                       return null;
                                     },
                                   ),
@@ -1815,7 +1803,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: _anioSeleccionado,
+                initialValue: _anioSeleccionado,
                 hint: const Text('Seleccione año contrato *'),
                 isExpanded: true,
                 items: _aniosDisponibles
@@ -1835,6 +1823,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                           _contratosDisponibles = [];
                           _itemsContrato = [];
                           _detallesIngreso = [];
+                          _objetoContratoController.clear();
                         });
                         if (newValue != null) _cargarContratosPorAnio(newValue);
                       },
@@ -1845,7 +1834,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
             const SizedBox(width: 14),
             Expanded(
               child: DropdownButtonFormField<int>(
-                value: _contratoSeleccionado,
+                initialValue: _contratoSeleccionado,
                 hint: const Text('Seleccione Contrato *'),
                 isExpanded: true,
                 items: _contratosDisponibles
@@ -1863,6 +1852,21 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                           _contratoSeleccionado = newValue;
                           _itemsContrato = [];
                           _detallesIngreso = [];
+
+                          // ✅ AQUÍ ESTÁ LA MAGIA: Extrae el objeto del contrato seleccionado
+                          final contratoSeleccionado = _contratosDisponibles
+                              .firstWhere(
+                                (c) => c['id'] == newValue,
+                                orElse: () => {},
+                              );
+
+                          final objeto =
+                              contratoSeleccionado['objeto_contrato']
+                                  ?.toString() ??
+                              contratoSeleccionado['objeto']?.toString() ??
+                              'No especificado';
+
+                          _objetoContratoController.text = objeto;
                         });
                         if (newValue != null) _cargarItemsContrato(newValue);
                       },
@@ -1871,6 +1875,16 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 14),
+
+        // ✅ CAMPO: OBJETO DEL CONTRATO (Se llena automáticamente)
+        TextFormField(
+          controller: _objetoContratoController,
+          maxLines: 2,
+          decoration: _inputDeco('Objeto del Contrato', alignLabel: true),
+          style: const TextStyle(fontSize: 14),
+          readOnly: true,
         ),
         const SizedBox(height: 14),
 
@@ -2002,7 +2016,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.all(16),
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 800),
+                          constraints: const BoxConstraints(maxWidth: 1000),
                           child: Form(
                             key: _formKey,
                             child: Card(
@@ -2042,6 +2056,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     _numeroIngresoController.dispose();
     _fechaIngresoController.dispose();
     _observacionController.dispose();
+    _objetoContratoController.dispose();
     _searchController.dispose();
     super.dispose();
   }

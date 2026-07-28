@@ -22,7 +22,12 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
   final _valorTotalController = TextEditingController();
   final _fechaInicioController = TextEditingController();
   final _fechaFinController = TextEditingController();
+
   String _estadoSeleccionado = 'EN EJECUCIÓN';
+
+  // ✅ NUEVOS CAMPOS
+  String _tipoContrato = 'Contrato de obra';
+  String _modalidadSeleccion = 'Contratación directa';
 
   final List<Map<String, dynamic>> _items = [];
   final _itemCodigoController = TextEditingController();
@@ -59,7 +64,50 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     super.initState();
     _cargarContratos();
     _searchController.addListener(_filtrarContratos);
+
+    _valorTotalController.addListener(
+      () => _formatearMiles(_valorTotalController),
+    );
+    _itemValorUnitarioController.addListener(
+      () => _formatearMiles(_itemValorUnitarioController),
+    );
   }
+
+  void _formatearMiles(TextEditingController controller) {
+    if (_formateando) return;
+    final texto = controller.text;
+    if (texto.isEmpty) return;
+
+    final soloNumeros = texto.replaceAll('.', '');
+    if (soloNumeros.isEmpty || double.tryParse(soloNumeros) == null) return;
+
+    final numero = double.tryParse(soloNumeros) ?? 0;
+    final parteEntera = numero.truncate().toString();
+    final parteDecimal = numero.toString().contains('.')
+        ? numero.toString().split('.')[1]
+        : '';
+
+    String resultado = '';
+    int contador = 0;
+    for (int i = parteEntera.length - 1; i >= 0; i--) {
+      resultado = parteEntera[i] + resultado;
+      contador++;
+      if (contador % 3 == 0 && i != 0) {
+        resultado = '.$resultado';
+      }
+    }
+
+    if (parteDecimal.isNotEmpty) {
+      resultado += '.$parteDecimal';
+    }
+
+    _formateando = true;
+    controller.text = resultado;
+    controller.selection = TextSelection.collapsed(offset: resultado.length);
+    _formateando = false;
+  }
+
+  bool _formateando = false;
 
   void _filtrarContratos() {
     setState(() {
@@ -81,14 +129,11 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     });
   }
 
-  // ── FORMATEAR CON SEPARADORES DE MILES ──────────────────────
   String _formatearConPuntos(dynamic valor) {
     if (valor == null) return '0';
-
     final double numero = valor is double
         ? valor
         : double.tryParse(valor.toString()) ?? 0;
-
     final int entero = numero.round();
     final String numeroStr = entero.toString();
 
@@ -98,26 +143,24 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
       resultado = numeroStr[i] + resultado;
       contador++;
       if (contador % 3 == 0 && i != 0) {
-        resultado = '.' + resultado;
+        resultado = '.$resultado';
       }
     }
 
     if (numero != entero) {
       final decimales = numero.toString().split('.')[1];
-      if (decimales.isNotEmpty) {
-        resultado += '.$decimales';
-      }
+      if (decimales.isNotEmpty) resultado += '.$decimales';
     }
-
     return resultado;
   }
 
-  // ── VISTA PREVIA DEL CONTRATO ──────────────────────────────
   void _mostrarVistaPrevia(Map<String, dynamic> contrato) {
     final items = contrato['items'] as List? ?? [];
     final String numero = contrato['numero_contrato'] ?? 'N/A';
     final String proveedor = contrato['proveedor'] ?? 'N/A';
     final String objeto = contrato['objeto_contrato'] ?? 'N/A';
+    final String tipoContrato = contrato['tipo_contrato'] ?? 'N/A';
+    final String modalidad = contrato['modalidad_seleccion'] ?? 'N/A';
     final String fechaInicio = contrato['fecha_inicio'] ?? 'N/A';
     final String fechaFin = contrato['fecha_fin'] ?? 'N/A';
     final String estado = contrato['estado'] ?? 'N/A';
@@ -151,6 +194,8 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                 children: [
                   _buildInfoRow('Proveedor', proveedor),
                   _buildInfoRow('Número', numero),
+                  _buildInfoRow('Tipo Contrato', tipoContrato),
+                  _buildInfoRow('Modalidad', modalidad),
                   _buildInfoRow('Fecha Inicio', fechaInicio),
                   _buildInfoRow('Fecha Fin', fechaFin),
                   _buildInfoRow('Objetivo', objeto),
@@ -164,7 +209,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                     color: _getEstadoColor(estado),
                   ),
                   const Divider(height: 24),
-
                   const Text(
                     'Items del Contrato',
                     style: TextStyle(
@@ -191,7 +235,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                         child: DataTable(
                           columnSpacing: 12,
                           headingRowHeight: 36,
-                          headingRowColor: MaterialStateProperty.all(
+                          headingRowColor: WidgetStateProperty.all(
                             Colors.green.shade50,
                           ),
                           columns: const [
@@ -321,7 +365,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                     ),
 
                   const SizedBox(height: 16),
-
                   if (items.isNotEmpty) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -367,7 +410,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     );
   }
 
-  // ── CONSTRUIR FILA DE INFORMACIÓN ───────────────────────────
   Widget _buildInfoRow(String label, String value, {Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -375,7 +417,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 90,
+            width: 120,
             child: Text(
               label,
               style: TextStyle(
@@ -396,7 +438,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     );
   }
 
-  // ── AGREGAR ITEM ─────────────────────────────────────────────
   void _agregarItem() {
     if (_itemNombreController.text.isEmpty ||
         _itemCantidadController.text.isEmpty ||
@@ -407,9 +448,12 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
       );
       return;
     }
-    final double cant = double.tryParse(_itemCantidadController.text) ?? 0;
-    final double valor =
-        double.tryParse(_itemValorUnitarioController.text) ?? 0;
+
+    final cantidadTexto = _itemCantidadController.text.replaceAll('.', '');
+    final valorTexto = _itemValorUnitarioController.text.replaceAll('.', '');
+
+    final double cant = double.tryParse(cantidadTexto) ?? 0;
+    final double valor = double.tryParse(valorTexto) ?? 0;
 
     setState(() {
       _items.add({
@@ -436,7 +480,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
 
   void _eliminarItem(int index) => setState(() => _items.removeAt(index));
 
-  // ── REGISTRAR ───────────────────────────────────────────────
   Future<void> _registrarContrato() async {
     if (!_formKey.currentState!.validate()) return;
     if (_items.isEmpty) {
@@ -457,7 +500,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
         },
         body: jsonEncode(data),
       );
-
       final res = jsonDecode(response.body);
 
       if (response.statusCode == 201 && res['success'] == true) {
@@ -475,7 +517,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     }
   }
 
-  // ── EDITAR ──────────────────────────────────────────────────
   void _prepararEdicion(Map<String, dynamic> contrato) {
     _editandoId = contrato['id'] is int
         ? contrato['id']
@@ -484,10 +525,14 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     _proveedorController.text = contrato['proveedor'] ?? '';
     _numeroController.text = contrato['numero_contrato'] ?? '';
     _objetoController.text = contrato['objeto_contrato'] ?? '';
-    _valorTotalController.text = contrato['valor_total'].toString();
+    _valorTotalController.text = _formatearConPuntos(contrato['valor_total']);
     _fechaInicioController.text = contrato['fecha_inicio'] ?? '';
     _fechaFinController.text = contrato['fecha_fin'] ?? '';
+
     _estadoSeleccionado = contrato['estado'] ?? 'EN EJECUCIÓN';
+    _tipoContrato = contrato['tipo_contrato'] ?? 'Contrato de obra';
+    _modalidadSeleccion =
+        contrato['modalidad_seleccion'] ?? 'Contratación directa';
 
     _items.clear();
     final rawItems = contrato['items'] as List? ?? [];
@@ -528,7 +573,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
         },
         body: jsonEncode(data),
       );
-
       final res = jsonDecode(response.body);
 
       if (response.statusCode == 200 && res['success'] == true) {
@@ -546,7 +590,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     }
   }
 
-  // ── ELIMINAR ────────────────────────────────────────────────
   Future<void> _eliminarContrato(int id, String numero) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -573,7 +616,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     );
 
     if (confirmar != true) return;
-
     setState(() => _cargando = true);
 
     try {
@@ -597,7 +639,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     }
   }
 
-  // ── CARGAR ──────────────────────────────────────────────────
   Future<void> _cargarContratos() async {
     setState(() => _cargando = true);
     try {
@@ -618,28 +659,33 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     }
   }
 
-  // ── HELPERS ─────────────────────────────────────────────────
-  Map<String, dynamic> _buildPayload() => {
-    'numero_contrato': _numeroController.text.trim(),
-    'objeto_contrato': _objetoController.text.trim(),
-    'proveedor': _proveedorController.text.trim(),
-    'fecha_inicio': _fechaInicioController.text.trim(),
-    'fecha_fin': _fechaFinController.text.trim(),
-    'valor_total': double.tryParse(_valorTotalController.text.trim()) ?? 0,
-    'estado': _estadoSeleccionado,
-    'items': _items
-        .map(
-          (item) => {
-            'codigo': item['codigo'],
-            'nombre': item['nombre'],
-            'descripcion': item['descripcion'],
-            'unidad': item['unidad'],
-            'cantidad': item['cantidad'],
-            'valor_unitario': item['valor_unitario'],
-          },
-        )
-        .toList(),
-  };
+  Map<String, dynamic> _buildPayload() {
+    final valorTotalTexto = _valorTotalController.text.replaceAll('.', '');
+
+    return {
+      'numero_contrato': _numeroController.text.trim(),
+      'objeto_contrato': _objetoController.text.trim(),
+      'proveedor': _proveedorController.text.trim(),
+      'fecha_inicio': _fechaInicioController.text.trim(),
+      'fecha_fin': _fechaFinController.text.trim(),
+      'valor_total': double.tryParse(valorTotalTexto) ?? 0,
+      'estado': _estadoSeleccionado,
+      'tipo_contrato': _tipoContrato,
+      'modalidad_seleccion': _modalidadSeleccion,
+      'items': _items
+          .map(
+            (item) => {
+              'codigo': item['codigo'],
+              'nombre': item['nombre'],
+              'descripcion': item['descripcion'],
+              'unidad': item['unidad'],
+              'cantidad': item['cantidad'],
+              'valor_unitario': item['valor_unitario'],
+            },
+          )
+          .toList(),
+    };
+  }
 
   void _limpiarFormulario() {
     _proveedorController.clear();
@@ -650,7 +696,11 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     _fechaFinController.clear();
     _items.clear();
     _editandoId = null;
-    setState(() => _estadoSeleccionado = 'EN EJECUCIÓN');
+    setState(() {
+      _estadoSeleccionado = 'EN EJECUCIÓN';
+      _tipoContrato = 'Contrato de obra';
+      _modalidadSeleccion = 'Contratación directa';
+    });
   }
 
   void _snack(String msg, Color color) {
@@ -704,9 +754,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     super.dispose();
   }
 
-  // ════════════════════════════════════════════════════════════
-  // BUILD
-  // ════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     const Color verde = Color(0xFF2E7D32);
@@ -756,7 +803,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                   ),
                 ),
                 if (!modoEdicion)
-                  // ✅ BOTÓN CON TEXTO "VER LISTADO DE CONTRATOS"
                   SizedBox(
                     height: 36,
                     child: ElevatedButton.icon(
@@ -801,7 +847,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
               ],
             ),
           ),
-
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -817,7 +862,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.all(16),
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 700),
+                          constraints: const BoxConstraints(maxWidth: 1000),
                           child: Form(
                             key: _formKey,
                             child: Card(
@@ -886,7 +931,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     );
   }
 
-  // ── SECCIÓN DATOS ───────────────────────────────────────────
   Widget _buildSeccionDatos(Color verde) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -907,7 +951,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
         ),
         const Divider(height: 20, thickness: 1),
         const SizedBox(height: 8),
-
         Row(
           children: [
             Expanded(
@@ -935,7 +978,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
           ],
         ),
         const SizedBox(height: 14),
-
         Row(
           children: [
             Expanded(
@@ -963,17 +1005,73 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
 
+        // ✅ NUEVOS CAMPOS ANTES DE OBJETO
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _tipoContrato,
+                decoration: _deco('Tipo de Contrato *'),
+                isDense: true,
+                items:
+                    const [
+                          'Contrato de obra',
+                          'Contrato de prestación de servicios',
+                          'Contrato de consultoría',
+                          'Contrato de suministro',
+                          'Contrato de interventoría',
+                          'Contrato de compraventa',
+                          'Contrato de arrendamiento',
+                        ]
+                        .map(
+                          (String value) => DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          ),
+                        )
+                        .toList(),
+                onChanged: (val) => setState(() => _tipoContrato = val!),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _modalidadSeleccion,
+                decoration: _deco('Modalidad de Selección *'),
+                isDense: true,
+                items:
+                    const [
+                          'Mínima Cuantía',
+                          'Menor Cuantía',
+                          'Contratación directa',
+                          'Licitación pública',
+                          'Subasta Inversa',
+                          'Concurso de méritos',
+                        ]
+                        .map(
+                          (String value) => DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          ),
+                        )
+                        .toList(),
+                onChanged: (val) => setState(() => _modalidadSeleccion = val!),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 14),
         TextFormField(
           controller: _objetoController,
           maxLines: 2,
-          decoration: _deco('Objetivo del Contrato *', alignLabel: true),
+          decoration: _deco('Objeto del Contrato *', alignLabel: true),
           validator: (v) =>
               (v == null || v.trim().isEmpty) ? 'Ingrese el objeto' : null,
         ),
         const SizedBox(height: 14),
-
         Row(
           children: [
             Expanded(
@@ -981,9 +1079,13 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                 controller: _valorTotalController,
                 decoration: _deco('Valor Total *', prefix: '\$ '),
                 keyboardType: TextInputType.number,
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Ingrese el valor total'
-                    : null,
+                validator: (v) {
+                  final valorLimpio = (v ?? '').replaceAll('.', '');
+                  return (valorLimpio.isEmpty ||
+                          double.tryParse(valorLimpio) == null)
+                      ? 'Ingrese el valor total'
+                      : null;
+                },
               ),
             ),
             const SizedBox(width: 14),
@@ -1034,7 +1136,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     );
   }
 
-  // ── SECCIÓN ITEMS ───────────────────────────────────────────
   Widget _buildSeccionItems(Color verde) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1071,7 +1172,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
         ),
         const Divider(height: 20, thickness: 1),
         const SizedBox(height: 8),
-
         _items.isEmpty
             ? Container(
                 padding: const EdgeInsets.all(20),
@@ -1105,7 +1205,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                     columnSpacing: 10,
                     headingRowHeight: 36,
                     dataRowMinHeight: 38,
-                    headingRowColor: MaterialStateProperty.all(
+                    headingRowColor: WidgetStateProperty.all(
                       Colors.green.shade50,
                     ),
                     columns:
@@ -1209,7 +1309,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                 ),
               ),
         const SizedBox(height: 12),
-
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -1239,7 +1338,47 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                 children: [
                   Expanded(
                     flex: 1,
-                    child: _itemField(_itemCodigoController, 'Código'),
+                    child: TextFormField(
+                      controller: _itemCodigoController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(fontSize: 13),
+                      decoration: InputDecoration(
+                        labelText: 'Código',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
+                        ),
+                        isDense: true,
+                        errorStyle: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.orange,
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return null;
+                        if (!RegExp(r'^\d+$').hasMatch(value)) {
+                          return 'solo caracteres numéricos';
+                        }
+                        return null;
+                      },
+                      onChanged: (value) {
+                        final soloNumeros = value.replaceAll(
+                          RegExp(r'[^\d]'),
+                          '',
+                        );
+                        if (soloNumeros != value) {
+                          _itemCodigoController.text = soloNumeros;
+                          _itemCodigoController.selection =
+                              TextSelection.collapsed(
+                                offset: soloNumeros.length,
+                              );
+                          _snack('solo caracteres numéricos', Colors.orange);
+                        }
+                      },
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -1277,10 +1416,21 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: _itemField(
-                      _itemValorUnitarioController,
-                      'Valor Unitario *',
-                      kb: TextInputType.number,
+                    child: TextFormField(
+                      controller: _itemValorUnitarioController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(fontSize: 13),
+                      decoration: InputDecoration(
+                        labelText: 'Valor Unitario *',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
+                        ),
+                        isDense: true,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -1314,7 +1464,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     );
   }
 
-  // ── BOTONES ─────────────────────────────────────────────────
   Widget _buildBotones(Color verde, bool modoEdicion) {
     return Column(
       children: [
@@ -1355,7 +1504,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     );
   }
 
-  // ── LISTA DE CONTRATOS CON BÚSQUEDA ────────────────────────
   Widget _buildListaContratos(Color verde) {
     final listaMostrar = _searchQuery.isEmpty
         ? _contratos
@@ -1415,7 +1563,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: '🔍 Buscar por proveedor o codigo de contrato',
+                hintText: ' Buscar por proveedor o codigo de contrato',
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -1444,7 +1592,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
               onChanged: (_) => _filtrarContratos(),
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
@@ -1470,7 +1617,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
               ],
             ),
           ),
-
           ...listaMostrar.map((contrato) {
             final estado = contrato['estado'] ?? '';
             final items = contrato['items'] as List? ?? [];
@@ -1631,7 +1777,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     );
   }
 
-  // ── DECORACIONES ────────────────────────────────────────────
   InputDecoration _deco(
     String label, {
     String? hint,

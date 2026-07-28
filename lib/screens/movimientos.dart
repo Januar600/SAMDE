@@ -27,7 +27,7 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
   List<Map<String, dynamic>> _movimientosFiltrados = [];
   bool _cargando = false;
 
-  // ✅ CORREGIDO: Se mantienen como int, pero el cálculo ahora está bien escrito
+  // Totales que vendrán directamente de la API
   int _totalIngresos = 0;
   int _totalEgresos = 0;
   int _totalEntregas = 0;
@@ -37,7 +37,7 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args = ModalRoute.of(context)!.settings.arguments;
+    final args = ModalRoute.of(context)?.settings.arguments;
     final map = (args is Map<String, dynamic>) ? args : <String, dynamic>{};
     username = map['username'] ?? 'Usuario';
     sector = map['sector'] ?? 'No Asignado';
@@ -50,13 +50,19 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
     _cargarMovimientos();
   }
 
+  // ✅ NUEVA FUNCIÓN: Limpia el tipo de movimiento quitando números al final (ej: "EGRESO 1" -> "EGRESO")
+  String _limpiarTipoMovimiento(String? tipo) {
+    if (tipo == null) return '';
+    return tipo.replaceAll(RegExp(r'\s*\d+$'), '').trim();
+  }
+
   Future<void> _cargarMovimientos() async {
     setState(() => _cargando = true);
 
     try {
       String url = '$_baseUrl/movimientos/listar_movimientos.php';
-
       final params = <String, String>{};
+
       if (_fechaInicioController.text.isNotEmpty) {
         params['fecha_inicio'] = _fechaInicioController.text;
       }
@@ -91,7 +97,10 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
         setState(() {
           _movimientos = List<Map<String, dynamic>>.from(data['data'] ?? []);
           _movimientosFiltrados = List.from(_movimientos);
-          _calcularTotales();
+
+          _totalIngresos = data['total_ingresos'] ?? 0;
+          _totalEgresos = data['total_egresos'] ?? 0;
+          _totalEntregas = data['total_entregas'] ?? 0;
         });
       } else {
         _mostrarMensaje('Error al cargar movimientos', Colors.red);
@@ -103,26 +112,20 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
     }
   }
 
-  // ✅ CORREGIDO: El .toInt() ahora está ANTES del punto y coma
-  void _calcularTotales() {
-    _totalIngresos = _movimientos
-        .where((m) => m['tipo_movimiento'] == 'INGRESO')
-        .length;
-
-    _totalEgresos = _movimientos
-        .where((m) => m['tipo_movimiento'] == 'EGRESO')
-        .length;
-
-    _totalEntregas = _movimientos
-        .where((m) => m['tipo_movimiento'] == 'ENTREGA')
-        .length;
-  }
-
-  double _toDouble(dynamic v) {
-    if (v == null) return 0.0;
-    if (v is double) return v;
-    if (v is int) return v.toDouble();
-    return double.tryParse(v.toString()) ?? 0.0;
+  void _aplicarFiltros() {
+    setState(() {
+      if (_tipoMovimientoSeleccionado == null) {
+        _movimientosFiltrados = List.from(_movimientos);
+      } else {
+        _movimientosFiltrados = _movimientos
+            .where(
+              (m) =>
+                  _limpiarTipoMovimiento(m['tipo_movimiento']) ==
+                  _tipoMovimientoSeleccionado,
+            )
+            .toList();
+      }
+    });
   }
 
   void _mostrarMensaje(String mensaje, Color color) {
@@ -191,9 +194,10 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
     );
   }
 
-  // ✅ CORREGIDO: Se eliminó 'DEVOLUCION'
+  // ✅ ACTUALIZADO: Usa la función de limpieza para determinar el color
   Color _getColorTipoMovimiento(String tipo) {
-    switch (tipo) {
+    final tipoLimpio = _limpiarTipoMovimiento(tipo).toUpperCase();
+    switch (tipoLimpio) {
       case 'INGRESO':
         return Colors.green;
       case 'EGRESO':
@@ -207,9 +211,10 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
     }
   }
 
-  // ✅ CORREGIDO: Se eliminó 'DEVOLUCION'
+  // ✅ ACTUALIZADO: Usa la función de limpieza para determinar el ícono
   IconData _getIconoTipoMovimiento(String tipo) {
-    switch (tipo) {
+    final tipoLimpio = _limpiarTipoMovimiento(tipo).toUpperCase();
+    switch (tipoLimpio) {
       case 'INGRESO':
         return Icons.add_circle;
       case 'EGRESO':
@@ -273,7 +278,6 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
               ],
             ),
           ),
-
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -323,17 +327,15 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: _buildTarjetaResumen(
-                            'Total Movimientos',
-                            _movimientos.length,
+                            'Total General',
+                            _totalIngresos + _totalEgresos + _totalEntregas,
                             Icons.inventory,
                             Colors.purple,
                           ),
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 20),
-
                     Card(
                       elevation: 2,
                       child: Padding(
@@ -402,14 +404,13 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
                               children: [
                                 Expanded(
                                   child: DropdownButtonFormField<String>(
-                                    value: _tipoMovimientoSeleccionado,
+                                    initialValue: _tipoMovimientoSeleccionado,
                                     hint: const Text('Tipo de Movimiento'),
                                     decoration: InputDecoration(
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
-                                    // ✅ CORREGIDO: Se eliminó 'DEVOLUCION' de la lista
                                     items:
                                         [
                                           'INGRESO',
@@ -425,6 +426,7 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
                                     onChanged: (value) {
                                       setState(() {
                                         _tipoMovimientoSeleccionado = value;
+                                        _aplicarFiltros();
                                       });
                                     },
                                   ),
@@ -465,9 +467,7 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 20),
-
                     Card(
                       elevation: 2,
                       child: Padding(
@@ -489,7 +489,7 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
                                 ),
                                 const Spacer(),
                                 Text(
-                                  'Total: ${_movimientosFiltrados.length}',
+                                  'Filas: ${_movimientosFiltrados.length}',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: Colors.grey.shade600,
@@ -519,10 +519,9 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
                                     scrollDirection: Axis.horizontal,
                                     child: DataTable(
                                       columnSpacing: 12,
-                                      headingRowColor:
-                                          MaterialStateProperty.all(
-                                            Colors.green.shade50,
-                                          ),
+                                      headingRowColor: WidgetStateProperty.all(
+                                        Colors.green.shade50,
+                                      ),
                                       columns: [
                                         DataColumn(
                                           label: Text(
@@ -598,6 +597,12 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
                                         ),
                                       ],
                                       rows: _movimientosFiltrados.map((mov) {
+                                        // ✅ Usamos la función de limpieza aquí
+                                        final tipoLimpio =
+                                            _limpiarTipoMovimiento(
+                                              mov['tipo_movimiento'],
+                                            );
+
                                         return DataRow(
                                           cells: [
                                             DataCell(
@@ -641,18 +646,17 @@ class _HistorialMovimientosPageState extends State<HistorialMovimientosPage> {
                                                 children: [
                                                   Icon(
                                                     _getIconoTipoMovimiento(
-                                                      mov['tipo_movimiento'],
+                                                      tipoLimpio,
                                                     ),
                                                     color:
                                                         _getColorTipoMovimiento(
-                                                          mov['tipo_movimiento'],
+                                                          tipoLimpio,
                                                         ),
                                                     size: 16,
                                                   ),
                                                   const SizedBox(width: 4),
                                                   Text(
-                                                    mov['tipo_movimiento'] ??
-                                                        '',
+                                                    tipoLimpio, // ✅ AQUÍ SE MUESTRA SIN EL NÚMERO
                                                   ),
                                                 ],
                                               ),
