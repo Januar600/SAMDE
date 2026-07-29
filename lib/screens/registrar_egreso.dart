@@ -1366,6 +1366,16 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                   ),
                   DataColumn(
                     label: Text(
+                      'Cant. Contratada',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: verde,
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Text(
                       'Cant. Ingresada',
                       style: TextStyle(
                         fontSize: 12,
@@ -1374,6 +1384,18 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                       ),
                     ),
                   ),
+                  // ✅ NUEVA COLUMNA: Cant. Egresada (SOLO en modo REGISTRO)
+                  if (!_modoEdicion)
+                    DataColumn(
+                      label: Text(
+                        'Cant. Egresada (base)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: verde,
+                        ),
+                      ),
+                    ),
                   if (_modoEdicion)
                     DataColumn(
                       label: Text(
@@ -1410,8 +1432,11 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                   final i = entry.key;
                   final detalle = entry.value;
 
+                  final contratada = _toDouble(detalle['cantidad_contratada']);
                   final ingresada = _toDouble(detalle['total_ingresado']);
-                  final baseEgresada = _toDouble(detalle['cantidad_egresada']);
+                  final baseEgresada = _modoEdicion
+                      ? _toDouble(detalle['cantidad_egresada'])
+                      : _toDouble(detalle['total_egresado']);
                   final adicional = _toDouble(detalle['cantidad_adicional']);
                   final stock = _toDouble(detalle['stock_disponible']);
 
@@ -1441,6 +1466,27 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
+                            color: Colors.purple.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.purple.shade200),
+                          ),
+                          child: Text(
+                            _formatearNumero(contratada),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.purple.shade700,
+                            ),
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
                             color: Colors.blue.shade50,
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(color: Colors.blue.shade200),
@@ -1455,7 +1501,8 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                           ),
                         ),
                       ),
-                      if (_modoEdicion)
+                      // ✅ NUEVO: Cant. Egresada (SOLO en modo REGISTRO)
+                      if (!_modoEdicion)
                         DataCell(
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -1466,6 +1513,28 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                               color: Colors.orange.shade50,
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(color: Colors.orange.shade200),
+                            ),
+                            child: Text(
+                              _formatearNumero(baseEgresada),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange.shade700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (_modoEdicion)
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade100,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.orange.shade300),
                             ),
                             child: Text(
                               _formatearNumero(baseEgresada),
@@ -1734,15 +1803,15 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: verde.withOpacity(0.1),
+                              color: Colors.green.shade100,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              egreso['numero_egreso'] ?? 'N/A',
+                              'Contrato: ${egreso['numero_contrato'] ?? 'N/A'}',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: verde,
+                                color: Colors.green.shade700,
                               ),
                             ),
                           ),

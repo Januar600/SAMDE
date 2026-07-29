@@ -198,7 +198,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                   _buildInfoRow('Modalidad', modalidad),
                   _buildInfoRow('Fecha Inicio', fechaInicio),
                   _buildInfoRow('Fecha Fin', fechaFin),
-                  _buildInfoRow('Objetivo', objeto),
+                  _buildInfoRow('Objeto del Contrato', objeto),
                   _buildInfoRow(
                     'Valor Total',
                     '\$${_formatearConPuntos(valorTotal)}',

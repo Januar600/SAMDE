@@ -70,12 +70,13 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
 
   List<Map<String, dynamic>> _todosItemsDisponibles = [];
   List<TextEditingController> _cantidadControllers = [];
+  List<TextEditingController> _cantidadAdicionalControllers = [];
   PlatformFile? _archivoSeleccionado;
+  String? _archivoExistenteRuta;
 
   bool _cargando = false;
   bool _mostrandoLista = false;
 
-  // ✅ VARIABLES PARA EDICIÓN
   bool _modoEdicion = false;
   int? _actaEditandoId;
 
@@ -85,6 +86,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
   List<Map<String, dynamic>> _actasFiltradas = [];
 
   List<bool> _erroresCantidad = [];
+  Map<int, double> _cantidadesOriginales = {};
 
   static const String _baseUrl = 'http://localhost/samde_db/api';
 
@@ -94,13 +96,9 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     final args = ModalRoute.of(context)?.settings.arguments;
     final map = (args is Map<String, dynamic>) ? args : <String, dynamic>{};
 
-    print('🔍 ARGUMENTOS RECIBIDOS: $args');
-
-    // ✅ CORRECCIÓN: Si viene 1 o null, forzamos 2 (januar) para que funcione
     final idRecibido = map['usuario_id'];
     if (idRecibido == null || idRecibido == 1) {
       usuarioId = 2;
-      print('⚠️ ID inválido o nulo detectado. Forzando usuarioId = 2');
     } else {
       usuarioId = idRecibido;
     }
@@ -108,8 +106,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     username = map['username'] ?? 'Usuario';
     sector = map['sector'] ?? 'No Asignado';
     rol = map['rol'] ?? 'consulta';
-
-    print('✅ usuarioId FINAL que se usará: $usuarioId');
   }
 
   @override
@@ -181,7 +177,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     if (f != null) _fechaController.text = f.toIso8601String().substring(0, 10);
   }
 
-  Future<void> _cargarItemsDisponibles() async {
+  Future<bool> _cargarItemsDisponibles() async {
     setState(() => _cargando = true);
     try {
       final r = await http
@@ -199,9 +195,12 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
           );
         });
         _inicializarControllers();
+        return true;
       }
+      return false;
     } catch (e) {
-      _snack('Error: $e', Colors.red);
+      debugPrint('Error cargando items: $e');
+      return false;
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
@@ -211,7 +210,13 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     for (final c in _cantidadControllers) {
       c.dispose();
     }
+    for (final c in _cantidadAdicionalControllers) {
+      c.dispose();
+    }
     _cantidadControllers = _todosItemsDisponibles
+        .map((_) => TextEditingController())
+        .toList();
+    _cantidadAdicionalControllers = _todosItemsDisponibles
         .map((_) => TextEditingController())
         .toList();
   }
@@ -237,7 +242,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     }
   }
 
-  // ✅ FUNCIÓN PARA CARGAR DATOS DEL ACTA A EDITAR
   Future<void> _cargarActaParaEditar(int actaId) async {
     setState(() => _cargando = true);
     try {
@@ -264,38 +268,69 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
           _nombreEntregoSeleccionado = actaData['nombre_entrego'];
           _cargoSeleccionado = actaData['cargo_entrego'];
           _observacionesCtrl.text = actaData['observaciones'] ?? '';
+          _archivoExistenteRuta = actaData['archivo_justificante'];
+          _archivoSeleccionado = null;
+          _cantidadesOriginales = {};
         });
 
-        // Recargar items disponibles y luego mapear las cantidades
-        await _cargarItemsDisponibles();
+        final bool exitoCarga = await _cargarItemsDisponibles();
 
-        // Asignar cantidades a los controllers
-        for (var detalle in detalles) {
-          final itemId = detalle['id_item'] ?? detalle['item_contrato_id'];
-          final index = _todosItemsDisponibles.indexWhere(
-            (item) =>
-                item['id'] == itemId || item['id_item_contrato'] == itemId,
-          );
-          if (index != -1) {
-            _cantidadControllers[index].text = _formatNum(
-              detalle['cantidad_entregada'],
-            );
-            _validarCantidad(index, _cantidadControllers[index].text);
+        if (!exitoCarga || !mounted) {
+          _snack('❌ No se pudieron cargar los items para editar', Colors.red);
+          return;
+        }
+
+        final Map<int, double> cantidadesPorItem = {};
+        for (final d in detalles) {
+          final idStr =
+              d['item_contrato_id']?.toString() ??
+              d['id_item']?.toString() ??
+              '0';
+          final id = int.tryParse(idStr) ?? 0;
+          final cantidad =
+              double.tryParse(d['cantidad_entregada'].toString()) ?? 0.0;
+          if (id > 0 && cantidad > 0) {
+            cantidadesPorItem[id] = cantidad;
           }
         }
 
-        setState(() => _mostrandoLista = false);
+        setState(() {
+          if (_cantidadControllers.length != _todosItemsDisponibles.length) {
+            _inicializarControllers();
+          }
+
+          // ✅ En modo edición: Cant. a Entregar = cantidad original, Cant. Adicional = 0
+          for (int i = 0; i < _todosItemsDisponibles.length; i++) {
+            final itemId =
+                int.tryParse(
+                  _todosItemsDisponibles[i]['id']?.toString() ?? '0',
+                ) ??
+                0;
+            if (cantidadesPorItem.containsKey(itemId)) {
+              final cantOriginal = cantidadesPorItem[itemId]!;
+              _cantidadesOriginales[itemId] = cantOriginal;
+              _cantidadControllers[i].text = _formatNum(
+                cantOriginal,
+              ); // ✅ Cant. a Entregar = original
+              _cantidadAdicionalControllers[i].text =
+                  '0'; // ✅ Cant. Adicional = 0
+            } else {
+              _cantidadControllers[i].text = '';
+              _cantidadAdicionalControllers[i].text = '';
+            }
+          }
+          _mostrandoLista = false;
+        });
       } else {
-        _snack('❌ ${data['message'] ?? 'Error al cargar acta'}', Colors.red);
+        _snack(' ${data['message'] ?? 'Error al cargar acta'}', Colors.red);
       }
     } catch (e) {
-      _snack('❌ Error de conexión: $e', Colors.red);
+      _snack(' Error de conexión: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
   }
 
-  // ✅ FUNCIÓN PARA ELIMINAR ACTA
   Future<void> _eliminarActa(int actaId, String numeroActa) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -341,7 +376,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         _snack('❌ ${data['message'] ?? 'Error al eliminar'}', Colors.red);
       }
     } catch (e) {
-      _snack('❌ Error: $e', Colors.red);
+      _snack(' Error: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
@@ -355,7 +390,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     }
     if (_erroresCantidad.contains(true)) {
       _snack(
-        '⚠️ Hay items con cantidad superior al stock disponible',
+        '️ Hay items con cantidad superior al stock disponible',
         Colors.red,
       );
       return;
@@ -392,6 +427,45 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       return;
     }
 
+    bool cancelado = false;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          title: const Text('Guardando Acta...'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text('Subiendo archivo y registrando datos'),
+              const SizedBox(height: 8),
+              Text(
+                'Archivo: ${_archivoSeleccionado!.name}',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                cancelado = true;
+                Navigator.pop(ctx);
+              },
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
     setState(() => _cargando = true);
     try {
       final request = http.MultipartRequest(
@@ -408,10 +482,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
           _nombreEntregoSeleccionado?.trim() ?? '';
       request.fields['cargo_entrego'] = _cargoSeleccionado?.trim() ?? '';
       request.fields['observaciones'] = _observacionesCtrl.text.trim();
-
-      // ✅ CORRECCIÓN CRÍTICA: Forzamos el string '2' para garantizar que el PHP lo acepte
       request.fields['usuario_registro'] = '2';
-
       request.fields['detalles'] = jsonEncode(itemsConCantidad);
 
       if (_archivoSeleccionado != null && _archivoSeleccionado!.bytes != null) {
@@ -424,15 +495,22 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         );
       }
 
-      print(
-        '📤 Enviando usuario_registro como: ${request.fields['usuario_registro']}',
+      final streamed = await request.send().timeout(
+        const Duration(seconds: 60),
+        onTimeout: () {
+          throw Exception(
+            'Tiempo de espera agotado (60s). El archivo puede ser muy grande.',
+          );
+        },
       );
 
-      final streamed = await request.send().timeout(
-        const Duration(seconds: 30),
-      );
+      if (cancelado) return;
+
       final body = await streamed.stream.bytesToString();
       final data = jsonDecode(body);
+
+      if (!mounted) return;
+      Navigator.pop(context);
 
       if (streamed.statusCode == 201 && data['success'] == true) {
         _limpiarFormulario();
@@ -443,14 +521,11 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         _guardarEstado(true);
       } else {
         final mensaje = data['message'] ?? 'Error';
-        final debug = data['debug'] ?? '';
-        print('❌ ERROR DETALLADO: $mensaje | $debug');
-
         if (mensaje.contains('Stock insuficiente')) {
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('⚠️ Stock Actualizado'),
+              title: const Text('️ Stock Actualizado'),
               content: Text(mensaje),
               actions: [
                 TextButton(
@@ -474,18 +549,20 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         }
       }
     } catch (e) {
-      _snack('Error: $e', Colors.red);
+      if (!mounted) return;
+      Navigator.pop(context);
+      _snack('❌ Error: $e', Colors.red);
+      debugPrint('Error detallado: $e');
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
   }
 
-  // ✅ FUNCIÓN PARA ACTUALIZAR ACTA
   Future<void> _actualizarActa() async {
     if (!_formKey.currentState!.validate()) return;
     if (_erroresCantidad.contains(true)) {
       _snack(
-        '️ Hay items con cantidad superior al stock disponible',
+        '⚠️ Hay items con cantidad adicional superior al stock disponible',
         Colors.red,
       );
       return;
@@ -493,13 +570,31 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
 
     final itemsConCantidad = <Map<String, dynamic>>[];
     for (int i = 0; i < _todosItemsDisponibles.length; i++) {
-      final cantidad = _toDouble(_cantidadControllers[i].text);
-      if (cantidad > 0) {
+      final itemId =
+          int.tryParse(_todosItemsDisponibles[i]['id']?.toString() ?? '0') ?? 0;
+
+      final cantidadEntregar = _toDouble(_cantidadControllers[i].text);
+      final cantidadAdicional = _toDouble(
+        _cantidadAdicionalControllers[i].text,
+      );
+      final cantidadTotal = cantidadEntregar + cantidadAdicional;
+
+      // ✅ AGREGA ESTOS PRINTS
+      print('📦 Item: ${_todosItemsDisponibles[i]['nombre_items']}');
+      print('   Cant. a Entregar: "$cantidadEntregar"');
+      print('   Cant. Adicional: "$cantidadAdicional"');
+      print('   Total: $cantidadTotal');
+      print('   Controller texto: "${_cantidadControllers[i].text}"');
+      print(
+        '   Adicional Controller texto: "${_cantidadAdicionalControllers[i].text}"',
+      );
+
+      if (cantidadTotal > 0) {
         final item = _todosItemsDisponibles[i];
         itemsConCantidad.add({
           'id_item': item['id'] ?? 0,
           'id_egreso': item['id_egreso'] ?? 0,
-          'cantidad_entregada': cantidad,
+          'cantidad_entregada': cantidadTotal,
           'nombre_item': item['nombre_items'],
           'precio_unitario': _toDouble(
             item['precio_unitario'] ?? item['valor_unitario'],
@@ -508,36 +603,93 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       }
     }
 
+    print('\n📤 Total items a enviar: ${itemsConCantidad.length}');
+    print('📋 JSON completo: ${jsonEncode(itemsConCantidad)}\n');
+
     if (itemsConCantidad.isEmpty) {
       _snack('Ingrese al menos un item', Colors.orange);
       return;
     }
 
+    bool cancelado = false;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          title: const Text('Actualizando Acta...'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text('Procesando cambios'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                cancelado = true;
+                Navigator.pop(ctx);
+              },
+              child: const Text(
+                'Cancelar',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
     setState(() => _cargando = true);
     try {
-      final response = await http
-          .post(
-            Uri.parse('$_baseUrl/actas/actualizar_acta.php'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'id': _actaEditandoId,
-              'numero_acta': _numeroActaController.text.trim(),
-              'fecha_entrega': _fechaController.text.trim(),
-              'entregado_a': _entregadoAController.text.trim(),
-              'area_dependencia': _areaSeleccionada?.trim() ?? '',
-              'documento_identidad': _docIdentController.text.trim(),
-              'telefono': _telefonoController.text.trim(),
-              'nombre_entrego': _nombreEntregoSeleccionado?.trim() ?? '',
-              'cargo_entrego': _cargoSeleccionado?.trim() ?? '',
-              'observaciones': _observacionesCtrl.text.trim(),
-              'usuario_registro': 2, // ✅ CORRECCIÓN CRÍTICA: Forzamos 2
-              'detalles': itemsConCantidad,
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$_baseUrl/actas/actualizar_acta.php'),
+      );
 
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 200 && data['success'] == true) {
+      request.fields['id'] = _actaEditandoId.toString();
+      request.fields['numero_acta'] = _numeroActaController.text.trim();
+      request.fields['fecha_entrega'] = _fechaController.text.trim();
+      request.fields['entregado_a'] = _entregadoAController.text.trim();
+      request.fields['area_dependencia'] = _areaSeleccionada?.trim() ?? '';
+      request.fields['documento_identidad'] = _docIdentController.text.trim();
+      request.fields['telefono'] = _telefonoController.text.trim();
+      request.fields['nombre_entrego'] =
+          _nombreEntregoSeleccionado?.trim() ?? '';
+      request.fields['cargo_entrego'] = _cargoSeleccionado?.trim() ?? '';
+      request.fields['observaciones'] = _observacionesCtrl.text.trim();
+      request.fields['usuario_registro'] = '2';
+      request.fields['detalles'] = jsonEncode(itemsConCantidad);
+
+      if (_archivoSeleccionado != null && _archivoSeleccionado!.bytes != null) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'archivo',
+            _archivoSeleccionado!.bytes!,
+            filename: _archivoSeleccionado!.name,
+          ),
+        );
+      }
+
+      final streamed = await request.send().timeout(
+        const Duration(seconds: 60),
+        onTimeout: () {
+          throw Exception('Tiempo de espera agotado (60s).');
+        },
+      );
+
+      if (cancelado) return;
+
+      final body = await streamed.stream.bytesToString();
+      final data = jsonDecode(body);
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      if (streamed.statusCode == 200 && data['success'] == true) {
         _limpiarFormulario();
         _snack('✅ Acta actualizada', Colors.green);
         await _cargarItemsDisponibles();
@@ -547,7 +699,9 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         _snack('❌ ${data['message'] ?? 'Error al actualizar'}', Colors.red);
       }
     } catch (e) {
-      _snack('Error: $e', Colors.red);
+      if (!mounted) return;
+      Navigator.pop(context);
+      _snack('❌ Error: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
@@ -597,6 +751,9 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       _nombreEntregoSeleccionado = null;
       _modoEdicion = false;
       _actaEditandoId = null;
+      _archivoExistenteRuta = null;
+      _archivoSeleccionado = null;
+      _cantidadesOriginales = {};
     });
     _docIdentController.clear();
     _telefonoController.clear();
@@ -604,9 +761,12 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     for (final c in _cantidadControllers) {
       c.dispose();
     }
+    for (final c in _cantidadAdicionalControllers) {
+      c.dispose();
+    }
     _cantidadControllers = [];
+    _cantidadAdicionalControllers = [];
     _erroresCantidad = [];
-    setState(() => _archivoSeleccionado = null);
   }
 
   @override
@@ -659,19 +819,68 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                     ),
                   ),
                 ),
-                if (!_modoEdicion)
-                  IconButton(
-                    icon: Icon(
-                      _mostrandoLista ? Icons.add : Icons.list,
-                      color: verde,
-                      size: 28,
+                // ✅ Botón Ver Listado (solo en formulario)
+                if (!_mostrandoLista && !_modoEdicion)
+                  SizedBox(
+                    height: 36,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() => _mostrandoLista = true);
+                        _guardarEstado(true);
+                        _cargarActas();
+                      },
+                      icon: const Icon(
+                        Icons.list,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Ver Listado',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
                     ),
-                    onPressed: () {
-                      setState(() => _mostrandoLista = !_mostrandoLista);
-                      _guardarEstado(_mostrandoLista);
-                      if (_mostrandoLista) _cargarActas();
-                    },
-                    tooltip: _mostrandoLista ? 'Nueva acta' : 'Ver listado',
+                  ),
+                // ✅ Botón Nuevo (solo en lista)
+                if (_mostrandoLista)
+                  SizedBox(
+                    height: 36,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() => _mostrandoLista = false);
+                        _guardarEstado(false);
+                      },
+                      icon: const Icon(
+                        Icons.add,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Nuevo',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: verde,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
                   ),
                 if (_modoEdicion)
                   IconButton(
@@ -798,7 +1007,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _nombreEntregoSeleccionado,
+                            initialValue: _nombreEntregoSeleccionado,
                             decoration: _deco(
                               'Nombre quien entregó',
                               obligatorio: true,
@@ -831,7 +1040,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _areaSeleccionada,
+                            initialValue: _areaSeleccionada,
                             decoration: _deco(
                               'Área / Dependencia',
                               obligatorio: true,
@@ -855,7 +1064,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _cargoSeleccionado,
+                            initialValue: _cargoSeleccionado,
                             decoration: _deco('Cargo'),
                             hint: const Text('Seleccione un cargo'),
                             items: _cargosDisponibles
@@ -925,6 +1134,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                       ],
                     ),
                     const Divider(height: 32),
+                    // ✅ SECCIÓN DE ARCHIVO MEJORADA
                     InkWell(
                       onTap: _seleccionarArchivo,
                       child: Container(
@@ -932,12 +1142,16 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                         decoration: BoxDecoration(
                           color: _archivoSeleccionado != null
                               ? Colors.green.shade50
-                              : Colors.grey.shade50,
+                              : (_archivoExistenteRuta != null
+                                    ? Colors.blue.shade50
+                                    : Colors.grey.shade50),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: _archivoSeleccionado != null
                                 ? Colors.green.shade300
-                                : Colors.green.shade300,
+                                : (_archivoExistenteRuta != null
+                                      ? Colors.blue.shade300
+                                      : Colors.green.shade300),
                             width: 2,
                           ),
                         ),
@@ -946,10 +1160,14 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                             Icon(
                               _archivoSeleccionado != null
                                   ? Icons.check_circle
-                                  : Icons.upload_file,
+                                  : (_archivoExistenteRuta != null
+                                        ? Icons.cloud_done
+                                        : Icons.upload_file),
                               color: _archivoSeleccionado != null
                                   ? Colors.green.shade600
-                                  : Colors.red.shade500,
+                                  : (_archivoExistenteRuta != null
+                                        ? Colors.blue.shade600
+                                        : Colors.red.shade500),
                               size: 32,
                             ),
                             const SizedBox(width: 16),
@@ -960,17 +1178,25 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                                   Text(
                                     _archivoSeleccionado != null
                                         ? _archivoSeleccionado!.name
-                                        : 'Toca para subir el archivo del acta',
+                                        : (_archivoExistenteRuta != null
+                                              ? ' Archivo actual: ${_archivoExistenteRuta!.split('/').last}'
+                                              : 'Toca para subir el archivo del acta'),
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
                                       color: _archivoSeleccionado != null
                                           ? Colors.green.shade700
-                                          : Colors.green.shade600,
+                                          : (_archivoExistenteRuta != null
+                                                ? Colors.blue.shade700
+                                                : Colors.green.shade600),
                                     ),
                                   ),
                                   Text(
-                                    'PDF, JPG o PNG (Máx. 10MB) *',
+                                    _archivoSeleccionado != null
+                                        ? 'PDF, JPG o PNG (Máx. 10MB) *'
+                                        : (_archivoExistenteRuta != null
+                                              ? 'Toca para cambiar el archivo'
+                                              : 'PDF, JPG o PNG (Máx. 10MB) *'),
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey.shade500,
@@ -979,6 +1205,23 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                                 ],
                               ),
                             ),
+                            if (_archivoExistenteRuta != null &&
+                                _archivoSeleccionado == null)
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.visibility,
+                                  color: Colors.blue,
+                                ),
+                                onPressed: () async {
+                                  final url =
+                                      'http://localhost/samde_db/api/actas/download_acta.php?file=$_archivoExistenteRuta';
+                                  final uri = Uri.parse(url);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri);
+                                  }
+                                },
+                                tooltip: 'Ver archivo actual',
+                              ),
                             if (_archivoSeleccionado != null)
                               IconButton(
                                 icon: const Icon(
@@ -1089,13 +1332,14 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         ),
       );
     }
-    if (_cargando)
+    if (_cargando) {
       return Container(
         padding: const EdgeInsets.all(60),
         child: const Center(
           child: CircularProgressIndicator(color: Colors.green),
         ),
       );
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -1154,20 +1398,20 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                   ),
                 ),
                 Expanded(
-                  flex: 2,
+                  flex: 1,
                   child: Text(
                     'Contrato',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: Colors.green.shade800,
-                      fontSize: 12,
+                      fontSize: 11,
                     ),
                     textAlign: TextAlign.center,
                   ),
                 ),
                 Expanded(
                   child: Text(
-                    'Cant. Disponible',
+                    'Cant. Contratada',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
@@ -1176,6 +1420,29 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                     ),
                   ),
                 ),
+                Expanded(
+                  child: Text(
+                    'Cant. Entregada',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green.shade800,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'Cant. Bod. SAMDE',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green.shade800,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                // ✅ Cant. a Entregar (siempre visible)
                 Expanded(
                   child: Text(
                     'Cant. a Entregar *',
@@ -1187,6 +1454,19 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                     ),
                   ),
                 ),
+                // ✅ Cant. Adicional (solo en modo edición)
+                if (_modoEdicion)
+                  Expanded(
+                    child: Text(
+                      'Cant. Adicional *',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green.shade800,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1194,11 +1474,21 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
             final i = entry.key;
             final item = entry.value;
             final disponible = _toDouble(item['cantidad_disponible']);
+            final contratada = _toDouble(item['cantidad_contratada'] ?? 0);
+            final entregada = _toDouble(item['cantidad_total_entregada'] ?? 0);
+            final itemId = int.tryParse(item['id']?.toString() ?? '0') ?? 0;
             final tieneStock = disponible > 0;
-            final hayError = i < _erroresCantidad.length && _erroresCantidad[i];
+
+            // ✅ Validación: en modo edición solo valida Cant. Adicional
+            final hayErrorEntregar =
+                !_modoEdicion &&
+                (i < _erroresCantidad.length && _erroresCantidad[i]);
+            final hayErrorAdicional =
+                _modoEdicion &&
+                (i < _erroresCantidad.length && _erroresCantidad[i]);
 
             return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(color: Colors.green.shade200),
@@ -1219,11 +1509,11 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                   ),
                   const SizedBox(width: 4),
                   Expanded(
-                    flex: 2,
+                    flex: 1,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
-                        vertical: 6,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.purple.shade50,
@@ -1237,7 +1527,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                         item['numero_contrato'] ?? 'N/A',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: Colors.purple.shade700,
                         ),
@@ -1248,8 +1538,60 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.blue.shade200,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        _formatNum(contratada),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.orange.shade200,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        _formatNum(entregada),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 10,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
                         color: Colors.green.shade50,
@@ -1263,7 +1605,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                         _formatNum(disponible),
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: Colors.green.shade700,
                         ),
@@ -1271,54 +1613,128 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                     ),
                   ),
                   const SizedBox(width: 4),
+                  // ✅ Cant. a Entregar (editable, sin validación en modo edición)
                   Expanded(
-                    child: Container(
-                      height: 42,
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: hayError
-                              ? Colors.red.shade500
-                              : (tieneStock
-                                    ? Colors.green.shade400
-                                    : Colors.grey.shade300),
-                          width: hayError ? 2.5 : 2,
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                        color: hayError ? Colors.red.shade50 : Colors.white,
-                      ),
+                    child: SizedBox(
+                      height: 50,
                       child: TextField(
                         controller: _cantidadControllers.length > i
                             ? _cantidadControllers[i]
                             : TextEditingController(),
                         keyboardType: TextInputType.number,
                         textAlign: TextAlign.center,
-                        enabled: tieneStock,
-                        onChanged: (valor) => _validarCantidad(i, valor),
+                        textAlignVertical: TextAlignVertical.center,
+                        enabled: _modoEdicion || tieneStock,
+                        onChanged: (valor) {
+                          // ✅ Solo validar en modo registro
+                          if (!_modoEdicion) {
+                            _validarCantidad(i, valor);
+                          }
+                        },
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: hayError
+                          color: hayErrorEntregar
                               ? Colors.red.shade700
-                              : (tieneStock
-                                    ? Colors.green.shade700
-                                    : Colors.grey.shade400),
+                              : Colors.green.shade700,
                         ),
                         decoration: InputDecoration(
-                          border: InputBorder.none,
+                          filled: true,
+                          fillColor: Colors.white,
                           contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8,
+                            vertical: 10,
+                            horizontal: 8,
                           ),
-                          suffixIcon: hayError
-                              ? Icon(
-                                  Icons.warning,
-                                  color: Colors.red.shade600,
-                                  size: 18,
-                                )
-                              : null,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: hayErrorEntregar
+                                  ? Colors.red
+                                  : Colors.green.shade400,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: hayErrorEntregar
+                                  ? Colors.red
+                                  : Colors.green.shade400,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: hayErrorEntregar
+                                  ? Colors.red
+                                  : Colors.green.shade700,
+                              width: 2,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
+                  // ✅ Cant. Adicional (solo en modo edición, con validación)
+                  if (_modoEdicion) ...[
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: SizedBox(
+                        height: 50,
+                        child: TextField(
+                          controller: _cantidadAdicionalControllers.length > i
+                              ? _cantidadAdicionalControllers[i]
+                              : TextEditingController(),
+                          keyboardType: TextInputType.numberWithOptions(
+                            signed: true,
+                          ),
+                          textAlign: TextAlign.center,
+                          textAlignVertical: TextAlignVertical.center,
+                          onChanged: (valor) => _validarCantidad(i, valor),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: hayErrorAdicional
+                                ? Colors.red.shade700
+                                : Colors.green.shade700,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: '0',
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                              horizontal: 8,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: hayErrorAdicional
+                                    ? Colors.red
+                                    : Colors.green.shade400,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: hayErrorAdicional
+                                    ? Colors.red
+                                    : Colors.green.shade400,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: hayErrorAdicional
+                                    ? Colors.red
+                                    : Colors.green.shade700,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             );
@@ -1899,8 +2315,8 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
               filled: true,
               fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
+                horizontal: 12,
+                vertical: 6,
               ),
             ),
           ),
@@ -2052,7 +2468,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              // ✅ CAMBIO REALIZADO: Solo mostrar si es admin o administrativo
                               if (rol == 'administrador' ||
                                   rol == 'administrativo')
                                 TextButton.icon(
@@ -2107,6 +2522,9 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     _observacionesCtrl.dispose();
     _busquedaController.dispose();
     for (final c in _cantidadControllers) {
+      c.dispose();
+    }
+    for (final c in _cantidadAdicionalControllers) {
       c.dispose();
     }
     super.dispose();

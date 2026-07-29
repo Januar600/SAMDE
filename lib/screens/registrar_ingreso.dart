@@ -21,9 +21,11 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
   final _numeroIngresoController = TextEditingController();
   final _fechaIngresoController = TextEditingController();
   final _observacionController = TextEditingController();
-  final _objetoContratoController =
-      TextEditingController(); // ✅ Objeto del contrato
+  final _objetoContratoController = TextEditingController();
   final _searchController = TextEditingController();
+
+  // ✅ Controladores para cantidades adicionales en edición
+  List<TextEditingController> _cantidadAdicionalControllers = [];
 
   // -------- VARIABLES DE BÚSQUEDA --------
   String _searchQuery = '';
@@ -116,17 +118,13 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
   // -------- FORMATEAR PRECIO CON PUNTOS DE MIL --------
   String _formatearPrecio(dynamic valor) {
     if (valor == null) return '\$0';
-
     final double numero = valor is double
         ? valor
         : double.tryParse(valor.toString()) ?? 0;
-
     final int entero = numero.round();
     final String numeroStr = entero.toString();
-
     String resultado = '';
     int contador = 0;
-
     for (int i = numeroStr.length - 1; i >= 0; i--) {
       resultado = numeroStr[i] + resultado;
       contador++;
@@ -134,7 +132,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         resultado = '.$resultado';
       }
     }
-
     return '\$$resultado';
   }
 
@@ -151,13 +148,28 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
 
   // -------- ✅ VALIDAR CANTIDADES INGRESADAS --------
   bool _validarCantidades() {
-    for (var detalle in _detallesIngreso) {
-      final double contratada = detalle['cantidad_contratada'] ?? 0;
-      final double ingresada = detalle['cantidad_ingresada'] ?? 0;
+    for (int i = 0; i < _detallesIngreso.length; i++) {
+      final detalle = _detallesIngreso[i];
+      final double contratada = _convertirADouble(
+        detalle['cantidad_contratada'],
+      );
+      final double baseIngresada = _convertirADouble(
+        detalle['cantidad_ingresada'],
+      );
 
-      if (ingresada > contratada) {
+      double cantidadFinal;
+      if (_modoEdicion) {
+        final adicional = _cantidadAdicionalControllers.length > i
+            ? _convertirADouble(_cantidadAdicionalControllers[i].text)
+            : 0.0;
+        cantidadFinal = baseIngresada + adicional;
+      } else {
+        cantidadFinal = _convertirADouble(detalle['cantidad_ingresada']);
+      }
+
+      if (cantidadFinal > contratada) {
         _mostrarMensaje(
-          '⚠️ La cantidad ingresada (${_formatearNumero(ingresada)}) no puede ser mayor a la contratada (${_formatearNumero(contratada)}) para "${detalle['nombre_item']}"',
+          '⚠️ La cantidad total (${_formatearNumero(cantidadFinal)}) no puede ser mayor a la contratada (${_formatearNumero(contratada)}) para "${detalle['nombre_item']}"',
           Colors.orange,
         );
         return false;
@@ -210,10 +222,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     try {
       final response = await http
           .get(Uri.parse('$_baseUrl/contratos/listar_contrato.php'))
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () => throw Exception('Tiempo de espera agotado'),
-          );
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -243,17 +252,15 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     try {
       final response = await http
           .get(Uri.parse('$_baseUrl/contratos/listar_contrato.php'))
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () => throw Exception('Tiempo de espera agotado'),
-          );
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
-          final todos = List<Map<String, dynamic>>.from(data['data'] ?? []);
           setState(() {
-            _contratosDisponibles = todos;
+            _contratosDisponibles = List<Map<String, dynamic>>.from(
+              data['data'] ?? [],
+            );
           });
         }
       }
@@ -275,14 +282,10 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
               '$_baseUrl/contratos/obtener_contrato.php?id=$contratoId',
             ),
           )
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () => throw Exception('Tiempo de espera agotado'),
-          );
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-
         if (data['success'] == true) {
           final contratoData = data['data'] ?? {};
           final items = contratoData['items'] as List? ?? [];
@@ -303,6 +306,9 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                       'descripcion': item['descripcion']?.toString() ?? '',
                       'cantidad_contratada': _convertirADouble(
                         item['cantidad'] ?? item['cantidad_contratada'] ?? 0,
+                      ),
+                      'total_ingresado': _convertirADouble(
+                        item['total_ingresado'] ?? 0,
                       ),
                       'cantidad_ingresada': 0.0,
                       'precio_unitario': _convertirADouble(
@@ -335,10 +341,12 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- ACTUALIZAR CANTIDAD INGRESADA --------
+  // -------- ACTUALIZAR CANTIDAD INGRESADA (MODO REGISTRO) --------
   void _actualizarCantidadIngresada(int index, String valor) {
-    final cantidad = double.tryParse(valor) ?? 0;
-    final contratada = _detallesIngreso[index]['cantidad_contratada'] ?? 0;
+    final cantidad = _convertirADouble(valor);
+    final contratada = _convertirADouble(
+      _detallesIngreso[index]['cantidad_contratada'],
+    );
 
     setState(() {
       _detallesIngreso[index]['cantidad_ingresada'] = cantidad;
@@ -347,6 +355,25 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     if (cantidad > contratada && contratada > 0) {
       _mostrarMensaje(
         '⚠️ La cantidad (${_formatearNumero(cantidad)}) excede lo contratado (${_formatearNumero(contratada)})',
+        Colors.orange,
+      );
+    }
+  }
+
+  // -------- ACTUALIZAR CANTIDAD ADICIONAL (MODO EDICIÓN) --------
+  void _actualizarCantidadAdicional(int index, String valor) {
+    final adicional = _convertirADouble(valor);
+    final baseIngresada = _convertirADouble(
+      _detallesIngreso[index]['cantidad_ingresada'],
+    );
+    final contratada = _convertirADouble(
+      _detallesIngreso[index]['cantidad_contratada'],
+    );
+    final total = baseIngresada + adicional;
+
+    if (total > contratada && contratada > 0) {
+      _mostrarMensaje(
+        '⚠️ El total (${_formatearNumero(total)}) excede lo contratado (${_formatearNumero(contratada)})',
         Colors.orange,
       );
     }
@@ -364,31 +391,26 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
   // -------- REGISTRAR INGRESO --------
   Future<void> _registrarIngreso() async {
     if (!_formKey.currentState!.validate()) return;
-
     if (_contratoSeleccionado == null) {
       _mostrarMensaje('Seleccione un contrato', Colors.orange);
       return;
     }
-
-    if (!_detallesIngreso.any((d) => (d['cantidad_ingresada'] ?? 0) > 0)) {
+    if (!_detallesIngreso.any(
+      (d) => (_convertirADouble(d['cantidad_ingresada']) ?? 0) > 0,
+    )) {
       _mostrarMensaje(
         'Debe ingresar al menos un item con cantidad > 0',
         Colors.orange,
       );
       return;
     }
-
-    if (!_validarCantidades()) {
-      return;
-    }
+    if (!_validarCantidades()) return;
 
     setState(() => _cargando = true);
-
     try {
       String fechaFormateada = _formatearFechaParaBD(
         _fechaIngresoController.text.trim(),
       );
-
       final response = await http
           .post(
             Uri.parse('$_baseUrl/ingresos/registrar_ingreso.php'),
@@ -404,21 +426,18 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                   .map(
                     (d) => ({
                       'id_item_contrato': d['id_item_contrato'],
-                      'cantidad_ingresada': d['cantidad_ingresada'] ?? 0,
-                      'precio_unitario': d['precio_unitario'] ?? 0,
+                      'cantidad_ingresada':
+                          _convertirADouble(d['cantidad_ingresada']) ?? 0,
+                      'precio_unitario':
+                          _convertirADouble(d['precio_unitario']) ?? 0,
                     }),
                   )
                   .toList(),
             }),
           )
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () =>
-                throw Exception('⏰ El servidor no respondió a tiempo'),
-          );
+          .timeout(const Duration(seconds: 10));
 
       final data = jsonDecode(response.body);
-
       if (response.statusCode == 201 && data['success'] == true) {
         _limpiarFormulario();
         _mostrarMensaje('✅ Ingreso registrado exitosamente', Colors.green);
@@ -427,7 +446,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
       } else {
         final mensajeError = data['message'] ?? 'Error desconocido';
         _mostrarMensaje('❌ $mensajeError', Colors.red);
-
         if (data['errors'] != null && data['errors'] is List) {
           for (var error in data['errors']) {
             _mostrarMensaje('📌 ${error.toString()}', Colors.orange);
@@ -445,7 +463,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
   // -------- VER DETALLE DEL INGRESO --------
   Future<void> _verIngresoDetalle(Map<String, dynamic> ingreso) async {
     final ingresoId = ingreso['id'];
-
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -459,27 +476,18 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
           .get(
             Uri.parse('$_baseUrl/ingresos/obtener_ingreso.php?id=$ingresoId'),
           )
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () => throw Exception('Tiempo de espera agotado'),
-          );
-
+          .timeout(const Duration(seconds: 10));
       if (mounted) Navigator.pop(context);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-
         if (data['success'] == true) {
           final ingresoData = data['data']['ingreso'];
           final detallesRaw = data['data']['detalles'] as List;
-
-          final List<Map<String, dynamic>> detalles = detallesRaw.map((item) {
-            return Map<String, dynamic>.from(item);
-          }).toList();
-
-          if (mounted) {
-            _mostrarDialogoDetalle(ingresoData, detalles);
-          }
+          final List<Map<String, dynamic>> detalles = detallesRaw
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList();
+          if (mounted) _mostrarDialogoDetalle(ingresoData, detalles);
         } else {
           _mostrarMensaje(
             '❌ ${data['message'] ?? 'Error al cargar detalle'}',
@@ -541,7 +549,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                   if (observacion.isNotEmpty)
                     _buildInfoRow('Observación', observacion),
                   const Divider(height: 24),
-
                   const Text(
                     'Items del Ingreso',
                     style: TextStyle(
@@ -551,7 +558,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-
                   if (detalles.isEmpty)
                     const Text(
                       'No hay items registrados',
@@ -666,9 +672,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                         ),
                       ),
                     ),
-
                   const SizedBox(height: 16),
-
                   if (detalles.isNotEmpty) ...[_buildTotalRow(detalles)],
                 ],
               ),
@@ -685,7 +689,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     );
   }
 
-  // -------- CONSTRUIR FILA DE INFORMACIÓN --------
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -715,15 +718,13 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     );
   }
 
-  // -------- CONSTRUIR FILA DE TOTALES --------
   Widget _buildTotalRow(List<Map<String, dynamic>> detalles) {
     double total = 0;
     for (var detalle in detalles) {
-      final cantidad = _convertirADouble(detalle['cantidad_ingresada']);
-      final precio = _convertirADouble(detalle['precio_unitario']);
-      total += cantidad * precio;
+      total +=
+          _convertirADouble(detalle['cantidad_ingresada']) *
+          _convertirADouble(detalle['precio_unitario']);
     }
-
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -754,19 +755,12 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
   // -------- CARGAR INGRESO PARA EDITAR --------
   Future<void> _cargarIngresoParaEditar(int ingresoId) async {
     setState(() => _cargando = true);
-
-    final url = Uri.parse(
-      '$_baseUrl/ingresos/obtener_ingreso.php?id=$ingresoId',
-    );
-
     try {
       final response = await http
-          .get(url)
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () => throw Exception('Tiempo de espera agotado'),
-          );
-
+          .get(
+            Uri.parse('$_baseUrl/ingresos/obtener_ingreso.php?id=$ingresoId'),
+          )
+          .timeout(const Duration(seconds: 10));
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
@@ -781,33 +775,23 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
           anioContrato = fechaIngreso.substring(0, 4);
         }
 
-        if (anioContrato.isNotEmpty &&
-            !_aniosDisponibles.contains(anioContrato)) {
-          _aniosDisponibles.add(anioContrato);
-          _aniosDisponibles.sort();
-        }
-
         await _cargarTodosLosContratos();
 
-        final contratoId = _convertirANumero(ingresoData['contrato_id']);
-        final numeroContrato = ingresoData['numero_contrato'] ?? 'N/A';
-
-        bool contratoExiste = _contratosDisponibles.any(
-          (c) => c['id'] == contratoId,
+        final contratoId = _convertirANumero(
+          ingresoData['contrato_id'] ?? ingresoData['id_contrato'],
         );
 
-        if (!contratoExiste) {
-          _contratosDisponibles.add({
-            'id': contratoId,
-            'numero_contrato': numeroContrato,
-          });
-        }
+        await _cargarItemsContrato(contratoId);
 
-        // ✅ EXTRAE EL OBJETO DEL CONTRATO SELECCIONADO PARA LA EDICIÓN
-        final contratoEditando = _contratosDisponibles.firstWhere(
-          (c) => c['id'] == contratoId,
+        final contratoEncontrado = _contratosDisponibles.firstWhere(
+          (c) => _convertirANumero(c['id']) == contratoId,
           orElse: () => {},
         );
+
+        // ✅ Inicializar controllers de cantidad adicional vacíos
+        for (final c in _cantidadAdicionalControllers) {
+          c.dispose();
+        }
 
         setState(() {
           _modoEdicion = true;
@@ -817,34 +801,35 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
           _fechaIngresoController.text = fechaIngreso;
           _observacionController.text = ingresoData['observacion'] ?? '';
 
-          // ✅ ASIGNA EL OBJETO AL CAMPO
-          _objetoContratoController.text =
-              contratoEditando['objeto_contrato']?.toString() ??
-              contratoEditando['objeto']?.toString() ??
-              ingresoData['objeto_contrato']?.toString() ??
-              'No especificado';
-
           _anioSeleccionado = anioContrato;
           _contratoSeleccionado = contratoId;
 
-          _detallesIngreso = detallesData.map((detalle) {
-            return {
-              'id_item_contrato': _convertirANumero(
-                detalle['id_item_contrato'],
-              ),
-              'nombre_item': detalle['nombre_item']?.toString() ?? '',
-              'descripcion': detalle['descripcion']?.toString() ?? '',
-              'cantidad_contratada': _convertirADouble(
-                detalle['cantidad_contratada'],
-              ),
-              'cantidad_ingresada': _convertirADouble(
-                detalle['cantidad_ingresada'],
-              ),
-              'precio_unitario': _convertirADouble(
-                detalle['valor_unitario'] ?? detalle['precio_unitario'] ?? 0,
-              ),
-            };
-          }).toList();
+          _objetoContratoController.text =
+              contratoEncontrado['objeto_contrato']?.toString() ??
+              contratoEncontrado['objeto']?.toString() ??
+              'No especificado';
+
+          // ✅ Inicializar controllers adicionales vacíos
+          _cantidadAdicionalControllers = _detallesIngreso
+              .map((_) => TextEditingController(text: ''))
+              .toList();
+
+          // ✅ Asignar cantidades base del ingreso que se está editando
+          for (var detalleIngreso in detallesData) {
+            final itemId = _convertirANumero(
+              detalleIngreso['id_item_contrato'],
+            );
+            final cantidadIngresada = _convertirADouble(
+              detalleIngreso['cantidad_ingresada'],
+            );
+
+            final index = _detallesIngreso.indexWhere(
+              (d) => d['id_item_contrato'] == itemId,
+            );
+            if (index != -1) {
+              _detallesIngreso[index]['cantidad_ingresada'] = cantidadIngresada;
+            }
+          }
         });
 
         setState(() => _mostrandoLista = false);
@@ -865,8 +850,28 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
   // -------- ACTUALIZAR INGRESO --------
   Future<void> _actualizarIngreso() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_validarCantidades()) return;
 
-    if (!_detallesIngreso.any((d) => (d['cantidad_ingresada'] ?? 0) > 0)) {
+    // ✅ Construir detalles con cantidad_base + cantidad_adicional
+    final detallesActualizados = <Map<String, dynamic>>[];
+    for (int i = 0; i < _detallesIngreso.length; i++) {
+      final detalle = _detallesIngreso[i];
+      final baseIngresada = _convertirADouble(detalle['cantidad_ingresada']);
+      final adicional = i < _cantidadAdicionalControllers.length
+          ? _convertirADouble(_cantidadAdicionalControllers[i].text)
+          : 0.0;
+      final cantidadTotal = baseIngresada + adicional;
+
+      if (cantidadTotal > 0) {
+        detallesActualizados.add({
+          'id_item_contrato': detalle['id_item_contrato'],
+          'cantidad_ingresada': cantidadTotal,
+          'precio_unitario': _convertirADouble(detalle['precio_unitario']),
+        });
+      }
+    }
+
+    if (detallesActualizados.isEmpty) {
       _mostrarMensaje(
         'Debe ingresar al menos un item con cantidad > 0',
         Colors.orange,
@@ -874,17 +879,11 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
       return;
     }
 
-    if (!_validarCantidades()) {
-      return;
-    }
-
     setState(() => _cargando = true);
-
     try {
       String fechaFormateada = _formatearFechaParaBD(
         _fechaIngresoController.text.trim(),
       );
-
       final response = await http
           .post(
             Uri.parse('$_baseUrl/ingresos/actualizar_ingreso.php'),
@@ -895,22 +894,10 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
               'numero_ingreso': _numeroIngresoController.text.trim(),
               'fecha_ingreso': fechaFormateada,
               'observacion': _observacionController.text.trim(),
-              'detalles': _detallesIngreso
-                  .map(
-                    (d) => ({
-                      'id_item_contrato': d['id_item_contrato'],
-                      'cantidad_ingresada': d['cantidad_ingresada'] ?? 0,
-                      'precio_unitario': d['precio_unitario'] ?? 0,
-                    }),
-                  )
-                  .toList(),
+              'detalles': detallesActualizados,
             }),
           )
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () =>
-                throw Exception('⏰ El servidor no respondió a tiempo'),
-          );
+          .timeout(const Duration(seconds: 10));
 
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 && data['success'] == true) {
@@ -921,7 +908,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
       } else {
         final mensajeError = data['message'] ?? 'Error al actualizar';
         _mostrarMensaje('❌ $mensajeError', Colors.red);
-
         if (data['errors'] != null && data['errors'] is List) {
           for (var error in data['errors']) {
             _mostrarMensaje('📌 ${error.toString()}', Colors.orange);
@@ -961,7 +947,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     );
 
     if (confirm != true) return;
-
     setState(() => _cargando = true);
 
     try {
@@ -971,10 +956,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'id': ingresoId}),
           )
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () => throw Exception('Tiempo de espera agotado'),
-          );
+          .timeout(const Duration(seconds: 10));
 
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 && data['success'] == true) {
@@ -982,7 +964,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         await _cargarIngresos();
       } else {
         _mostrarMensaje(
-          '❌ ${data['message'] ?? 'Error al eliminar'}',
+          ' ${data['message'] ?? 'Error al eliminar'}',
           Colors.red,
         );
       }
@@ -996,15 +978,10 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
   // -------- CARGAR INGRESOS --------
   Future<void> _cargarIngresos() async {
     setState(() => _cargando = true);
-
     try {
       final response = await http
           .get(Uri.parse('$_baseUrl/ingresos/listar_ingresos.php'))
-          .timeout(
-            const Duration(seconds: 10),
-            onTimeout: () => throw Exception('Tiempo de espera agotado'),
-          );
-
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
@@ -1035,6 +1012,12 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     _detallesIngreso = [];
     _modoEdicion = false;
     _ingresoEditandoId = null;
+
+    // ✅ Limpiar controllers adicionales
+    for (final c in _cantidadAdicionalControllers) {
+      c.dispose();
+    }
+    _cantidadAdicionalControllers = [];
   }
 
   // -------- DECORACIÓN DE INPUT --------
@@ -1069,7 +1052,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
 
   // -------- CONSTRUIR TARJETA DE INGRESO --------
   Widget _buildCardIngreso(Map<String, dynamic> ingreso, Color verde) {
-    // -------- VERIFICAR SI EL USUARIO PUEDE ELIMINAR --------
     final bool puedeEliminar =
         (rol == 'administrador' || rol == 'administrativo');
 
@@ -1193,7 +1175,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // -------- BOTÓN EDITAR (SIEMPRE VISIBLE) --------
                   TextButton.icon(
                     onPressed: () => _cargarIngresoParaEditar(
                       int.parse(ingreso['id'].toString()),
@@ -1217,7 +1198,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
-                  // -------- BOTÓN ELIMINAR (SOLO ADMIN Y ADMINISTRATIVO) --------
                   if (puedeEliminar) ...[
                     const SizedBox(width: 4),
                     TextButton.icon(
@@ -1339,7 +1319,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
               onChanged: (_) => _filtrarIngresos(),
             ),
           ),
-
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: Row(
@@ -1384,13 +1363,10 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
               ],
             ),
           ),
-
           ..._ingresosFiltrados.map(
             (ingreso) => _buildCardIngreso(ingreso, verde),
           ),
-
           const SizedBox(height: 12),
-
           SizedBox(
             width: double.infinity,
             height: 40,
@@ -1427,9 +1403,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
             onPressed: _cargando
                 ? null
                 : () {
-                    if (!_validarCantidades()) {
-                      return;
-                    }
+                    if (!_validarCantidades()) return;
                     _modoEdicion ? _actualizarIngreso() : _registrarIngreso();
                   },
             style: ElevatedButton.styleFrom(
@@ -1561,6 +1535,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
+                      key: ValueKey(_modoEdicion),
                       columnSpacing: 12,
                       headingRowHeight: 36,
                       headingRowColor: WidgetStateProperty.all(
@@ -1571,17 +1546,46 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                         _buildDataColumn('Item', verde),
                         _buildDataColumn('Descripción', verde),
                         _buildDataColumn('Cant. Contratada', verde),
-                        _buildDataColumn('Cant. a Ingresar *', verde),
+                        _buildDataColumn('Total Ingresado', verde),
+                        _buildDataColumn('Stock Contrato', verde),
+                        // ✅ Solo en modo edición: muestra la base
+                        if (_modoEdicion)
+                          _buildDataColumn('Cant. Ingresada (Base)', verde),
+                        _buildDataColumn(
+                          _modoEdicion
+                              ? 'Cant. Adicional *'
+                              : 'Cant. a Ingresar *',
+                          verde,
+                        ),
                       ],
                       rows: _detallesIngreso.asMap().entries.map((entry) {
                         final index = entry.key;
                         final detalle = entry.value;
-                        final cantidadIngresada =
-                            detalle['cantidad_ingresada'] ?? 0;
-                        final cantidadContratada =
-                            detalle['cantidad_contratada'] ?? 0;
+
+                        final cantidadContratada = _convertirADouble(
+                          detalle['cantidad_contratada'],
+                        );
+                        final totalIngresado = _convertirADouble(
+                          detalle['total_ingresado'] ?? 0,
+                        );
+                        final stockContrato =
+                            cantidadContratada - totalIngresado;
+                        final baseIngresada = _convertirADouble(
+                          detalle['cantidad_ingresada'],
+                        );
+
+                        final cantidadAdicional =
+                            _modoEdicion &&
+                                index < _cantidadAdicionalControllers.length
+                            ? _convertirADouble(
+                                _cantidadAdicionalControllers[index].text,
+                              )
+                            : 0.0;
+                        final cantidadTotal = baseIngresada + cantidadAdicional;
+
                         final tieneError =
-                            cantidadIngresada > cantidadContratada;
+                            cantidadTotal > cantidadContratada &&
+                            cantidadContratada > 0;
 
                         return DataRow(
                           cells: [
@@ -1613,13 +1617,107 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                               ),
                             ),
                             DataCell(
-                              Text(
-                                _formatearNumero(
-                                  detalle['cantidad_contratada'],
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
                                 ),
-                                style: const TextStyle(fontSize: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.purple.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.purple.shade200,
+                                  ),
+                                ),
+                                child: Text(
+                                  _formatearNumero(cantidadContratada),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.purple.shade700,
+                                  ),
+                                ),
                               ),
                             ),
+                            DataCell(
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: Colors.blue.shade200,
+                                  ),
+                                ),
+                                child: Text(
+                                  _formatearNumero(totalIngresado),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // ✅ Stock Contrato
+                            DataCell(
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: stockContrato > 0
+                                      ? Colors.green.shade50
+                                      : Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: stockContrato > 0
+                                        ? Colors.green.shade200
+                                        : Colors.grey.shade200,
+                                  ),
+                                ),
+                                child: Text(
+                                  _formatearNumero(stockContrato),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: stockContrato > 0
+                                        ? Colors.green.shade700
+                                        : Colors.grey.shade700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // ✅ Solo en modo edición: Cant. Ingresada (Base)
+                            if (_modoEdicion)
+                              DataCell(
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade100,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: Colors.orange.shade300,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _formatearNumero(baseIngresada),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.orange.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            // ✅ Campo editable
                             DataCell(
                               Container(
                                 decoration: BoxDecoration(
@@ -1632,12 +1730,20 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                                 child: SizedBox(
                                   width: 100,
                                   child: TextFormField(
-                                    initialValue:
-                                        detalle['cantidad_ingresada'] == 0
-                                        ? ''
-                                        : _formatearNumero(
-                                            detalle['cantidad_ingresada'],
-                                          ),
+                                    controller: _modoEdicion
+                                        ? (_cantidadAdicionalControllers
+                                                      .length >
+                                                  index
+                                              ? _cantidadAdicionalControllers[index]
+                                              : TextEditingController())
+                                        : null,
+                                    initialValue: _modoEdicion
+                                        ? null
+                                        : (baseIngresada == 0
+                                              ? ''
+                                              : _formatearNumero(
+                                                  baseIngresada,
+                                                )),
                                     keyboardType: TextInputType.number,
                                     style: TextStyle(
                                       fontSize: 12,
@@ -1646,6 +1752,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                                           : Colors.black,
                                     ),
                                     decoration: InputDecoration(
+                                      hintText: _modoEdicion ? '0' : null,
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(4),
                                       ),
@@ -1656,24 +1763,27 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                                           ),
                                       isDense: true,
                                       errorText: tieneError ? 'Excede' : null,
-                                      errorStyle: TextStyle(
-                                        fontSize: 9,
-                                        color: Colors.red.shade700,
-                                      ),
+                                      errorStyle: const TextStyle(fontSize: 9),
                                     ),
-                                    onChanged: (value) =>
+                                    onChanged: (value) {
+                                      if (_modoEdicion) {
+                                        _actualizarCantidadAdicional(
+                                          index,
+                                          value,
+                                        );
+                                      } else {
                                         _actualizarCantidadIngresada(
                                           index,
                                           value,
-                                        ),
+                                        );
+                                      }
+                                    },
                                     validator: (value) {
-                                      if (value == null || value.isEmpty) {
+                                      if (value == null || value.isEmpty)
                                         return null;
-                                      }
                                       final cantidad = double.tryParse(value);
-                                      if (cantidad == null || cantidad < 0) {
+                                      if (cantidad == null || cantidad < 0)
                                         return 'Inválido';
-                                      }
                                       return null;
                                     },
                                   ),
@@ -1712,7 +1822,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         ),
         const Divider(height: 20, thickness: 1),
         const SizedBox(height: 8),
-
         Row(
           children: [
             Expanded(
@@ -1754,7 +1863,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
           ],
         ),
         const SizedBox(height: 14),
-
         Row(
           children: [
             Expanded(
@@ -1798,7 +1906,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
           ],
         ),
         const SizedBox(height: 14),
-
         Row(
           children: [
             Expanded(
@@ -1852,20 +1959,16 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                           _contratoSeleccionado = newValue;
                           _itemsContrato = [];
                           _detallesIngreso = [];
-
-                          // ✅ AQUÍ ESTÁ LA MAGIA: Extrae el objeto del contrato seleccionado
                           final contratoSeleccionado = _contratosDisponibles
                               .firstWhere(
                                 (c) => c['id'] == newValue,
                                 orElse: () => {},
                               );
-
                           final objeto =
                               contratoSeleccionado['objeto_contrato']
                                   ?.toString() ??
                               contratoSeleccionado['objeto']?.toString() ??
                               'No especificado';
-
                           _objetoContratoController.text = objeto;
                         });
                         if (newValue != null) _cargarItemsContrato(newValue);
@@ -1877,8 +1980,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
           ],
         ),
         const SizedBox(height: 14),
-
-        // ✅ CAMPO: OBJETO DEL CONTRATO (Se llena automáticamente)
         TextFormField(
           controller: _objetoContratoController,
           maxLines: 2,
@@ -1887,7 +1988,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
           readOnly: true,
         ),
         const SizedBox(height: 14),
-
         TextFormField(
           controller: _observacionController,
           maxLines: 2,
@@ -2000,7 +2100,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
               ],
             ),
           ),
-
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -2058,6 +2157,9 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     _observacionController.dispose();
     _objetoContratoController.dispose();
     _searchController.dispose();
+    for (final c in _cantidadAdicionalControllers) {
+      c.dispose();
+    }
     super.dispose();
   }
 }
