@@ -57,6 +57,17 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
     }
   }
 
+  String _formatNum(dynamic v) {
+    if (v == null) return '0';
+    if (v is int) return v.toString();
+    if (v is double) {
+      return v == v.truncateToDouble()
+          ? v.truncate().toString()
+          : v.toStringAsFixed(2);
+    }
+    return v.toString();
+  }
+
   Future<void> _cargarActas() async {
     setState(() => _cargando = true);
     try {
@@ -91,28 +102,24 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
     });
   }
 
-  // Función para descargar archivo
-  Future<void> _descargarArchivo(String rutaRelativa) async {
-    if (rutaRelativa.trim().isEmpty) {
+  // ✅ FUNCIÓN PARA VER O DESCARGAR ARCHIVO
+  Future<void> _abrirArchivo(String nombreArchivo, String accion) async {
+    if (nombreArchivo.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No hay archivo para descargar'),
+          content: Text('No hay archivo disponible'),
           backgroundColor: Colors.orange,
         ),
       );
       return;
     }
 
-    // Construir URL completa
-    String urlCompleta;
-    if (rutaRelativa.startsWith('http')) {
-      urlCompleta = rutaRelativa;
-    } else {
-      String baseUrlSinApi = _baseUrl.replaceAll('/api', '');
-      urlCompleta = '$baseUrlSinApi/$rutaRelativa';
-    }
-
+    // Construir URL con parámetro action (view o download)
+    final urlCompleta =
+        '$_baseUrl/actas/download_acta.php?file=$nombreArchivo&action=$accion';
     final uri = Uri.parse(urlCompleta);
+
+    debugPrint('🔗 $accion: $urlCompleta');
 
     try {
       if (await canLaunchUrl(uri)) {
@@ -120,8 +127,8 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No se pudo abrir el archivo'),
+            SnackBar(
+              content: Text('No se pudo $accion el archivo'),
               backgroundColor: Colors.red,
             ),
           );
@@ -136,9 +143,7 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
     }
   }
 
-  // ✅ MODAL PROFESIONAL DE DETALLES
   Future<void> _verDetalleActa(Map<String, dynamic> acta) async {
-    // Mostrar loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -146,7 +151,6 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
           const Center(child: CircularProgressIndicator(color: Colors.green)),
     );
 
-    // Cargar los items del acta
     List<Map<String, dynamic>> itemsEntregados = [];
     try {
       final actaId = acta['id'];
@@ -166,7 +170,6 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
       if (mounted) Navigator.pop(context);
     }
 
-    // Mostrar modal de detalles profesional
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -256,10 +259,6 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
                           acta['entregado_a'] ?? 'N/A',
                         ),
                         _buildInfoRow(
-                          'Área / Dependencia:',
-                          acta['area_dependencia'] ?? 'N/A',
-                        ),
-                        _buildInfoRow(
                           'Fecha de entrega:',
                           _formatDate(acta['fecha_entrega']),
                         ),
@@ -288,6 +287,12 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
                             'Cargo:',
                             acta['cargo_entrego'] ?? 'N/A',
                           ),
+                          if (acta['area_dependencia'] != null &&
+                              acta['area_dependencia'].toString().isNotEmpty)
+                            _buildInfoRow(
+                              'Área / Dependencia:',
+                              acta['area_dependencia'],
+                            ),
                         ]),
                       const SizedBox(height: 20),
 
@@ -305,7 +310,7 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
                         ]),
                       const SizedBox(height: 20),
 
-                      // Archivo adjunto
+                      // ✅ ARCHIVO ADJUNTO CON DOS BOTONES (VER Y DESCARGAR)
                       if (acta['archivo_justificante'] != null)
                         _buildInfoSection('Archivo Adjunto', [
                           Row(
@@ -326,26 +331,60 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
                                   ),
                                 ),
                               ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.visibility,
-                                  color: Colors.blue,
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              // ✅ BOTÓN VER
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    final archivo =
+                                        acta['archivo_justificante']
+                                            ?.toString() ??
+                                        '';
+                                    _abrirArchivo(archivo, 'view');
+                                  },
+                                  icon: const Icon(Icons.visibility, size: 18),
+                                  label: const Text('Ver'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue.shade600,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                  ),
                                 ),
-                                tooltip: 'Ver Archivo',
-                                onPressed: () {
-                                  final archivo =
-                                      acta['archivo_justificante']
-                                          ?.toString() ??
-                                      '';
-                                  _descargarArchivo(archivo);
-                                },
+                              ),
+                              const SizedBox(width: 12),
+                              // ✅ BOTÓN DESCARGAR
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    final archivo =
+                                        acta['archivo_justificante']
+                                            ?.toString() ??
+                                        '';
+                                    _abrirArchivo(archivo, 'download');
+                                  },
+                                  icon: const Icon(Icons.download, size: 18),
+                                  label: const Text('Descargar'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green.shade600,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                         ]),
                       const SizedBox(height: 24),
 
-                      // ITEMS ENTREGADOS - TABLA PROFESIONAL
+                      // Items entregados - Tabla profesional
                       Text(
                         'Items Entregados',
                         style: TextStyle(
@@ -423,7 +462,6 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
                               )
                             else
                               ...itemsEntregados.asMap().entries.map((entry) {
-                                final index = entry.key;
                                 final item = entry.value;
                                 return Container(
                                   padding: const EdgeInsets.all(12),
@@ -591,19 +629,6 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
     );
   }
 
-  // Helper para formatear números
-  String _formatNum(dynamic v) {
-    if (v == null) return '0';
-    if (v is int) return v.toString();
-    if (v is double) {
-      return v == v.truncateToDouble()
-          ? v.truncate().toString()
-          : v.toStringAsFixed(2);
-    }
-    return v.toString();
-  }
-
-  // Helper para secciones de información
   Widget _buildInfoSection(String title, List<Widget> children) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -633,7 +658,6 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
     );
   }
 
-  // Helper para filas de información
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -674,7 +698,6 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
             ),
             child: Row(
               children: [
-                // Botón para volver al dashboard
                 IconButton(
                   icon: const Icon(Icons.arrow_back, color: verde, size: 30),
                   onPressed: () {
@@ -700,7 +723,6 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
                     ),
                   ),
                 ),
-                // ✅ ELIMINADO: Botón de nuevo registro
               ],
             ),
           ),
@@ -901,14 +923,6 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w500,
                                   fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Área: ${acta['area_dependencia'] ?? 'N/A'}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey.shade700,
                                 ),
                               ),
                               const SizedBox(height: 4),

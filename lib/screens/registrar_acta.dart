@@ -579,16 +579,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       );
       final cantidadTotal = cantidadEntregar + cantidadAdicional;
 
-      // ✅ AGREGA ESTOS PRINTS
-      print('📦 Item: ${_todosItemsDisponibles[i]['nombre_items']}');
-      print('   Cant. a Entregar: "$cantidadEntregar"');
-      print('   Cant. Adicional: "$cantidadAdicional"');
-      print('   Total: $cantidadTotal');
-      print('   Controller texto: "${_cantidadControllers[i].text}"');
-      print(
-        '   Adicional Controller texto: "${_cantidadAdicionalControllers[i].text}"',
-      );
-
       if (cantidadTotal > 0) {
         final item = _todosItemsDisponibles[i];
         itemsConCantidad.add({
@@ -602,9 +592,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         });
       }
     }
-
-    print('\n📤 Total items a enviar: ${itemsConCantidad.length}');
-    print('📋 JSON completo: ${jsonEncode(itemsConCantidad)}\n');
 
     if (itemsConCantidad.isEmpty) {
       _snack('Ingrese al menos un item', Colors.orange);
@@ -1442,7 +1429,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                     ),
                   ),
                 ),
-                // ✅ Cant. a Entregar (siempre visible)
                 Expanded(
                   child: Text(
                     'Cant. a Entregar *',
@@ -1454,7 +1440,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                     ),
                   ),
                 ),
-                // ✅ Cant. Adicional (solo en modo edición)
                 if (_modoEdicion)
                   Expanded(
                     child: Text(
@@ -1479,7 +1464,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
             final itemId = int.tryParse(item['id']?.toString() ?? '0') ?? 0;
             final tieneStock = disponible > 0;
 
-            // ✅ Validación: en modo edición solo valida Cant. Adicional
             final hayErrorEntregar =
                 !_modoEdicion &&
                 (i < _erroresCantidad.length && _erroresCantidad[i]);
@@ -1613,11 +1597,14 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  // ✅ Cant. a Entregar (editable, sin validación en modo edición)
+
+                  // ============================================================
+                  // ✅ COLUMNA "Cant. a Entregar" - MISMO ANCHO QUE LAS DEMÁS
+                  // ============================================================
                   Expanded(
                     child: SizedBox(
-                      height: 50,
-                      child: TextField(
+                      height: 44,
+                      child: TextFormField(
                         controller: _cantidadControllers.length > i
                             ? _cantidadControllers[i]
                             : TextEditingController(),
@@ -1626,13 +1613,12 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                         textAlignVertical: TextAlignVertical.center,
                         enabled: _modoEdicion || tieneStock,
                         onChanged: (valor) {
-                          // ✅ Solo validar en modo registro
                           if (!_modoEdicion) {
                             _validarCantidad(i, valor);
                           }
                         },
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: FontWeight.bold,
                           color: hayErrorEntregar
                               ? Colors.red.shade700
@@ -1641,9 +1627,10 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: Colors.white,
+                          // ✅ SIN PADDING HORIZONTAL
                           contentPadding: const EdgeInsets.symmetric(
-                            vertical: 10,
-                            horizontal: 8,
+                            vertical: 8,
+                            horizontal: 0,
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -1674,13 +1661,16 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                       ),
                     ),
                   ),
-                  // ✅ Cant. Adicional (solo en modo edición, con validación)
+
+                  // ============================================================
+                  // ✅ COLUMNA "Cant. Adicional" - MISMO ANCHO QUE LAS DEMÁS
+                  // ============================================================
                   if (_modoEdicion) ...[
                     const SizedBox(width: 4),
                     Expanded(
                       child: SizedBox(
-                        height: 50,
-                        child: TextField(
+                        height: 44,
+                        child: TextFormField(
                           controller: _cantidadAdicionalControllers.length > i
                               ? _cantidadAdicionalControllers[i]
                               : TextEditingController(),
@@ -1691,7 +1681,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                           textAlignVertical: TextAlignVertical.center,
                           onChanged: (valor) => _validarCantidad(i, valor),
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: FontWeight.bold,
                             color: hayErrorAdicional
                                 ? Colors.red.shade700
@@ -1701,9 +1691,10 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                             hintText: '0',
                             filled: true,
                             fillColor: Colors.white,
+                            // ✅ SIN PADDING HORIZONTAL
                             contentPadding: const EdgeInsets.symmetric(
-                              vertical: 10,
-                              horizontal: 8,
+                              vertical: 8,
+                              horizontal: 0,
                             ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
