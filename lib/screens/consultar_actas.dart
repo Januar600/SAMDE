@@ -102,7 +102,6 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
     });
   }
 
-  // ✅ FUNCIÓN PARA VER O DESCARGAR ARCHIVO
   Future<void> _abrirArchivo(String nombreArchivo, String accion) async {
     if (nombreArchivo.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -114,7 +113,6 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
       return;
     }
 
-    // Construir URL con parámetro action (view o download)
     final urlCompleta =
         '$_baseUrl/actas/download_acta.php?file=$nombreArchivo&action=$accion';
     final uri = Uri.parse(urlCompleta);
@@ -252,7 +250,7 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Información general
+                      // ✅ INFORMACIÓN GENERAL ACTUALIZADA
                       _buildInfoSection('Información General', [
                         _buildInfoRow(
                           'Entregado a:',
@@ -262,20 +260,49 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
                           'Fecha de entrega:',
                           _formatDate(acta['fecha_entrega']),
                         ),
-                        _buildInfoRow(
-                          'Contrato:',
-                          acta['numero_contrato'] ?? 'N/A',
-                        ),
+                        if (acta['tipo_beneficiario'] != null &&
+                            acta['tipo_beneficiario'].toString().isNotEmpty)
+                          _buildInfoRow(
+                            'Tipo de Beneficiario:',
+                            acta['tipo_beneficiario'],
+                          ),
                         if (acta['documento_identidad'] != null &&
                             acta['documento_identidad'].toString().isNotEmpty)
                           _buildInfoRow(
-                            'Documento:',
+                            'Doc. de Identidad / NIT:',
                             acta['documento_identidad'],
                           ),
                         if (acta['telefono'] != null &&
                             acta['telefono'].toString().isNotEmpty)
                           _buildInfoRow('Teléfono:', acta['telefono']),
+                        if (acta['zona'] != null &&
+                            acta['zona'].toString().isNotEmpty)
+                          _buildInfoRow('Zona:', acta['zona']),
+                        if (acta['ubicacion'] != null &&
+                            acta['ubicacion'].toString().isNotEmpty)
+                          _buildInfoRow('Ubicación:', acta['ubicacion']),
                       ]),
+
+                      // ✅ BONUS: SECCIÓN REPRESENTANTE LEGAL (solo si es Asociación)
+                      const SizedBox(height: 20),
+                      if (acta['tipo_beneficiario'] == 'Asociación')
+                        _buildInfoSection('Representante Legal', [
+                          if (acta['representante_legal'] != null &&
+                              acta['representante_legal'].toString().isNotEmpty)
+                            _buildInfoRow(
+                              'Nombre:',
+                              acta['representante_legal'],
+                            ),
+                          if (acta['documento_identidad_rl'] != null &&
+                              acta['documento_identidad_rl']
+                                  .toString()
+                                  .isNotEmpty)
+                            _buildInfoRow(
+                              'Documento:',
+                              acta['documento_identidad_rl'],
+                            ),
+                        ]),
+
                       const SizedBox(height: 20),
 
                       // Quien entregó
@@ -665,7 +692,7 @@ class _ConsultarActasPageState extends State<ConsultarActasPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 140,
+            width: 160, // ✅ Ajustado a 160 para mejor alineación
             child: Text(
               label,
               style: TextStyle(

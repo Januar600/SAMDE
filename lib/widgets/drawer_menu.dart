@@ -110,73 +110,88 @@ class DrawerMenu extends StatelessWidget {
             const SizedBox(height: 4),
 
             // ============================================
-            // OPCIONES DEL MENÚ
+            // OPCIONES DEL MENÚ (SCROLLABLE PARA EVITAR OVERFLOW)
             // ============================================
-            // 1. INICIO
-            _buildMenuItem(
-              context,
-              icon: Icons.dashboard,
-              title: 'Inicio',
-              index: 0,
-              selectedIndex: selectedIndex,
-              route: '/menu',
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    // 1. INICIO
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.dashboard,
+                      title: 'Inicio',
+                      index: 0,
+                      selectedIndex: selectedIndex,
+                      route: '/menu',
+                    ),
+                    // 2. REGISTRAR USUARIOS
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.person_add,
+                      title: 'Registrar Usuarios',
+                      index: 1,
+                      selectedIndex: selectedIndex,
+                      route: '/registrar_usuario',
+                    ),
+                    // 3. REGISTRAR CONTRATOS
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.assignment,
+                      title: 'Registrar Contratos',
+                      index: 2,
+                      selectedIndex: selectedIndex,
+                      route: '/registrar_contrato',
+                    ),
+                    // 4. REGISTRAR INGRESOS
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.add_shopping_cart,
+                      title: 'Registrar Ingresos',
+                      index: 3,
+                      selectedIndex: selectedIndex,
+                      route: '/registrar_ingreso',
+                    ),
+                    // 5. REGISTRAR EGRESOS
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.inventory_2,
+                      title: 'Registrar Egresos',
+                      index: 4,
+                      selectedIndex: selectedIndex,
+                      route: '/registrar_egreso',
+                    ),
+                    // 6. REGISTRAR ACTAS
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.description,
+                      title: 'Registrar Actas',
+                      index: 5,
+                      selectedIndex: selectedIndex,
+                      route: '/registrar_acta',
+                    ),
+                    // 7. HISTORIAL DE MOVIMIENTOS
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.history,
+                      title: 'Historial de Movimientos',
+                      index: 6,
+                      selectedIndex: selectedIndex,
+                      route: '/historial_movimientos',
+                    ),
+                    // 8. REPORTES ✅ CORREGIDO
+                    _buildMenuItem(
+                      context,
+                      icon: Icons.bar_chart, // ✅ Icono diferente
+                      title: 'Reportes',
+                      index: 7, // ✅ Índice único
+                      selectedIndex: selectedIndex,
+                      route: '/reportes', // ✅ Ruta en minúscula
+                    ),
+                  ],
+                ),
+              ),
             ),
-            // 2. REGISTRAR USUARIOS
-            _buildMenuItem(
-              context,
-              icon: Icons.person_add,
-              title: 'Registrar Usuarios',
-              index: 1,
-              selectedIndex: selectedIndex,
-              route: '/registrar_usuario',
-            ),
-            // 3. REGISTRAR CONTRATOS
-            _buildMenuItem(
-              context,
-              icon: Icons.assignment,
-              title: 'Registrar Contratos',
-              index: 2,
-              selectedIndex: selectedIndex,
-              route: '/registrar_contrato',
-            ),
-            // 4. REGISTRAR INGRESOS
-            _buildMenuItem(
-              context,
-              icon: Icons.add_shopping_cart,
-              title: 'Registrar Ingresos',
-              index: 3,
-              selectedIndex: selectedIndex,
-              route: '/registrar_ingreso',
-            ),
-            // 5. REGISTRAR EGRESOS
-            _buildMenuItem(
-              context,
-              icon: Icons.inventory_2,
-              title: 'Registrar Egresos',
-              index: 4,
-              selectedIndex: selectedIndex,
-              route: '/registrar_egreso',
-            ),
-            // 6. REGISTRAR ACTAS
-            _buildMenuItem(
-              context,
-              icon: Icons.description,
-              title: 'Registrar Actas',
-              index: 5,
-              selectedIndex: selectedIndex,
-              route: '/registrar_acta',
-            ),
-            // 7. HISTORIAL DE MOVIMIENTOS (NUEVO)
-            _buildMenuItem(
-              context,
-              icon: Icons.history,
-              title: 'Historial de Movimientos',
-              index: 6,
-              selectedIndex: selectedIndex,
-              route: '/historial_movimientos',
-            ),
-
-            const Spacer(),
 
             // ============================================
             // BOTÓN CERRAR SESIÓN

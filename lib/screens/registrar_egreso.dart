@@ -22,8 +22,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
   final _numeroEgresoController = TextEditingController();
   final _fechaEgresoController = TextEditingController();
   final _observacionController = TextEditingController();
-  final _objetoContratoController =
-      TextEditingController(); // ✅ NUEVO: Controller para el objeto del contrato
+  final _objetoContratoController = TextEditingController();
   final _searchController = TextEditingController();
 
   // ── CONTROLADORES POR FILA (cantidad a egresar) ────────────
@@ -45,7 +44,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
   List<Map<String, dynamic>> _egresosFiltrados = [];
   String _searchQuery = '';
 
-  // ── ESTADOS ────────────────────────────────────────────────
+  // ── ESTADOS ───────────────────────────────────────────────
   bool _cargando = false;
   bool _mostrandoLista = false;
   bool _modoEdicion = false;
@@ -73,24 +72,20 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     _searchController.addListener(_filtrarEgresos);
   }
 
-  // ── INICIALIZAR CONTROLLERS DE CANTIDAD ───────────────────
   void _inicializarControllersCantidad() {
     for (final c in _cantidadControllers) {
       c.dispose();
     }
-
     _cantidadControllers = _detallesEgreso.map((detalle) {
       final cantidad = _modoEdicion
           ? (detalle['cantidad_adicional'] ?? 0.0)
           : (detalle['cantidad_egresada'] ?? 0.0);
-
       return TextEditingController(
         text: cantidad == 0.0 ? '' : _formatearNumero(cantidad),
       );
     }).toList();
   }
 
-  // ── DATE PICKER ────────────────────────────────────────────
   Future<void> _pickDate(TextEditingController ctrl) async {
     final fecha = await showDatePicker(
       context: context,
@@ -101,7 +96,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     if (fecha != null) ctrl.text = fecha.toIso8601String().substring(0, 10);
   }
 
-  // ─ FORMATEO ───────────────────────────────────────────────
   String _formatearNumero(dynamic valor) {
     if (valor == null) return '0';
     final double n = valor is double
@@ -140,7 +134,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     return int.tryParse(v.toString().trim()) ?? 0;
   }
 
-  // ─ FILTRAR EGRESOS ────────────────────────────────────────
   void _filtrarEgresos() {
     setState(() {
       _searchQuery = _searchController.text.toLowerCase().trim();
@@ -161,7 +154,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     });
   }
 
-  // ✅ VALIDACIÓN DE STOCK MEJORADA PARA EDICIÓN
   bool _validarStock() {
     final itemsConCantidad = _detallesEgreso.where((d) {
       final val = _modoEdicion
@@ -183,15 +175,12 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
       final double adicional = _modoEdicion
           ? _toDouble(detalle['cantidad_adicional'])
           : _toDouble(detalle['cantidad_egresada']);
-
       final double totalProyectado = baseEgresada + adicional;
 
       if (_modoEdicion) {
         if (adicional > stock) {
           _snack(
-            '⚠️ Stock insuficiente en "${detalle['nombre_item']}". '
-            'Disponible: ${_formatearNumero(stock)}, '
-            'Solicitado (adicional): ${_formatearNumero(adicional)}',
+            '⚠️ Stock insuficiente en "${detalle['nombre_item']}". Disponible: ${_formatearNumero(stock)}, Solicitado (adicional): ${_formatearNumero(adicional)}',
             Colors.red,
           );
           return false;
@@ -199,9 +188,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
       } else {
         if (totalProyectado > stock) {
           _snack(
-            '⚠️ Stock insuficiente en "${detalle['nombre_item']}". '
-            'Disponible: ${_formatearNumero(stock)}, '
-            'Solicitado: ${_formatearNumero(totalProyectado)}',
+            '⚠️ Stock insuficiente en "${detalle['nombre_item']}". Disponible: ${_formatearNumero(stock)}, Solicitado: ${_formatearNumero(totalProyectado)}',
             Colors.red,
           );
           return false;
@@ -211,7 +198,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     return true;
   }
 
-  // ── CARGAR AÑOS ────────────────────────────────────────────
   void _cargarAnios() {
     final now = DateTime.now().year;
     _aniosDisponibles = {
@@ -221,14 +207,13 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }.toList()..sort();
   }
 
-  // ── CARGAR CONTRATOS POR AÑO ──────────────────────────────
   Future<void> _cargarContratosPorAnio(String anio) async {
     setState(() {
       _cargando = true;
       _contratosDisponibles = [];
       _itemsContrato = [];
       _detallesEgreso = [];
-      _objetoContratoController.clear(); // ✅ Limpiar objeto
+      _objetoContratoController.clear();
       _contratoNumero = '';
     });
     try {
@@ -254,7 +239,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }
   }
 
-  // ✅ Cargar TODOS los contratos (sin filtro de año)
   Future<void> _cargarTodosLosContratos() async {
     try {
       final r = await http
@@ -273,7 +257,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }
   }
 
-  // ── CARGAR ITEMS + STOCK DEL CONTRATO ──────────────────────
   Future<void> _cargarItemsContrato(int contratoId) async {
     setState(() {
       _cargando = true;
@@ -287,8 +270,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     );
     _contratoNumero =
         contratoObj['numero_contrato']?.toString() ?? contratoId.toString();
-
-    // ✅ ACTUALIZAR EL OBJETO DEL CONTRATO VIA CONTROLLER
     _objetoContratoController.text =
         contratoObj['objeto_contrato']?.toString() ??
         contratoObj['objeto']?.toString() ??
@@ -296,22 +277,18 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
 
     try {
       final url = '$_baseUrl/egresos/obtener_stock.php?contrato_id=$contratoId';
-
       final r = await http
           .get(Uri.parse(url))
           .timeout(const Duration(seconds: 10));
-
       final data = jsonDecode(r.body);
 
       if (r.statusCode == 200 && data['success'] == true) {
         final items = List<Map<String, dynamic>>.from(data['data'] ?? []);
-
         if (items.isEmpty) {
           _snack('Este contrato no tiene items asociados', Colors.orange);
         } else {
           setState(() {
             _itemsContrato = items;
-
             _detallesEgreso = items.map((item) {
               final totalIngresadoRaw = item['total_ingresado'];
               final totalIngresado = totalIngresadoRaw is int
@@ -340,12 +317,11 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                 'precio_unitario': _toDouble(item['precio_unitario']),
               };
             }).toList();
-
             _inicializarControllersCantidad();
           });
         }
       } else {
-        _snack('❌ ${data['message'] ?? 'Error al cargar items'}', Colors.red);
+        _snack(' ${data['message'] ?? 'Error al cargar items'}', Colors.red);
       }
     } catch (e) {
       _snack('❌ Error cargando items: $e', Colors.red);
@@ -354,7 +330,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }
   }
 
-  // ✅ ACTUALIZAR CANTIDAD MANEJANDO MODO EDICIÓN
   void _actualizarCantidad(int index, String valor) {
     final cantidad = double.tryParse(valor) ?? 0;
     final detalle = _detallesEgreso[index];
@@ -381,7 +356,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }
   }
 
-  // ── REGISTRAR EGRESO ──────────────────────────────────────
   Future<void> _registrarEgreso() async {
     if (!_formKey.currentState!.validate()) return;
     if (_contratoSeleccionado == null) {
@@ -427,7 +401,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
         await _cargarEgresos();
         setState(() => _mostrandoLista = true);
       } else {
-        _snack('❌ ${data['message'] ?? 'Error desconocido'}', Colors.red);
+        _snack(' ${data['message'] ?? 'Error desconocido'}', Colors.red);
       }
     } catch (e) {
       _snack('❌ Error: $e', Colors.red);
@@ -436,7 +410,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }
   }
 
-  // ── ACTUALIZAR EGRESO ──────────────────────────────────────
   Future<void> _actualizarEgreso() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_validarStock()) return;
@@ -489,7 +462,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }
   }
 
-  // ── ELIMINAR EGRESO ───────────────────────────────────────
   Future<void> _eliminarEgreso(int id, String numero) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -536,7 +508,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }
   }
 
-  // ── VER DETALLE ────────────────────────────────────────────
   Future<void> _verDetalle(Map<String, dynamic> egreso) async {
     showDialog(
       context: context,
@@ -569,6 +540,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }
   }
 
+  // ✅ MODIFICADO: Se agregó la columna "Cant. Contratada" ANTES de "Cant. Ingresada"
   void _mostrarDialogoDetalle(
     Map<String, dynamic> eg,
     List<Map<String, dynamic>> detalles,
@@ -625,14 +597,25 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                       columns: const [
                         DataColumn(label: Text('#')),
                         DataColumn(label: Text('Item')),
-                        DataColumn(label: Text('Cant.')),
+                        DataColumn(
+                          label: Text('Cant. Contratada'),
+                        ), // ✅ AGREGADA AQUÍ
+                        DataColumn(label: Text('Cant. Ingresada')),
+                        DataColumn(label: Text('Cant. Egresada')),
                         DataColumn(label: Text('Precio Unit.')),
                         DataColumn(label: Text('Subtotal')),
                       ],
                       rows: detalles.asMap().entries.map((e) {
                         final d = e.value;
+                        final cantContratada = _toDouble(
+                          d['cantidad_contratada'] ?? 0,
+                        ); // ✅ DATO CONTRATADA
+                        final cantIngresada = _toDouble(
+                          d['cantidad_ingresada'] ?? cantContratada,
+                        );
                         final cant = _toDouble(d['cantidad']);
                         final precio = _toDouble(d['precio_unitario']);
+
                         return DataRow(
                           cells: [
                             DataCell(Text('${e.key + 1}')),
@@ -642,8 +625,24 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                                 style: const TextStyle(fontSize: 12),
                               ),
                             ),
-                            DataCell(Text(_formatearNumero(cant))),
-                            DataCell(Text(_formatearConPuntos(precio))),
+                            // ✅ CELDA: CANTIDAD CONTRATADA
+                            DataCell(
+                              Center(
+                                child: Text(_formatearNumero(cantContratada)),
+                              ),
+                            ),
+                            // ✅ CELDA: CANTIDAD INGRESADA
+                            DataCell(
+                              Center(
+                                child: Text(_formatearNumero(cantIngresada)),
+                              ),
+                            ),
+                            DataCell(
+                              Center(child: Text(_formatearNumero(cant))),
+                            ),
+                            DataCell(
+                              Center(child: Text(_formatearConPuntos(precio))),
+                            ),
                             DataCell(
                               Text(
                                 _formatearConPuntos(cant * precio),
@@ -735,10 +734,8 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     );
   }
 
-  // ✅ MÉTODO CORREGIDO - Cargar egreso para editar con stock
   Future<void> _cargarEgresoParaEditar(int egresoId) async {
     setState(() => _cargando = true);
-
     try {
       final response = await http
           .get(Uri.parse('$_baseUrl/egresos/obtener_egreso.php?id=$egresoId'))
@@ -746,7 +743,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             const Duration(seconds: 10),
             onTimeout: () => throw Exception('Tiempo de espera agotado'),
           );
-
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
@@ -754,18 +750,14 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
         final detallesData = List<Map<String, dynamic>>.from(
           data['data']['detalles'] as List,
         );
-
         final String fechaEgreso = egresoData['fecha'] ?? '';
-        String anioContrato = '';
-        if (fechaEgreso.isNotEmpty && fechaEgreso.length >= 4) {
-          anioContrato = fechaEgreso.substring(0, 4);
-        }
+        String anioContrato = fechaEgreso.isNotEmpty && fechaEgreso.length >= 4
+            ? fechaEgreso.substring(0, 4)
+            : '';
 
         await _cargarTodosLosContratos();
-
         final contratoIdDelEgreso =
             int.tryParse(egresoData['contrato_id']?.toString() ?? '0') ?? 0;
-
         final contratoEncontrado = _contratosDisponibles.firstWhere(
           (c) => _toInt(c['id']) == contratoIdDelEgreso,
           orElse: () => {},
@@ -773,21 +765,16 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
 
         if (contratoEncontrado.isNotEmpty) {
           await _cargarItemsContrato(contratoIdDelEgreso);
-
           setState(() {
             _modoEdicion = true;
             _egresoEditandoId = egresoId;
-
             _numeroEgresoController.text = egresoData['numero_egreso'] ?? '';
             _fechaEgresoController.text = fechaEgreso;
             _observacionController.text = egresoData['observacion'] ?? '';
-
             _anioSeleccionado = anioContrato;
             _contratoSeleccionado = contratoIdDelEgreso;
             _contratoNumero =
                 contratoEncontrado['numero_contrato']?.toString() ?? '';
-
-            // ✅ ACTUALIZAR OBJETO DEL CONTRATO VIA CONTROLLER
             _objetoContratoController.text =
                 contratoEncontrado['objeto_contrato']?.toString() ??
                 contratoEncontrado['objeto']?.toString() ??
@@ -804,17 +791,14 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                     detalleEgreso['cantidad']?.toString() ?? '0',
                   ) ??
                   0.0;
-
               final index = _detallesEgreso.indexWhere(
                 (d) => d['id_item_contrato'] == itemId,
               );
-
               if (index != -1) {
                 _detallesEgreso[index]['cantidad_egresada'] = cantidadEgresada;
                 _detallesEgreso[index]['cantidad_adicional'] = 0.0;
               }
             }
-
             _inicializarControllersCantidad();
           });
         } else {
@@ -827,7 +811,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             );
           }
         }
-
         setState(() => _mostrandoLista = false);
       } else {
         if (mounted) {
@@ -854,7 +837,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }
   }
 
-  // ── CARGAR LISTA DE EGRESOS ────────────────────────────────
   Future<void> _cargarEgresos() async {
     setState(() => _cargando = true);
     try {
@@ -875,12 +857,11 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }
   }
 
-  // ── LIMPIAR ────────────────────────────────────────────────
   void _limpiarFormulario() {
     _numeroEgresoController.clear();
     _fechaEgresoController.clear();
     _observacionController.clear();
-    _objetoContratoController.clear(); // ✅ Limpiar controller
+    _objetoContratoController.clear();
     for (final c in _cantidadControllers) {
       c.dispose();
     }
@@ -915,9 +896,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     alignLabelWithHint: alignLabel,
   );
 
-  // ══════════════════════════════════════════════════════════
-  // BUILD
-  // ═════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     const Color verde = Color(0xFF2E7D32);
@@ -930,7 +908,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
       ),
       body: Column(
         children: [
-          // ── BANNER ──────────────────────────────────────────
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: const BoxDecoration(
@@ -1010,8 +987,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
               ],
             ),
           ),
-
-          // ── CONTENIDO ────────────────────────────────────────
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -1060,7 +1035,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     );
   }
 
-  // ── SECCIÓN DATOS ──────────────────────────────────────────
   Widget _buildSeccionDatos(Color verde) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1081,7 +1055,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
         ),
         const Divider(height: 20, thickness: 1),
         const SizedBox(height: 8),
-
         Row(
           children: [
             Expanded(
@@ -1118,7 +1091,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           ],
         ),
         const SizedBox(height: 14),
-
         Row(
           children: [
             Expanded(
@@ -1156,7 +1128,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           ],
         ),
         const SizedBox(height: 14),
-
         Row(
           children: [
             Expanded(
@@ -1176,7 +1147,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                           _contratosDisponibles = [];
                           _itemsContrato = [];
                           _detallesEgreso = [];
-                          _objetoContratoController.clear(); // ✅ Limpiar
+                          _objetoContratoController.clear();
                           _contratoNumero = '';
                         });
                         if (v != null) _cargarContratosPorAnio(v);
@@ -1212,20 +1183,15 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                           _contratoSeleccionado = v;
                           _itemsContrato = [];
                           _detallesEgreso = [];
-
-                          // ✅ EXTRAER OBJETO Y NÚMERO DEL CONTRATO SELECCIONADO
                           final contratoSeleccionado = _contratosDisponibles
                               .firstWhere(
                                 (c) => _toInt(c['id']) == v,
                                 orElse: () => {},
                               );
-
                           _contratoNumero =
                               contratoSeleccionado['numero_contrato']
                                   ?.toString() ??
                               '';
-
-                          // ✅ ACTUALIZAR EL CONTROLLER DIRECTAMENTE
                           _objetoContratoController.text =
                               contratoSeleccionado['objeto_contrato']
                                   ?.toString() ??
@@ -1241,10 +1207,8 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           ],
         ),
         const SizedBox(height: 14),
-
-        // ✅ CAMPO: Objeto del Contrato (usando controller)
         TextFormField(
-          controller: _objetoContratoController, // ✅ USAR CONTROLLER
+          controller: _objetoContratoController,
           readOnly: true,
           maxLines: 2,
           decoration: _deco('Objeto del Contrato', alignLabel: true).copyWith(
@@ -1258,7 +1222,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
         ),
         const SizedBox(height: 14),
-
         TextFormField(
           controller: _observacionController,
           maxLines: 3,
@@ -1270,7 +1233,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     );
   }
 
-  // ── SECCIÓN DETALLES ───────────────────────────────────────
   Widget _buildSeccionDetalles(Color verde) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1307,7 +1269,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
         ),
         const Divider(height: 20, thickness: 1),
         const SizedBox(height: 8),
-
         if (_detallesEgreso.isEmpty)
           Container(
             padding: const EdgeInsets.all(20),
@@ -1384,7 +1345,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                       ),
                     ),
                   ),
-                  // ✅ NUEVA COLUMNA: Cant. Egresada (SOLO en modo REGISTRO)
                   if (!_modoEdicion)
                     DataColumn(
                       label: Text(
@@ -1431,7 +1391,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                 rows: _detallesEgreso.asMap().entries.map((entry) {
                   final i = entry.key;
                   final detalle = entry.value;
-
                   final contratada = _toDouble(detalle['cantidad_contratada']);
                   final ingresada = _toDouble(detalle['total_ingresado']);
                   final baseEgresada = _modoEdicion
@@ -1439,11 +1398,9 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                       : _toDouble(detalle['total_egresado']);
                   final adicional = _toDouble(detalle['cantidad_adicional']);
                   final stock = _toDouble(detalle['stock_disponible']);
-
                   final cantidadMostrar = _modoEdicion
                       ? adicional
                       : _toDouble(detalle['cantidad_egresada']);
-
                   final excede = _modoEdicion
                       ? (adicional > stock && adicional > 0)
                       : (cantidadMostrar > stock && cantidadMostrar > 0);
@@ -1501,7 +1458,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                           ),
                         ),
                       ),
-                      // ✅ NUEVO: Cant. Egresada (SOLO en modo REGISTRO)
                       if (!_modoEdicion)
                         DataCell(
                           Container(
@@ -1617,7 +1573,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     );
   }
 
-  // ─ BOTONES ────────────────────────────────────────────────
   Widget _buildBotones(Color verde) {
     return Column(
       children: [
@@ -1681,7 +1636,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     );
   }
 
-  // ── LISTA DE EGRESOS ───────────────────────────────────────
   Widget _buildListaEgresos() {
     const Color verde = Color(0xFF2E7D32);
     if (_egresos.isEmpty && !_cargando) {
@@ -1757,7 +1711,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             ),
           ),
           const SizedBox(height: 12),
-
           Row(
             children: [
               Text(
@@ -1778,7 +1731,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             ],
           ),
           const SizedBox(height: 8),
-
           ..._egresosFiltrados.map(
             (egreso) => InkWell(
               onTap: () => _verDetalle(egreso),
@@ -1908,7 +1860,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          // ✅ CAMBIO: Solo mostrar si es admin o administrativo
                           if (rol == 'administrador' || rol == 'administrativo')
                             TextButton.icon(
                               onPressed: () => _eliminarEgreso(
@@ -1943,7 +1894,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
               ),
             ),
           ),
-
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -1975,7 +1925,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     _numeroEgresoController.dispose();
     _fechaEgresoController.dispose();
     _observacionController.dispose();
-    _objetoContratoController.dispose(); // ✅ LIBERAR MEMORIA
+    _objetoContratoController.dispose();
     _searchController.dispose();
     for (final c in _cantidadControllers) {
       c.dispose();

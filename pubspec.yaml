@@ -11,7 +11,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  shared_preferences: ^2.2.2      # ← CORRECTO: al mismo nivel que 'flutter:'
+  shared_preferences: ^2.2.2
   cupertino_icons: ^1.0.8
   http: ^1.2.0
   file_picker: ^8.0.0

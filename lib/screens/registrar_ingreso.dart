@@ -636,19 +636,21 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                                   ),
                                 ),
                                 DataCell(
-                                  Text(
-                                    _formatearNumero(
-                                      detalle['cantidad_contratada'],
+                                  Center(
+                                    child: Text(
+                                      _formatearNumero(
+                                        detalle['cantidad_contratada'],
+                                      ),
                                     ),
-                                    style: const TextStyle(fontSize: 12),
                                   ),
                                 ),
                                 DataCell(
-                                  Text(
-                                    _formatearNumero(
-                                      detalle['cantidad_ingresada'],
+                                  Center(
+                                    child: Text(
+                                      _formatearNumero(
+                                        detalle['cantidad_ingresada'],
+                                      ),
                                     ),
-                                    style: const TextStyle(fontSize: 12),
                                   ),
                                 ),
                                 DataCell(
@@ -1546,11 +1548,8 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                         _buildDataColumn('Item', verde),
                         _buildDataColumn('Descripción', verde),
                         _buildDataColumn('Cant. Contratada', verde),
-                        _buildDataColumn('Total Ingresado', verde),
+                        _buildDataColumn('Total Ingresado (Base)', verde),
                         _buildDataColumn('Stock Contrato', verde),
-                        // ✅ Solo en modo edición: muestra la base
-                        if (_modoEdicion)
-                          _buildDataColumn('Cant. Ingresada (Base)', verde),
                         _buildDataColumn(
                           _modoEdicion
                               ? 'Cant. Adicional *'
@@ -1692,32 +1691,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                                 ),
                               ),
                             ),
-                            // ✅ Solo en modo edición: Cant. Ingresada (Base)
-                            if (_modoEdicion)
-                              DataCell(
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orange.shade100,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                      color: Colors.orange.shade300,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _formatearNumero(baseIngresada),
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.orange.shade700,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            // ✅ Campo editable
+                            // ✅ Campo editable (Sin la columna naranja de base)
                             DataCell(
                               Container(
                                 decoration: BoxDecoration(

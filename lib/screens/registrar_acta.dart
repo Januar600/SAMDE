@@ -24,6 +24,18 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
   final _fechaController = TextEditingController();
   final _entregadoAController = TextEditingController();
 
+  // ✅ NUEVOS CONTROLLERS
+  final _representanteLegalController = TextEditingController();
+  final _ubicacionController = TextEditingController();
+  final _docIdentRLController = TextEditingController(); // ✅ Agregado
+
+  // ✅ NUEVOS DROPDOWNS
+  String? _tipoBeneficiarioSeleccionado;
+  final List<String> _tiposBeneficiario = ['Asociación', 'Pequeño Productor'];
+
+  String? _zonaSeleccionada;
+  final List<String> _zonasDisponibles = ['Urbana', 'Rural'];
+
   String? _areaSeleccionada;
   final List<String> _areasDisponibles = [
     'Sector Desarrollo Económico',
@@ -88,6 +100,12 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
   List<bool> _erroresCantidad = [];
   Map<int, double> _cantidadesOriginales = {};
 
+  // ✅ NUEVO: Cliente para poder CANCELAR la subida en curso
+  http.Client? _clienteUpload;
+
+  // ✅ NUEVO: Límite real de tamaño de archivo (10 MB)
+  static const int _maxArchivoBytes = 10 * 1024 * 1024;
+
   static const String _baseUrl = 'http://localhost/samde_db/api';
 
   @override
@@ -141,6 +159,13 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     return n == n.truncateToDouble()
         ? n.truncate().toString()
         : n.toStringAsFixed(2);
+  }
+
+  // ✅ NUEVO: Formatea bytes a KB/MB legibles
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   void _snack(String msg, Color color) {
@@ -231,6 +256,31 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     });
   }
 
+  // ✅ Valida la cantidad adicional en modo edición.
+  // - Si la adicional supera el stock disponible → error (rojo) y bloquea guardado.
+  // - Si el total queda por debajo de 0 → error.
+  // - Si es válida → SUMA la adicional a la cantidad original entregada y
+  //   actualiza en vivo el campo "Total Entregado".
+  void _validarAdicional(int index, String valor) {
+    final item = _todosItemsDisponibles[index];
+    final itemId = int.tryParse(item['id']?.toString() ?? '0') ?? 0;
+    final original = _cantidadesOriginales[itemId] ?? 0.0;
+    final disponible = _toDouble(item['cantidad_disponible']);
+    final adicional = _toDouble(valor);
+    final nuevoTotal = original + adicional;
+
+    setState(() {
+      final bool hayError = adicional > disponible || nuevoTotal < 0;
+      _erroresCantidad[index] = hayError;
+      if (!hayError) {
+        // ✅ Actualiza el campo de cantidad entregada (original + adicional)
+        _cantidadControllers[index].text = _formatNum(nuevoTotal);
+      }
+    });
+  }
+
+  // ✅ MEJORA 1: selección con validación REAL de tamaño (máx. 10 MB).
+  // Se leen los bytes del archivo, pero ahora el peso está acotado al límite.
   Future<void> _seleccionarArchivo() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -238,7 +288,31 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       withData: true,
     );
     if (result != null && result.files.isNotEmpty) {
-      setState(() => _archivoSeleccionado = result.files.first);
+      final file = result.files.first;
+
+      // ✅ Validación REAL de tamaño (máx. 10 MB)
+      if (file.size > _maxArchivoBytes) {
+        _snack(
+          '⚠️ El archivo pesa ${_formatBytes(file.size)} y el máximo permitido es 10 MB',
+          Colors.red,
+        );
+        return;
+      }
+
+      setState(() => _archivoSeleccionado = file);
+    }
+  }
+
+  // ✅ MEJORA 3 (compatibilidad): adjunta el archivo por bytes.
+  // (Se eliminó MultipartFile.fromFile porque la versión del paquete http
+  //  del proyecto no lo incluye; con el tope de 10 MB la carga es acotada.)
+  Future<void> _adjuntarArchivo(http.MultipartRequest request) async {
+    final f = _archivoSeleccionado;
+    if (f == null) return;
+    if (f.bytes != null) {
+      request.files.add(
+        http.MultipartFile.fromBytes('archivo', f.bytes!, filename: f.name),
+      );
     }
   }
 
@@ -271,6 +345,15 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
           _archivoExistenteRuta = actaData['archivo_justificante'];
           _archivoSeleccionado = null;
           _cantidadesOriginales = {};
+
+          // ✅ NUEVOS CAMPOS PARA EDICIÓN
+          _tipoBeneficiarioSeleccionado = actaData['tipo_beneficiario'];
+          _zonaSeleccionada = actaData['zona'];
+          _representanteLegalController.text =
+              actaData['representante_legal'] ?? '';
+          _ubicacionController.text = actaData['ubicacion'] ?? '';
+          _docIdentRLController.text =
+              actaData['documento_identidad_rl'] ?? ''; // ✅ Agregado
         });
 
         final bool exitoCarga = await _cargarItemsDisponibles();
@@ -299,7 +382,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
             _inicializarControllers();
           }
 
-          // ✅ En modo edición: Cant. a Entregar = cantidad original, Cant. Adicional = 0
           for (int i = 0; i < _todosItemsDisponibles.length; i++) {
             final itemId =
                 int.tryParse(
@@ -309,14 +391,12 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
             if (cantidadesPorItem.containsKey(itemId)) {
               final cantOriginal = cantidadesPorItem[itemId]!;
               _cantidadesOriginales[itemId] = cantOriginal;
-              _cantidadControllers[i].text = _formatNum(
-                cantOriginal,
-              ); // ✅ Cant. a Entregar = original
-              _cantidadAdicionalControllers[i].text =
-                  '0'; // ✅ Cant. Adicional = 0
+              _cantidadControllers[i].text = _formatNum(cantOriginal);
+              _cantidadAdicionalControllers[i].text = '0';
             } else {
-              _cantidadControllers[i].text = '';
-              _cantidadAdicionalControllers[i].text = '';
+              // ✅ En edición mostramos 0 para que la suma siempre sea clara
+              _cantidadControllers[i].text = '0';
+              _cantidadAdicionalControllers[i].text = '0';
             }
           }
           _mostrandoLista = false;
@@ -431,8 +511,8 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => WillPopScope(
-        onWillPop: () async => false,
+      builder: (ctx) => PopScope(
+        canPop: false,
         child: AlertDialog(
           title: const Text('Guardando Acta...'),
           content: Column(
@@ -443,7 +523,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
               const Text('Subiendo archivo y registrando datos'),
               const SizedBox(height: 8),
               Text(
-                'Archivo: ${_archivoSeleccionado!.name}',
+                'Archivo: ${_archivoSeleccionado!.name} (${_formatBytes(_archivoSeleccionado!.size)})',
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -454,6 +534,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
             TextButton(
               onPressed: () {
                 cancelado = true;
+                _clienteUpload?.close(); // ✅ MEJORA 4: aborta la subida
                 Navigator.pop(ctx);
               },
               child: const Text(
@@ -467,6 +548,9 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     );
 
     setState(() => _cargando = true);
+    // ✅ MEJORA 4: cliente propio para poder cancelar la petición
+    final cliente = http.Client();
+    _clienteUpload = cliente;
     try {
       final request = http.MultipartRequest(
         'POST',
@@ -482,27 +566,31 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
           _nombreEntregoSeleccionado?.trim() ?? '';
       request.fields['cargo_entrego'] = _cargoSeleccionado?.trim() ?? '';
       request.fields['observaciones'] = _observacionesCtrl.text.trim();
+
+      // ✅ NUEVOS CAMPOS
+      request.fields['tipo_beneficiario'] =
+          _tipoBeneficiarioSeleccionado?.trim() ?? '';
+      request.fields['zona'] = _zonaSeleccionada?.trim() ?? '';
+      request.fields['representante_legal'] = _representanteLegalController.text
+          .trim();
+      request.fields['ubicacion'] = _ubicacionController.text.trim();
+      request.fields['documento_identidad_rl'] = _docIdentRLController.text
+          .trim(); // ✅ Agregado
+
       request.fields['usuario_registro'] = '2';
       request.fields['detalles'] = jsonEncode(itemsConCantidad);
 
-      if (_archivoSeleccionado != null && _archivoSeleccionado!.bytes != null) {
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'archivo',
-            _archivoSeleccionado!.bytes!,
-            filename: _archivoSeleccionado!.name,
-          ),
-        );
-      }
+      // ✅ Adjunta el archivo por bytes (ahora con tamaño acotado a 10 MB)
+      await _adjuntarArchivo(request);
 
-      final streamed = await request.send().timeout(
-        const Duration(seconds: 60),
-        onTimeout: () {
-          throw Exception(
-            'Tiempo de espera agotado (60s). El archivo puede ser muy grande.',
+      final streamed = await cliente
+          .send(request)
+          .timeout(
+            const Duration(seconds: 60),
+            onTimeout: () => throw Exception(
+              'Tiempo de espera agotado (60s). El archivo puede ser muy grande o la conexión lenta.',
+            ),
           );
-        },
-      );
 
       if (cancelado) return;
 
@@ -550,10 +638,17 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context);
-      _snack('❌ Error: $e', Colors.red);
-      debugPrint('Error detallado: $e');
+      if (cancelado) {
+        // ✅ El usuario canceló: el diálogo ya se cerró manualmente
+        _snack('⚠️ Registro cancelado', Colors.orange);
+      } else {
+        Navigator.pop(context);
+        _snack('❌ Error: $e', Colors.red);
+        debugPrint('Error detallado: $e');
+      }
     } finally {
+      cliente.close();
+      _clienteUpload = null;
       if (mounted) setState(() => _cargando = false);
     }
   }
@@ -568,19 +663,29 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       return;
     }
 
+    // ✅ CORRECCIÓN: El total a enviar es SIEMPRE la cantidad original
+    // entregada + la cantidad adicional. Nunca se reemplaza la original.
     final itemsConCantidad = <Map<String, dynamic>>[];
     for (int i = 0; i < _todosItemsDisponibles.length; i++) {
-      final itemId =
-          int.tryParse(_todosItemsDisponibles[i]['id']?.toString() ?? '0') ?? 0;
+      final item = _todosItemsDisponibles[i];
+      final itemId = int.tryParse(item['id']?.toString() ?? '0') ?? 0;
+      final original = _cantidadesOriginales[itemId] ?? 0.0;
+      final adicional = _toDouble(_cantidadAdicionalControllers[i].text);
+      final disponible = _toDouble(item['cantidad_disponible']);
 
-      final cantidadEntregar = _toDouble(_cantidadControllers[i].text);
-      final cantidadAdicional = _toDouble(
-        _cantidadAdicionalControllers[i].text,
-      );
-      final cantidadTotal = cantidadEntregar + cantidadAdicional;
+      // Doble validación de seguridad
+      if (adicional > disponible || original + adicional < 0) {
+        _snack('Stock insuficiente: ${item['nombre_items']}', Colors.red);
+        return;
+      }
+
+      final cantidadTotal = original + adicional;
 
       if (cantidadTotal > 0) {
-        final item = _todosItemsDisponibles[i];
+        if (item['id_egreso'] == null) {
+          _snack('Item "${item['nombre_items']}" sin egreso', Colors.red);
+          return;
+        }
         itemsConCantidad.add({
           'id_item': item['id'] ?? 0,
           'id_egreso': item['id_egreso'] ?? 0,
@@ -602,8 +707,8 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => WillPopScope(
-        onWillPop: () async => false,
+      builder: (ctx) => PopScope(
+        canPop: false,
         child: AlertDialog(
           title: const Text('Actualizando Acta...'),
           content: Column(
@@ -618,6 +723,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
             TextButton(
               onPressed: () {
                 cancelado = true;
+                _clienteUpload?.close(); // ✅ MEJORA 4: aborta la subida
                 Navigator.pop(ctx);
               },
               child: const Text(
@@ -631,6 +737,9 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     );
 
     setState(() => _cargando = true);
+    // ✅ MEJORA 4: cliente propio para poder cancelar la petición
+    final cliente = http.Client();
+    _clienteUpload = cliente;
     try {
       final request = http.MultipartRequest(
         'POST',
@@ -648,25 +757,29 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
           _nombreEntregoSeleccionado?.trim() ?? '';
       request.fields['cargo_entrego'] = _cargoSeleccionado?.trim() ?? '';
       request.fields['observaciones'] = _observacionesCtrl.text.trim();
+
+      // ✅ NUEVOS CAMPOS
+      request.fields['tipo_beneficiario'] =
+          _tipoBeneficiarioSeleccionado?.trim() ?? '';
+      request.fields['zona'] = _zonaSeleccionada?.trim() ?? '';
+      request.fields['representante_legal'] = _representanteLegalController.text
+          .trim();
+      request.fields['ubicacion'] = _ubicacionController.text.trim();
+      request.fields['documento_identidad_rl'] = _docIdentRLController.text
+          .trim(); // ✅ Agregado
+
       request.fields['usuario_registro'] = '2';
       request.fields['detalles'] = jsonEncode(itemsConCantidad);
 
-      if (_archivoSeleccionado != null && _archivoSeleccionado!.bytes != null) {
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'archivo',
-            _archivoSeleccionado!.bytes!,
-            filename: _archivoSeleccionado!.name,
-          ),
-        );
-      }
+      // ✅ Adjunta el archivo solo si el usuario seleccionó uno nuevo
+      await _adjuntarArchivo(request);
 
-      final streamed = await request.send().timeout(
-        const Duration(seconds: 60),
-        onTimeout: () {
-          throw Exception('Tiempo de espera agotado (60s).');
-        },
-      );
+      final streamed = await cliente
+          .send(request)
+          .timeout(
+            const Duration(seconds: 60),
+            onTimeout: () => throw Exception('Tiempo de espera agotado (60s).'),
+          );
 
       if (cancelado) return;
 
@@ -687,9 +800,15 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       }
     } catch (e) {
       if (!mounted) return;
-      Navigator.pop(context);
-      _snack('❌ Error: $e', Colors.red);
+      if (cancelado) {
+        _snack('⚠️ Actualización cancelada', Colors.orange);
+      } else {
+        Navigator.pop(context);
+        _snack('❌ Error: $e', Colors.red);
+      }
     } finally {
+      cliente.close();
+      _clienteUpload = null;
       if (mounted) setState(() => _cargando = false);
     }
   }
@@ -732,6 +851,15 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     _numeroActaController.clear();
     _fechaController.clear();
     _entregadoAController.clear();
+    _docIdentController.clear();
+    _telefonoController.clear();
+    _observacionesCtrl.clear();
+
+    // ✅ NUEVOS CAMPOS
+    _representanteLegalController.clear();
+    _ubicacionController.clear();
+    _docIdentRLController.clear(); // ✅ Agregado
+
     setState(() {
       _areaSeleccionada = null;
       _cargoSeleccionado = null;
@@ -741,19 +869,37 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       _archivoExistenteRuta = null;
       _archivoSeleccionado = null;
       _cantidadesOriginales = {};
+      _tipoBeneficiarioSeleccionado = null;
+      _zonaSeleccionada = null;
     });
-    _docIdentController.clear();
-    _telefonoController.clear();
-    _observacionesCtrl.clear();
+
+    // ✅ MEJORA 5: ya NO destruimos ni vaciamos las listas de controllers
+    // (eso obligaba a crear controllers huérfanos dentro de build).
+    // Solo limpiamos los textos y reiniciamos los errores.
     for (final c in _cantidadControllers) {
-      c.dispose();
+      c.clear();
     }
     for (final c in _cantidadAdicionalControllers) {
-      c.dispose();
+      c.clear();
     }
-    _cantidadControllers = [];
-    _cantidadAdicionalControllers = [];
-    _erroresCantidad = [];
+    _erroresCantidad = List<bool>.filled(_cantidadControllers.length, false);
+  }
+
+  Widget _buildZonaDropdown() {
+    return DropdownButtonFormField<String>(
+      value: _zonaSeleccionada,
+      decoration: _deco('Zona', obligatorio: true),
+      hint: const Text('Seleccione zona'),
+      isExpanded: true,
+      items: _zonasDisponibles
+          .map(
+            (zona) => DropdownMenuItem<String>(value: zona, child: Text(zona)),
+          )
+          .toList(),
+      onChanged: (String? newValue) =>
+          setState(() => _zonaSeleccionada = newValue),
+      validator: (value) => value == null || value.isEmpty ? 'Requerido' : null,
+    );
   }
 
   @override
@@ -806,7 +952,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                     ),
                   ),
                 ),
-                // ✅ Botón Ver Listado (solo en formulario)
                 if (!_mostrandoLista && !_modoEdicion)
                   SizedBox(
                     height: 36,
@@ -838,7 +983,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                       ),
                     ),
                   ),
-                // ✅ Botón Nuevo (solo en lista)
                 if (_mostrandoLista)
                   SizedBox(
                     height: 36,
@@ -869,14 +1013,36 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                       ),
                     ),
                   ),
+                // ✅ Botón "Cancelar" reemplaza la X de cancelar edición
                 if (_modoEdicion)
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red, size: 28),
-                    onPressed: () {
-                      _limpiarFormulario();
-                      setState(() => _mostrandoLista = true);
-                    },
-                    tooltip: 'Cancelar edición',
+                  SizedBox(
+                    height: 36,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        _limpiarFormulario();
+                        setState(() => _mostrandoLista = true);
+                      },
+                      icon: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      label: const Text(
+                        'Cancelar',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -934,6 +1100,8 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                       ],
                     ),
                     const Divider(height: 32),
+
+                    // ✅ FILA 1: Número del Acta + Fecha de Entrega
                     Row(
                       children: [
                         Expanded(
@@ -962,8 +1130,42 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                       ],
                     ),
                     const SizedBox(height: 16),
+
+                    // ✅ FILA 2: Tipo de Beneficiario + Entregado a
                     Row(
                       children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _tipoBeneficiarioSeleccionado,
+                            decoration: _deco(
+                              'Tipo de Beneficiario',
+                              obligatorio: true,
+                            ),
+                            hint: const Text('Seleccione tipo'),
+                            isExpanded: true,
+                            items: _tiposBeneficiario
+                                .map(
+                                  (tipo) => DropdownMenuItem<String>(
+                                    value: tipo,
+                                    child: Text(tipo),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                _tipoBeneficiarioSeleccionado = newValue;
+                                if (newValue != 'Asociación') {
+                                  _representanteLegalController.clear();
+                                  _docIdentRLController.clear();
+                                }
+                              });
+                            },
+                            validator: (value) => value == null || value.isEmpty
+                                ? 'Requerido'
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: TextFormField(
                             controller: _entregadoAController,
@@ -971,19 +1173,83 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                             validator: (v) => v!.isEmpty ? 'Requerido' : null,
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _docIdentController,
-                            decoration: _deco('Documento de Identidad'),
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
+
+                    // ✅ FILA 3: Doc. Identidad / NIT + Representante Legal (si Asociación) o Zona (si no)
                     Row(
                       children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _docIdentController,
+                            decoration: _deco(
+                              'Documento de Identidad / NIT',
+                              obligatorio:
+                                  _tipoBeneficiarioSeleccionado == 'Asociación',
+                            ),
+                            keyboardType: TextInputType.number,
+                            validator: (v) {
+                              if (_tipoBeneficiarioSeleccionado ==
+                                      'Asociación' &&
+                                  v!.isEmpty) {
+                                return 'Requerido para Asociaciones';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _tipoBeneficiarioSeleccionado == 'Asociación'
+                              ? TextFormField(
+                                  controller: _representanteLegalController,
+                                  decoration: _deco(
+                                    'Representante Legal',
+                                    obligatorio: true,
+                                  ),
+                                  validator: (v) =>
+                                      v!.isEmpty ? 'Requerido' : null,
+                                )
+                              : _buildZonaDropdown(),
+                        ),
+                      ],
+                    ),
+
+                    // ✅ FILA 4 (SOLO si es Asociación): Documento Identidad RL + Zona
+                    if (_tipoBeneficiarioSeleccionado == 'Asociación') ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _docIdentRLController,
+                              decoration: _deco(
+                                'Documento Identidad RL',
+                                obligatorio: true,
+                              ),
+                              keyboardType: TextInputType.number,
+                              validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(child: _buildZonaDropdown()),
+                        ],
+                      ),
+                    ],
+
+                    // ✅ FILA 5: Ubicación + Teléfono
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _ubicacionController,
+                            decoration: _deco('Ubicación'),
+                            validator: (v) => null,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: TextFormField(
                             controller: _telefonoController,
@@ -991,10 +1257,16 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                             keyboardType: TextInputType.phone,
                           ),
                         ),
-                        const SizedBox(width: 16),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ✅ FILA 6: Nombre quien entregó + Área / Dependencia
+                    Row(
+                      children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            initialValue: _nombreEntregoSeleccionado,
+                            value: _nombreEntregoSeleccionado,
                             decoration: _deco(
                               'Nombre quien entregó',
                               obligatorio: true,
@@ -1020,19 +1292,16 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                                 : null,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
+                        const SizedBox(width: 16),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            initialValue: _areaSeleccionada,
+                            value: _areaSeleccionada,
                             decoration: _deco(
                               'Área / Dependencia',
                               obligatorio: true,
                             ),
                             hint: const Text('Seleccione un área'),
+                            isExpanded: true,
                             items: _areasDisponibles
                                 .map(
                                   (String area) => DropdownMenuItem<String>(
@@ -1048,12 +1317,19 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                                 : null,
                           ),
                         ),
-                        const SizedBox(width: 16),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ✅ FILA 7: Cargo
+                    Row(
+                      children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            initialValue: _cargoSeleccionado,
+                            value: _cargoSeleccionado,
                             decoration: _deco('Cargo'),
                             hint: const Text('Seleccione un cargo'),
+                            isExpanded: true,
                             items: _cargosDisponibles
                                 .map(
                                   (String cargo) => DropdownMenuItem<String>(
@@ -1066,14 +1342,13 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                                 setState(() => _cargoSeleccionado = newValue),
                           ),
                         ),
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: SizedBox(),
+                        ), // Espacio vacío para balancear
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _observacionesCtrl,
-                      decoration: _deco('Observaciones'),
-                      maxLines: 3,
-                    ),
+
                     const SizedBox(height: 32),
                     Row(
                       children: [
@@ -1098,6 +1373,8 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                     const Divider(height: 32),
                     _buildTablaItems(),
                     const SizedBox(height: 32),
+
+                    // ✅ SECCIÓN: Archivo del Acta
                     Row(
                       children: [
                         Icon(Icons.attach_file, color: verde, size: 24),
@@ -1121,7 +1398,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                       ],
                     ),
                     const Divider(height: 32),
-                    // ✅ SECCIÓN DE ARCHIVO MEJORADA
                     InkWell(
                       onTap: _seleccionarArchivo,
                       child: Container(
@@ -1163,8 +1439,9 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
+                                    // ✅ MEJORA 2: muestra también el peso del archivo
                                     _archivoSeleccionado != null
-                                        ? _archivoSeleccionado!.name
+                                        ? '${_archivoSeleccionado!.name} (${_formatBytes(_archivoSeleccionado!.size)})'
                                         : (_archivoExistenteRuta != null
                                               ? ' Archivo actual: ${_archivoExistenteRuta!.split('/').last}'
                                               : 'Toca para subir el archivo del acta'),
@@ -1203,9 +1480,8 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                                   final url =
                                       'http://localhost/samde_db/api/actas/download_acta.php?file=$_archivoExistenteRuta';
                                   final uri = Uri.parse(url);
-                                  if (await canLaunchUrl(uri)) {
+                                  if (await canLaunchUrl(uri))
                                     await launchUrl(uri);
-                                  }
                                 },
                                 tooltip: 'Ver archivo actual',
                               ),
@@ -1266,24 +1542,29 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: OutlinedButton(
-                        onPressed: _limpiarFormulario,
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.grey.shade400),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                    // ✅ El botón "Limpiar Formulario" solo aparece en modo
+                    // registro nuevo. En edición se oculta (para cancelar la
+                    // edición se usa el botón "Cancelar" del encabezado).
+                    if (!_modoEdicion) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: OutlinedButton(
+                          onPressed: _limpiarFormulario,
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: Colors.grey.shade400),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Limpiar Formulario',
+                            style: TextStyle(fontSize: 14),
                           ),
                         ),
-                        child: const Text(
-                          'Limpiar Formulario',
-                          style: TextStyle(fontSize: 14),
-                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -1320,6 +1601,19 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       );
     }
     if (_cargando) {
+      return Container(
+        padding: const EdgeInsets.all(60),
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.green),
+        ),
+      );
+    }
+
+    // ✅ MEJORA 5: guardia de seguridad. Si no hay un controller por cada
+    // item (estado inconsistente tras limpiar/recarga fallida), mostramos
+    // spinner en lugar de crear controllers huérfanos dentro de build.
+    if (_cantidadControllers.length != _todosItemsDisponibles.length ||
+        _cantidadAdicionalControllers.length != _todosItemsDisponibles.length) {
       return Container(
         padding: const EdgeInsets.all(60),
         child: const Center(
@@ -1431,7 +1725,8 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                 ),
                 Expanded(
                   child: Text(
-                    'Cant. a Entregar *',
+                    // ✅ En edición muestra "Total Entregado" (original + adicional)
+                    _modoEdicion ? 'Total Entregado' : 'Cant. a Entregar *',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
@@ -1597,25 +1892,21 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                     ),
                   ),
                   const SizedBox(width: 4),
-
-                  // ============================================================
-                  // ✅ COLUMNA "Cant. a Entregar" - MISMO ANCHO QUE LAS DEMÁS
-                  // ============================================================
                   Expanded(
                     child: SizedBox(
                       height: 44,
                       child: TextFormField(
-                        controller: _cantidadControllers.length > i
-                            ? _cantidadControllers[i]
-                            : TextEditingController(),
+                        // ✅ MEJORA 5: controller estable, nunca creado en build
+                        controller: _cantidadControllers[i],
                         keyboardType: TextInputType.number,
                         textAlign: TextAlign.center,
                         textAlignVertical: TextAlignVertical.center,
+                        // ✅ En edición es de solo lectura: se actualiza solo
+                        // con la suma (original + adicional)
+                        readOnly: _modoEdicion,
                         enabled: _modoEdicion || tieneStock,
                         onChanged: (valor) {
-                          if (!_modoEdicion) {
-                            _validarCantidad(i, valor);
-                          }
+                          if (!_modoEdicion) _validarCantidad(i, valor);
                         },
                         style: TextStyle(
                           fontSize: 13,
@@ -1626,8 +1917,9 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                         ),
                         decoration: InputDecoration(
                           filled: true,
-                          fillColor: Colors.white,
-                          // ✅ SIN PADDING HORIZONTAL
+                          fillColor: _modoEdicion
+                              ? Colors.grey.shade100
+                              : Colors.white,
                           contentPadding: const EdgeInsets.symmetric(
                             vertical: 8,
                             horizontal: 0,
@@ -1661,25 +1953,21 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                       ),
                     ),
                   ),
-
-                  // ============================================================
-                  // ✅ COLUMNA "Cant. Adicional" - MISMO ANCHO QUE LAS DEMÁS
-                  // ============================================================
                   if (_modoEdicion) ...[
                     const SizedBox(width: 4),
                     Expanded(
                       child: SizedBox(
                         height: 44,
                         child: TextFormField(
-                          controller: _cantidadAdicionalControllers.length > i
-                              ? _cantidadAdicionalControllers[i]
-                              : TextEditingController(),
+                          // ✅ MEJORA 5: controller estable, nunca creado en build
+                          controller: _cantidadAdicionalControllers[i],
                           keyboardType: TextInputType.numberWithOptions(
                             signed: true,
                           ),
                           textAlign: TextAlign.center,
                           textAlignVertical: TextAlignVertical.center,
-                          onChanged: (valor) => _validarCantidad(i, valor),
+                          // ✅ Valida contra stock y SUMA a la original
+                          onChanged: (valor) => _validarAdicional(i, valor),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -1691,7 +1979,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                             hintText: '0',
                             filled: true,
                             fillColor: Colors.white,
-                            // ✅ SIN PADDING HORIZONTAL
                             contentPadding: const EdgeInsets.symmetric(
                               vertical: 8,
                               horizontal: 0,
@@ -1841,6 +2128,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // ✅ INFORMACIÓN GENERAL ACTUALIZADA
                       _buildInfoSection('Información General', [
                         _buildInfoRow(
                           'Entregado a:',
@@ -1850,20 +2138,49 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                           'Fecha de entrega:',
                           _formatDate(acta['fecha_entrega']),
                         ),
-                        _buildInfoRow(
-                          'Contrato:',
-                          acta['numero_contrato'] ?? 'N/A',
-                        ),
+                        if (acta['tipo_beneficiario'] != null &&
+                            acta['tipo_beneficiario'].toString().isNotEmpty)
+                          _buildInfoRow(
+                            'Tipo de Beneficiario:',
+                            acta['tipo_beneficiario'],
+                          ),
                         if (acta['documento_identidad'] != null &&
                             acta['documento_identidad'].toString().isNotEmpty)
                           _buildInfoRow(
-                            'Documento:',
+                            'Doc. de Identidad / NIT:',
                             acta['documento_identidad'],
                           ),
                         if (acta['telefono'] != null &&
                             acta['telefono'].toString().isNotEmpty)
                           _buildInfoRow('Teléfono:', acta['telefono']),
+                        if (acta['zona'] != null &&
+                            acta['zona'].toString().isNotEmpty)
+                          _buildInfoRow('Zona:', acta['zona']),
+                        if (acta['ubicacion'] != null &&
+                            acta['ubicacion'].toString().isNotEmpty)
+                          _buildInfoRow('Ubicación:', acta['ubicacion']),
                       ]),
+
+                      // ✅ BONUS: SECCIÓN REPRESENTANTE LEGAL (solo si es Asociación)
+                      const SizedBox(height: 20),
+                      if (acta['tipo_beneficiario'] == 'Asociación')
+                        _buildInfoSection('Representante Legal', [
+                          if (acta['representante_legal'] != null &&
+                              acta['representante_legal'].toString().isNotEmpty)
+                            _buildInfoRow(
+                              'Nombre:',
+                              acta['representante_legal'],
+                            ),
+                          if (acta['documento_identidad_rl'] != null &&
+                              acta['documento_identidad_rl']
+                                  .toString()
+                                  .isNotEmpty)
+                            _buildInfoRow(
+                              'Documento:',
+                              acta['documento_identidad_rl'],
+                            ),
+                        ]),
+
                       const SizedBox(height: 20),
                       if (acta['nombre_entrego'] != null &&
                           acta['nombre_entrego'].toString().isNotEmpty)
@@ -1913,11 +2230,14 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                                   ),
                                 ),
                               ),
+                              // ✅ NUEVO: icono de ojo (ver archivo) y sin
+                              // cinta de "Descargando archivo..."
                               IconButton(
                                 icon: const Icon(
-                                  Icons.download,
+                                  Icons.visibility,
                                   color: Colors.blue,
                                 ),
+                                tooltip: 'Ver archivo',
                                 onPressed: () async {
                                   final archivoUrl =
                                       acta['archivo_justificante'];
@@ -1929,10 +2249,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                                       final uri = Uri.parse(downloadUrl);
                                       if (await canLaunchUrl(uri)) {
                                         await launchUrl(uri);
-                                        _snack(
-                                          '📥 Descargando archivo...',
-                                          Colors.blue,
-                                        );
                                       }
                                     } catch (e) {
                                       _snack('❌ Error: $e', Colors.red);
@@ -2210,7 +2526,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 140,
+            width: 160,
             child: Text(
               label,
               style: TextStyle(
@@ -2512,6 +2828,12 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     _telefonoController.dispose();
     _observacionesCtrl.dispose();
     _busquedaController.dispose();
+
+    // ✅ NUEVOS CONTROLLERS
+    _representanteLegalController.dispose();
+    _ubicacionController.dispose();
+    _docIdentRLController.dispose(); // ✅ Agregado
+
     for (final c in _cantidadControllers) {
       c.dispose();
     }
