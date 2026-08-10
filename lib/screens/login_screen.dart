@@ -34,6 +34,7 @@ class _LoginPageState extends State<LoginPage> {
             context,
             '/menu',
             arguments: {
+              'usuario_id': userData['usuarioId'] ?? 2, // ✅ AGREGADO
               'username': userData['username'] ?? 'Usuario',
               'sector': userData['sector'] ?? 'No Asignado',
               'rol': userData['rol'] ?? 'consulta',
@@ -48,7 +49,6 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       print('❌ Error al verificar sesión: $e');
-      // Si hay datos corruptos, limpiamos para forzar el login manual
       await _storage.cerrarSesion();
     }
   }
@@ -65,7 +65,6 @@ class _LoginPageState extends State<LoginPage> {
     final url = Uri.parse('http://localhost/samde_db/api/login.php');
 
     try {
-      // ✅ AGREGADO: Timeout de 10 segundos para evitar carga infinita
       final response = await http
           .post(
             url,
@@ -90,7 +89,12 @@ class _LoginPageState extends State<LoginPage> {
           final String sector = userData['sector'] ?? 'No Asignado';
           final String nombreCompleto = userData['nombre_completo'] ?? username;
 
+          // ✅ CORRECCIÓN CLAVE: El PHP devuelve "id", no "usuarioId"
+          final int usuarioId = int.tryParse(userData['id'].toString()) ?? 2;
+
           await _storage.guardarUsuario(
+            usuarioId:
+                usuarioId, // ✅ Ahora sí guarda el ID real (8, 9, 10, etc.)
             username: username,
             sector: sector,
             rol: rolString,
@@ -110,6 +114,7 @@ class _LoginPageState extends State<LoginPage> {
               context,
               '/menu',
               arguments: {
+                'usuario_id': usuarioId, // ✅ AGREGADO para que el menú lo tenga
                 'username': username,
                 'sector': sector,
                 'rol': rolString,
@@ -137,7 +142,6 @@ class _LoginPageState extends State<LoginPage> {
         }
       }
     } catch (e) {
-      // ✅ Esto ahora se disparará si el servidor tarda más de 10s o está apagado
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -150,7 +154,6 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
     } finally {
-      // ✅ Siempre se ejecuta, quitando el spinner
       if (mounted) {
         setState(() {
           _cargando = false;

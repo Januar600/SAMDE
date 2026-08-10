@@ -523,7 +523,7 @@ class _ReportesPageState extends State<ReportesPage> {
                 const Expanded(
                   child: Center(
                     child: Text(
-                      'Reportes de Actas',
+                      'Sección De Reportes',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,

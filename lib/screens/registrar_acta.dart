@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/storage_service.dart';
 import '../widgets/drawer_menu.dart';
 
 class RegistrarActaPage extends StatefulWidget {
@@ -27,11 +28,15 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
   // ✅ NUEVOS CONTROLLERS
   final _representanteLegalController = TextEditingController();
   final _ubicacionController = TextEditingController();
-  final _docIdentRLController = TextEditingController(); // ✅ Agregado
+  final _docIdentRLController = TextEditingController();
 
-  // ✅ NUEVOS DROPDOWNS
+  // ✅ NUEVOS DROPDOWNS (Se agregó 'Unidades Productivas')
   String? _tipoBeneficiarioSeleccionado;
-  final List<String> _tiposBeneficiario = ['Asociación', 'Pequeño Productor'];
+  final List<String> _tiposBeneficiario = [
+    'Asociación / Organización',
+    'Pequeño Productor',
+    'Unidades Productivas',
+  ];
 
   String? _zonaSeleccionada;
   final List<String> _zonasDisponibles = ['Urbana', 'Rural'];
@@ -92,6 +97,9 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
   bool _modoEdicion = false;
   int? _actaEditandoId;
 
+  // ✅ Detalles del acta en edición (para ordenar/filtrar sus items)
+  List<Map<String, dynamic>> _detallesActaEditando = [];
+
   List<Map<String, dynamic>> _actas = [];
   final _busquedaController = TextEditingController();
   String _filtroBusqueda = '';
@@ -100,10 +108,10 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
   List<bool> _erroresCantidad = [];
   Map<int, double> _cantidadesOriginales = {};
 
-  // ✅ NUEVO: Cliente para poder CANCELAR la subida en curso
+  // ✅ Cliente para poder CANCELAR la subida en curso
   http.Client? _clienteUpload;
 
-  // ✅ NUEVO: Límite real de tamaño de archivo (10 MB)
+  // ✅ Límite real de tamaño de archivo (10 MB)
   static const int _maxArchivoBytes = 10 * 1024 * 1024;
 
   static const String _baseUrl = 'http://localhost/samde_db/api';
@@ -115,10 +123,17 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     final map = (args is Map<String, dynamic>) ? args : <String, dynamic>{};
 
     final idRecibido = map['usuario_id'];
-    if (idRecibido == null || idRecibido == 1) {
-      usuarioId = 2;
+    final idParseado = int.tryParse(idRecibido?.toString() ?? '');
+
+    // Si no viene o es inválido, leer del StorageService
+    if (idParseado == null || idParseado <= 1) {
+      StorageService().obtenerUsuario().then((data) {
+        setState(() {
+          usuarioId = data['usuarioId'] ?? 2;
+        });
+      });
     } else {
-      usuarioId = idRecibido;
+      usuarioId = idParseado;
     }
 
     username = map['username'] ?? 'Usuario';
@@ -161,7 +176,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         : n.toStringAsFixed(2);
   }
 
-  // ✅ NUEVO: Formatea bytes a KB/MB legibles
   String _formatBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
@@ -205,21 +219,35 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
   Future<bool> _cargarItemsDisponibles() async {
     setState(() => _cargando = true);
     try {
+      final url = _modoEdicion
+          ? '$_baseUrl/items/obtener_items_disponibles.php?mostrar_todos=1'
+          : '$_baseUrl/items/obtener_items_disponibles.php';
+
       final r = await http
-          .get(Uri.parse('$_baseUrl/items/obtener_items_disponibles.php'))
+          .get(Uri.parse(url))
           .timeout(const Duration(seconds: 10));
       final data = jsonDecode(r.body);
       if (r.statusCode == 200 && data['success'] == true) {
+        final lista = List<Map<String, dynamic>>.from(data['data'] ?? []);
+
+        if (_modoEdicion) {
+          final idsDelActa = _idsDeActaEditando();
+          lista.removeWhere((e) {
+            final id = int.tryParse(e['id']?.toString() ?? '0') ?? 0;
+            return _toDouble(e['cantidad_disponible']) <= 0 &&
+                !idsDelActa.contains(id);
+          });
+          _ordenarItemsEditando(lista, idsDelActa);
+        }
+
         setState(() {
-          _todosItemsDisponibles = List<Map<String, dynamic>>.from(
-            data['data'] ?? [],
-          );
-          _erroresCantidad = List<bool>.filled(
-            _todosItemsDisponibles.length,
-            false,
-          );
+          _todosItemsDisponibles = lista;
+          _erroresCantidad = List<bool>.filled(lista.length, false);
         });
         _inicializarControllers();
+
+        if (_modoEdicion) _restaurarValoresEdicion();
+
         return true;
       }
       return false;
@@ -228,6 +256,53 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       return false;
     } finally {
       if (mounted) setState(() => _cargando = false);
+    }
+  }
+
+  Set<int> _idsDeActaEditando() {
+    final ids = <int>{};
+    for (final d in _detallesActaEditando) {
+      final id =
+          int.tryParse(
+            d['item_contrato_id']?.toString() ??
+                d['id_item']?.toString() ??
+                '0',
+          ) ??
+          0;
+      if (id > 0) ids.add(id);
+    }
+    return ids;
+  }
+
+  void _ordenarItemsEditando(
+    List<Map<String, dynamic>> lista, [
+    Set<int>? ids,
+  ]) {
+    final idsDelActa = ids ?? _idsDeActaEditando();
+    if (idsDelActa.isEmpty) return;
+
+    lista.sort((a, b) {
+      final idA = int.tryParse(a['id']?.toString() ?? '0') ?? 0;
+      final idB = int.tryParse(b['id']?.toString() ?? '0') ?? 0;
+      return (idsDelActa.contains(idA) ? 0 : 1).compareTo(
+        idsDelActa.contains(idB) ? 0 : 1,
+      );
+    });
+  }
+
+  void _restaurarValoresEdicion() {
+    for (
+      int i = 0;
+      i < _todosItemsDisponibles.length && i < _cantidadControllers.length;
+      i++
+    ) {
+      final id =
+          int.tryParse(_todosItemsDisponibles[i]['id']?.toString() ?? '0') ?? 0;
+      final orig = _cantidadesOriginales[id];
+      _cantidadControllers[i].text = orig != null ? _formatNum(orig) : '0';
+      if (i < _cantidadAdicionalControllers.length) {
+        _cantidadAdicionalControllers[i].text = '0';
+      }
     }
   }
 
@@ -256,11 +331,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     });
   }
 
-  // ✅ Valida la cantidad adicional en modo edición.
-  // - Si la adicional supera el stock disponible → error (rojo) y bloquea guardado.
-  // - Si el total queda por debajo de 0 → error.
-  // - Si es válida → SUMA la adicional a la cantidad original entregada y
-  //   actualiza en vivo el campo "Total Entregado".
   void _validarAdicional(int index, String valor) {
     final item = _todosItemsDisponibles[index];
     final itemId = int.tryParse(item['id']?.toString() ?? '0') ?? 0;
@@ -273,14 +343,11 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       final bool hayError = adicional > disponible || nuevoTotal < 0;
       _erroresCantidad[index] = hayError;
       if (!hayError) {
-        // ✅ Actualiza el campo de cantidad entregada (original + adicional)
         _cantidadControllers[index].text = _formatNum(nuevoTotal);
       }
     });
   }
 
-  // ✅ MEJORA 1: selección con validación REAL de tamaño (máx. 10 MB).
-  // Se leen los bytes del archivo, pero ahora el peso está acotado al límite.
   Future<void> _seleccionarArchivo() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -290,7 +357,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     if (result != null && result.files.isNotEmpty) {
       final file = result.files.first;
 
-      // ✅ Validación REAL de tamaño (máx. 10 MB)
       if (file.size > _maxArchivoBytes) {
         _snack(
           '⚠️ El archivo pesa ${_formatBytes(file.size)} y el máximo permitido es 10 MB',
@@ -303,9 +369,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     }
   }
 
-  // ✅ MEJORA 3 (compatibilidad): adjunta el archivo por bytes.
-  // (Se eliminó MultipartFile.fromFile porque la versión del paquete http
-  //  del proyecto no lo incluye; con el tope de 10 MB la carga es acotada.)
   Future<void> _adjuntarArchivo(http.MultipartRequest request) async {
     final f = _archivoSeleccionado;
     if (f == null) return;
@@ -333,6 +396,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         setState(() {
           _modoEdicion = true;
           _actaEditandoId = actaId;
+          _detallesActaEditando = detalles;
           _numeroActaController.text = actaData['numero_acta'] ?? '';
           _fechaController.text = actaData['fecha_entrega'] ?? '';
           _entregadoAController.text = actaData['entregado_a'] ?? '';
@@ -346,14 +410,12 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
           _archivoSeleccionado = null;
           _cantidadesOriginales = {};
 
-          // ✅ NUEVOS CAMPOS PARA EDICIÓN
           _tipoBeneficiarioSeleccionado = actaData['tipo_beneficiario'];
           _zonaSeleccionada = actaData['zona'];
           _representanteLegalController.text =
               actaData['representante_legal'] ?? '';
           _ubicacionController.text = actaData['ubicacion'] ?? '';
-          _docIdentRLController.text =
-              actaData['documento_identidad_rl'] ?? ''; // ✅ Agregado
+          _docIdentRLController.text = actaData['documento_identidad_rl'] ?? '';
         });
 
         final bool exitoCarga = await _cargarItemsDisponibles();
@@ -380,6 +442,10 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         setState(() {
           if (_cantidadControllers.length != _todosItemsDisponibles.length) {
             _inicializarControllers();
+            _erroresCantidad = List<bool>.filled(
+              _todosItemsDisponibles.length,
+              false,
+            );
           }
 
           for (int i = 0; i < _todosItemsDisponibles.length; i++) {
@@ -394,7 +460,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
               _cantidadControllers[i].text = _formatNum(cantOriginal);
               _cantidadAdicionalControllers[i].text = '0';
             } else {
-              // ✅ En edición mostramos 0 para que la suma siempre sea clara
               _cantidadControllers[i].text = '0';
               _cantidadAdicionalControllers[i].text = '0';
             }
@@ -534,7 +599,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
             TextButton(
               onPressed: () {
                 cancelado = true;
-                _clienteUpload?.close(); // ✅ MEJORA 4: aborta la subida
+                _clienteUpload?.close();
                 Navigator.pop(ctx);
               },
               child: const Text(
@@ -548,7 +613,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     );
 
     setState(() => _cargando = true);
-    // ✅ MEJORA 4: cliente propio para poder cancelar la petición
     final cliente = http.Client();
     _clienteUpload = cliente;
     try {
@@ -567,7 +631,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       request.fields['cargo_entrego'] = _cargoSeleccionado?.trim() ?? '';
       request.fields['observaciones'] = _observacionesCtrl.text.trim();
 
-      // ✅ NUEVOS CAMPOS
       request.fields['tipo_beneficiario'] =
           _tipoBeneficiarioSeleccionado?.trim() ?? '';
       request.fields['zona'] = _zonaSeleccionada?.trim() ?? '';
@@ -575,12 +638,11 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
           .trim();
       request.fields['ubicacion'] = _ubicacionController.text.trim();
       request.fields['documento_identidad_rl'] = _docIdentRLController.text
-          .trim(); // ✅ Agregado
+          .trim();
 
-      request.fields['usuario_registro'] = '2';
+      request.fields['usuario_registro'] = usuarioId.toString();
       request.fields['detalles'] = jsonEncode(itemsConCantidad);
 
-      // ✅ Adjunta el archivo por bytes (ahora con tamaño acotado a 10 MB)
       await _adjuntarArchivo(request);
 
       final streamed = await cliente
@@ -639,7 +701,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     } catch (e) {
       if (!mounted) return;
       if (cancelado) {
-        // ✅ El usuario canceló: el diálogo ya se cerró manualmente
         _snack('⚠️ Registro cancelado', Colors.orange);
       } else {
         Navigator.pop(context);
@@ -663,8 +724,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       return;
     }
 
-    // ✅ CORRECCIÓN: El total a enviar es SIEMPRE la cantidad original
-    // entregada + la cantidad adicional. Nunca se reemplaza la original.
     final itemsConCantidad = <Map<String, dynamic>>[];
     for (int i = 0; i < _todosItemsDisponibles.length; i++) {
       final item = _todosItemsDisponibles[i];
@@ -673,7 +732,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       final adicional = _toDouble(_cantidadAdicionalControllers[i].text);
       final disponible = _toDouble(item['cantidad_disponible']);
 
-      // Doble validación de seguridad
       if (adicional > disponible || original + adicional < 0) {
         _snack('Stock insuficiente: ${item['nombre_items']}', Colors.red);
         return;
@@ -723,7 +781,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
             TextButton(
               onPressed: () {
                 cancelado = true;
-                _clienteUpload?.close(); // ✅ MEJORA 4: aborta la subida
+                _clienteUpload?.close();
                 Navigator.pop(ctx);
               },
               child: const Text(
@@ -737,7 +795,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     );
 
     setState(() => _cargando = true);
-    // ✅ MEJORA 4: cliente propio para poder cancelar la petición
     final cliente = http.Client();
     _clienteUpload = cliente;
     try {
@@ -758,7 +815,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       request.fields['cargo_entrego'] = _cargoSeleccionado?.trim() ?? '';
       request.fields['observaciones'] = _observacionesCtrl.text.trim();
 
-      // ✅ NUEVOS CAMPOS
       request.fields['tipo_beneficiario'] =
           _tipoBeneficiarioSeleccionado?.trim() ?? '';
       request.fields['zona'] = _zonaSeleccionada?.trim() ?? '';
@@ -766,12 +822,11 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
           .trim();
       request.fields['ubicacion'] = _ubicacionController.text.trim();
       request.fields['documento_identidad_rl'] = _docIdentRLController.text
-          .trim(); // ✅ Agregado
+          .trim();
 
-      request.fields['usuario_registro'] = '2';
+      request.fields['usuario_registro'] = usuarioId.toString();
       request.fields['detalles'] = jsonEncode(itemsConCantidad);
 
-      // ✅ Adjunta el archivo solo si el usuario seleccionó uno nuevo
       await _adjuntarArchivo(request);
 
       final streamed = await cliente
@@ -855,10 +910,9 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     _telefonoController.clear();
     _observacionesCtrl.clear();
 
-    // ✅ NUEVOS CAMPOS
     _representanteLegalController.clear();
     _ubicacionController.clear();
-    _docIdentRLController.clear(); // ✅ Agregado
+    _docIdentRLController.clear();
 
     setState(() {
       _areaSeleccionada = null;
@@ -869,13 +923,11 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       _archivoExistenteRuta = null;
       _archivoSeleccionado = null;
       _cantidadesOriginales = {};
+      _detallesActaEditando = [];
       _tipoBeneficiarioSeleccionado = null;
       _zonaSeleccionada = null;
     });
 
-    // ✅ MEJORA 5: ya NO destruimos ni vaciamos las listas de controllers
-    // (eso obligaba a crear controllers huérfanos dentro de build).
-    // Solo limpiamos los textos y reiniciamos los errores.
     for (final c in _cantidadControllers) {
       c.clear();
     }
@@ -911,6 +963,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         username: username,
         sector: sector,
         rol: rol,
+        usuarioId: usuarioId,
         selectedIndex: 1,
       ),
       body: Column(
@@ -1013,7 +1066,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                       ),
                     ),
                   ),
-                // ✅ Botón "Cancelar" reemplaza la X de cancelar edición
                 if (_modoEdicion)
                   SizedBox(
                     height: 36,
@@ -1154,7 +1206,9 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                             onChanged: (String? newValue) {
                               setState(() {
                                 _tipoBeneficiarioSeleccionado = newValue;
-                                if (newValue != 'Asociación') {
+                                // ✅ Limpia los campos si NO es Asociación ni Unidades Productivas
+                                if (newValue != 'Asociación / Organización' &&
+                                    newValue != 'Unidades Productivas') {
                                   _representanteLegalController.clear();
                                   _docIdentRLController.clear();
                                 }
@@ -1177,7 +1231,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // ✅ FILA 3: Doc. Identidad / NIT + Representante Legal (si Asociación) o Zona (si no)
+                    // ✅ FILA 3: Doc. Identidad / NIT + Representante Legal (si Asociación o Unidades Productivas) o Zona
                     Row(
                       children: [
                         Expanded(
@@ -1186,14 +1240,19 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                             decoration: _deco(
                               'Documento de Identidad / NIT',
                               obligatorio:
-                                  _tipoBeneficiarioSeleccionado == 'Asociación',
+                                  _tipoBeneficiarioSeleccionado ==
+                                      'Asociación / Organización' ||
+                                  _tipoBeneficiarioSeleccionado ==
+                                      'Unidades Productivas',
                             ),
                             keyboardType: TextInputType.number,
                             validator: (v) {
-                              if (_tipoBeneficiarioSeleccionado ==
-                                      'Asociación' &&
+                              if ((_tipoBeneficiarioSeleccionado ==
+                                          'Asociación / Organización' ||
+                                      _tipoBeneficiarioSeleccionado ==
+                                          'Unidades Productivas') &&
                                   v!.isEmpty) {
-                                return 'Requerido para Asociaciones';
+                                return 'Requerido para este tipo de beneficiario';
                               }
                               return null;
                             },
@@ -1201,7 +1260,11 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: _tipoBeneficiarioSeleccionado == 'Asociación'
+                          child:
+                              (_tipoBeneficiarioSeleccionado ==
+                                      'Asociación / Organización' ||
+                                  _tipoBeneficiarioSeleccionado ==
+                                      'Unidades Productivas')
                               ? TextFormField(
                                   controller: _representanteLegalController,
                                   decoration: _deco(
@@ -1216,8 +1279,11 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                       ],
                     ),
 
-                    // ✅ FILA 4 (SOLO si es Asociación): Documento Identidad RL + Zona
-                    if (_tipoBeneficiarioSeleccionado == 'Asociación') ...[
+                    // ✅ FILA 4 (SOLO si es Asociación o Unidades Productivas): Documento Identidad RL + Zona
+                    if (_tipoBeneficiarioSeleccionado ==
+                            'Asociación / Organización' ||
+                        _tipoBeneficiarioSeleccionado ==
+                            'Unidades Productivas') ...[
                       const SizedBox(height: 16),
                       Row(
                         children: [
@@ -1343,9 +1409,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        const Expanded(
-                          child: SizedBox(),
-                        ), // Espacio vacío para balancear
+                        const Expanded(child: SizedBox()),
                       ],
                     ),
 
@@ -1439,7 +1503,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    // ✅ MEJORA 2: muestra también el peso del archivo
                                     _archivoSeleccionado != null
                                         ? '${_archivoSeleccionado!.name} (${_formatBytes(_archivoSeleccionado!.size)})'
                                         : (_archivoExistenteRuta != null
@@ -1542,9 +1605,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                         ),
                       ),
                     ),
-                    // ✅ El botón "Limpiar Formulario" solo aparece en modo
-                    // registro nuevo. En edición se oculta (para cancelar la
-                    // edición se usa el botón "Cancelar" del encabezado).
                     if (!_modoEdicion) ...[
                       const SizedBox(height: 12),
                       SizedBox(
@@ -1576,7 +1636,13 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
   }
 
   Widget _buildTablaItems() {
-    if (_todosItemsDisponibles.isEmpty && !_cargando) {
+    final bool hayItemsVisibles = _modoEdicion
+        ? _todosItemsDisponibles.isNotEmpty
+        : _todosItemsDisponibles.any(
+            (e) => _toDouble(e['cantidad_disponible']) > 0,
+          );
+
+    if (!hayItemsVisibles && !_cargando) {
       return Container(
         padding: const EdgeInsets.all(40),
         decoration: BoxDecoration(
@@ -1609,9 +1675,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       );
     }
 
-    // ✅ MEJORA 5: guardia de seguridad. Si no hay un controller por cada
-    // item (estado inconsistente tras limpiar/recarga fallida), mostramos
-    // spinner en lugar de crear controllers huérfanos dentro de build.
     if (_cantidadControllers.length != _todosItemsDisponibles.length ||
         _cantidadAdicionalControllers.length != _todosItemsDisponibles.length) {
       return Container(
@@ -1725,7 +1788,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                 ),
                 Expanded(
                   child: Text(
-                    // ✅ En edición muestra "Total Entregado" (original + adicional)
                     _modoEdicion ? 'Total Entregado' : 'Cant. a Entregar *',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -1750,273 +1812,325 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
               ],
             ),
           ),
-          ..._todosItemsDisponibles.asMap().entries.map((entry) {
-            final i = entry.key;
-            final item = entry.value;
-            final disponible = _toDouble(item['cantidad_disponible']);
-            final contratada = _toDouble(item['cantidad_contratada'] ?? 0);
-            final entregada = _toDouble(item['cantidad_total_entregada'] ?? 0);
-            final itemId = int.tryParse(item['id']?.toString() ?? '0') ?? 0;
-            final tieneStock = disponible > 0;
-
-            final hayErrorEntregar =
-                !_modoEdicion &&
-                (i < _erroresCantidad.length && _erroresCantidad[i]);
-            final hayErrorAdicional =
-                _modoEdicion &&
-                (i < _erroresCantidad.length && _erroresCantidad[i]);
-
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: Colors.green.shade200),
-                ),
-              ),
-              child: Row(
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 420),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      item['nombre_items'] ?? 'Sin nombre',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    flex: 1,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.purple.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.purple.shade200,
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        item['numero_contrato'] ?? 'N/A',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.purple.shade700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.blue.shade200,
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        _formatNum(contratada),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.orange.shade200,
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        _formatNum(entregada),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.orange.shade700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: Colors.green.shade200,
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        _formatNum(disponible),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: SizedBox(
-                      height: 44,
-                      child: TextFormField(
-                        // ✅ MEJORA 5: controller estable, nunca creado en build
-                        controller: _cantidadControllers[i],
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        textAlignVertical: TextAlignVertical.center,
-                        // ✅ En edición es de solo lectura: se actualiza solo
-                        // con la suma (original + adicional)
-                        readOnly: _modoEdicion,
-                        enabled: _modoEdicion || tieneStock,
-                        onChanged: (valor) {
-                          if (!_modoEdicion) _validarCantidad(i, valor);
-                        },
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: hayErrorEntregar
-                              ? Colors.red.shade700
-                              : Colors.green.shade700,
-                        ),
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: _modoEdicion
-                              ? Colors.grey.shade100
-                              : Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                            horizontal: 0,
+                  ..._todosItemsDisponibles
+                      .asMap()
+                      .entries
+                      .where((entry) {
+                        if (_modoEdicion) return true;
+                        return _toDouble(entry.value['cantidad_disponible']) >
+                            0;
+                      })
+                      .map((entry) {
+                        final i = entry.key;
+                        final item = entry.value;
+                        final disponible = _toDouble(
+                          item['cantidad_disponible'],
+                        );
+                        final contratadaRaw = item['cantidad_contratada'];
+                        final entregadaRaw = item['cantidad_total_entregada'];
+                        final tieneStock = disponible > 0;
+
+                        final hayErrorEntregar =
+                            !_modoEdicion &&
+                            (i < _erroresCantidad.length &&
+                                _erroresCantidad[i]);
+                        final hayErrorAdicional =
+                            _modoEdicion &&
+                            (i < _erroresCantidad.length &&
+                                _erroresCantidad[i]);
+
+                        final bool stockCero = _modoEdicion && disponible <= 0;
+                        final bool stockBajo =
+                            _modoEdicion && !stockCero && disponible <= 5;
+
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 3,
                           ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: hayErrorEntregar
-                                  ? Colors.red
-                                  : Colors.green.shade400,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(color: Colors.green.shade200),
                             ),
                           ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: hayErrorEntregar
-                                  ? Colors.red
-                                  : Colors.green.shade400,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: hayErrorEntregar
-                                  ? Colors.red
-                                  : Colors.green.shade700,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (_modoEdicion) ...[
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: SizedBox(
-                        height: 44,
-                        child: TextFormField(
-                          // ✅ MEJORA 5: controller estable, nunca creado en build
-                          controller: _cantidadAdicionalControllers[i],
-                          keyboardType: TextInputType.numberWithOptions(
-                            signed: true,
-                          ),
-                          textAlign: TextAlign.center,
-                          textAlignVertical: TextAlignVertical.center,
-                          // ✅ Valida contra stock y SUMA a la original
-                          onChanged: (valor) => _validarAdicional(i, valor),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: hayErrorAdicional
-                                ? Colors.red.shade700
-                                : Colors.green.shade700,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: '0',
-                            filled: true,
-                            fillColor: Colors.white,
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 8,
-                              horizontal: 0,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(
-                                color: hayErrorAdicional
-                                    ? Colors.red
-                                    : Colors.green.shade400,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  item['nombre_items'] ?? 'Sin nombre',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                ),
                               ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(
-                                color: hayErrorAdicional
-                                    ? Colors.red
-                                    : Colors.green.shade400,
+                              const SizedBox(width: 4),
+                              Expanded(
+                                flex: 1,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.purple.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.purple.shade200,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    item['numero_contrato'] ?? 'N/A',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.purple.shade700,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(
-                                color: hayErrorAdicional
-                                    ? Colors.red
-                                    : Colors.green.shade700,
-                                width: 2,
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.blue.shade200,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    contratadaRaw == null
+                                        ? '—'
+                                        : _formatNum(_toDouble(contratadaRaw)),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.orange.shade200,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    entregadaRaw == null
+                                        ? '—'
+                                        : _formatNum(_toDouble(entregadaRaw)),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.orange.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: stockCero
+                                        ? Colors.red.shade50
+                                        : (stockBajo
+                                              ? Colors.deepOrange.shade50
+                                              : Colors.green.shade50),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: stockCero
+                                          ? Colors.red.shade300
+                                          : (stockBajo
+                                                ? Colors.deepOrange.shade400
+                                                : Colors.green.shade200),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _formatNum(disponible),
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: stockCero
+                                          ? Colors.red.shade700
+                                          : (stockBajo
+                                                ? Colors.deepOrange.shade700
+                                                : Colors.green.shade700),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 44,
+                                  child: TextFormField(
+                                    controller: _cantidadControllers[i],
+                                    keyboardType: TextInputType.number,
+                                    textAlign: TextAlign.center,
+                                    textAlignVertical: TextAlignVertical.center,
+                                    readOnly: _modoEdicion,
+                                    enabled: _modoEdicion || tieneStock,
+                                    onChanged: (valor) {
+                                      if (!_modoEdicion)
+                                        _validarCantidad(i, valor);
+                                    },
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: hayErrorEntregar
+                                          ? Colors.red.shade700
+                                          : Colors.green.shade700,
+                                    ),
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: _modoEdicion
+                                          ? Colors.grey.shade100
+                                          : Colors.white,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                            horizontal: 0,
+                                          ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(
+                                          color: hayErrorEntregar
+                                              ? Colors.red
+                                              : Colors.green.shade400,
+                                        ),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(
+                                          color: hayErrorEntregar
+                                              ? Colors.red
+                                              : Colors.green.shade400,
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide(
+                                          color: hayErrorEntregar
+                                              ? Colors.red
+                                              : Colors.green.shade700,
+                                          width: 2,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (_modoEdicion) ...[
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 44,
+                                    child: TextFormField(
+                                      controller:
+                                          _cantidadAdicionalControllers[i],
+                                      keyboardType:
+                                          TextInputType.numberWithOptions(
+                                            signed: true,
+                                          ),
+                                      textAlign: TextAlign.center,
+                                      textAlignVertical:
+                                          TextAlignVertical.center,
+                                      onChanged: (valor) =>
+                                          _validarAdicional(i, valor),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: hayErrorAdicional
+                                            ? Colors.red.shade700
+                                            : Colors.green.shade700,
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: '0',
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              vertical: 8,
+                                              horizontal: 0,
+                                            ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: hayErrorAdicional
+                                                ? Colors.red
+                                                : Colors.green.shade400,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: hayErrorAdicional
+                                                ? Colors.red
+                                                : Colors.green.shade400,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: hayErrorAdicional
+                                                ? Colors.red
+                                                : Colors.green.shade700,
+                                            width: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        ),
-                      ),
-                    ),
-                  ],
+                        );
+                      }),
                 ],
               ),
-            );
-          }),
+            ),
+          ),
         ],
       ),
     );
@@ -2128,7 +2242,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ✅ INFORMACIÓN GENERAL ACTUALIZADA
                       _buildInfoSection('Información General', [
                         _buildInfoRow(
                           'Entregado a:',
@@ -2161,9 +2274,11 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                           _buildInfoRow('Ubicación:', acta['ubicacion']),
                       ]),
 
-                      // ✅ BONUS: SECCIÓN REPRESENTANTE LEGAL (solo si es Asociación)
                       const SizedBox(height: 20),
-                      if (acta['tipo_beneficiario'] == 'Asociación')
+                      // ✅ También muestra Representante Legal si es Unidades Productivas
+                      if (acta['tipo_beneficiario'] ==
+                              'Asociación / Organización' ||
+                          acta['tipo_beneficiario'] == 'Unidades Productivas')
                         _buildInfoSection('Representante Legal', [
                           if (acta['representante_legal'] != null &&
                               acta['representante_legal'].toString().isNotEmpty)
@@ -2230,8 +2345,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                                   ),
                                 ),
                               ),
-                              // ✅ NUEVO: icono de ojo (ver archivo) y sin
-                              // cinta de "Descargando archivo..."
                               IconButton(
                                 icon: const Icon(
                                   Icons.visibility,
@@ -2829,10 +2942,9 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     _observacionesCtrl.dispose();
     _busquedaController.dispose();
 
-    // ✅ NUEVOS CONTROLLERS
     _representanteLegalController.dispose();
     _ubicacionController.dispose();
-    _docIdentRLController.dispose(); // ✅ Agregado
+    _docIdentRLController.dispose();
 
     for (final c in _cantidadControllers) {
       c.dispose();

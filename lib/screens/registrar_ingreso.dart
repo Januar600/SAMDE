@@ -1549,7 +1549,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                         _buildDataColumn('Descripción', verde),
                         _buildDataColumn('Cant. Contratada', verde),
                         _buildDataColumn('Total Ingresado (Base)', verde),
-                        _buildDataColumn('Stock Contrato', verde),
+                        _buildDataColumn('Pendiente por Ingresar', verde),
                         _buildDataColumn(
                           _modoEdicion
                               ? 'Cant. Adicional *'

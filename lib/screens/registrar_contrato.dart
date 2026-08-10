@@ -1400,7 +1400,10 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                   const SizedBox(width: 10),
                   Expanded(
                     flex: 1,
-                    child: _itemField(_itemUnidadController, 'Unidad'),
+                    child: _itemField(
+                      _itemUnidadController,
+                      'Unidad de medida',
+                    ),
                   ),
                 ],
               ),

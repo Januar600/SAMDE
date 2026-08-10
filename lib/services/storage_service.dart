@@ -6,8 +6,9 @@ class StorageService {
   StorageService._internal();
 
   // ============================================
-  // CONSTANTES (lowerCamelCase según las reglas de Dart)
+  // CONSTANTES
   // ============================================
+  static const String keyUsuarioId = 'usuarioId'; // ✅ NUEVO
   static const String keyUsername = 'username';
   static const String keySector = 'sector';
   static const String keyRol = 'rol';
@@ -19,6 +20,7 @@ class StorageService {
   // GUARDAR DATOS DEL USUARIO
   // ============================================
   Future<void> guardarUsuario({
+    required int usuarioId, // ✅ NUEVO
     required String username,
     required String sector,
     required String rol,
@@ -27,6 +29,7 @@ class StorageService {
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(keyUsuarioId, usuarioId); // ✅ NUEVO
       await prefs.setString(keyUsername, username);
       await prefs.setString(keySector, sector);
       await prefs.setString(keyRol, rol);
@@ -34,7 +37,6 @@ class StorageService {
       await prefs.setString(keyEmail, email);
       await prefs.setBool(keyIsLoggedIn, true);
     } catch (e) {
-      // Manejar error si ocurre
       print('Error guardando usuario: $e');
     }
   }
@@ -42,10 +44,12 @@ class StorageService {
   // ============================================
   // OBTENER DATOS DEL USUARIO
   // ============================================
-  Future<Map<String, String>> obtenerUsuario() async {
+  Future<Map<String, dynamic>> obtenerUsuario() async {
+    // ✅ Cambiado a dynamic para soportar int
     try {
       final prefs = await SharedPreferences.getInstance();
       return {
+        'usuarioId': prefs.getInt(keyUsuarioId) ?? 2, // ✅ NUEVO (respaldo en 2)
         'username': prefs.getString(keyUsername) ?? 'Usuario',
         'sector': prefs.getString(keySector) ?? 'No Asignado',
         'rol': prefs.getString(keyRol) ?? 'consulta',
@@ -55,6 +59,7 @@ class StorageService {
     } catch (e) {
       print('Error obteniendo usuario: $e');
       return {
+        'usuarioId': 2,
         'username': 'Usuario',
         'sector': 'No Asignado',
         'rol': 'consulta',
@@ -83,6 +88,7 @@ class StorageService {
   Future<void> cerrarSesion() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(keyUsuarioId); // ✅ NUEVO
       await prefs.remove(keyUsername);
       await prefs.remove(keySector);
       await prefs.remove(keyRol);

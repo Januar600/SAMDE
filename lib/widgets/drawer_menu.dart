@@ -5,6 +5,7 @@ class DrawerMenu extends StatelessWidget {
   final String username;
   final String sector;
   final String rol;
+  final int? usuarioId;
   final int selectedIndex;
 
   const DrawerMenu({
@@ -12,8 +13,21 @@ class DrawerMenu extends StatelessWidget {
     required this.username,
     required this.sector,
     required this.rol,
+    this.usuarioId,
     required this.selectedIndex,
   });
+
+  /// ✅ Lee el usuario_id de la sesión si no fue pasado por argumentos
+  Future<int> _obtenerUsuarioId() async {
+    if (usuarioId != null && usuarioId! > 0) return usuarioId!;
+    try {
+      final storage = StorageService();
+      final data = await storage.obtenerUsuario();
+      return data['usuarioId'] ?? 2;
+    } catch (e) {
+      return 2;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,9 +43,6 @@ class DrawerMenu extends StatelessWidget {
         color: Colors.white,
         child: Column(
           children: [
-            // ============================================
-            // ENCABEZADO DEL DRAWER
-            // ============================================
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -109,14 +120,10 @@ class DrawerMenu extends StatelessWidget {
             ),
             const SizedBox(height: 4),
 
-            // ============================================
-            // OPCIONES DEL MENÚ (SCROLLABLE PARA EVITAR OVERFLOW)
-            // ============================================
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    // 1. INICIO
                     _buildMenuItem(
                       context,
                       icon: Icons.dashboard,
@@ -125,7 +132,6 @@ class DrawerMenu extends StatelessWidget {
                       selectedIndex: selectedIndex,
                       route: '/menu',
                     ),
-                    // 2. REGISTRAR USUARIOS
                     _buildMenuItem(
                       context,
                       icon: Icons.person_add,
@@ -134,7 +140,6 @@ class DrawerMenu extends StatelessWidget {
                       selectedIndex: selectedIndex,
                       route: '/registrar_usuario',
                     ),
-                    // 3. REGISTRAR CONTRATOS
                     _buildMenuItem(
                       context,
                       icon: Icons.assignment,
@@ -143,7 +148,6 @@ class DrawerMenu extends StatelessWidget {
                       selectedIndex: selectedIndex,
                       route: '/registrar_contrato',
                     ),
-                    // 4. REGISTRAR INGRESOS
                     _buildMenuItem(
                       context,
                       icon: Icons.add_shopping_cart,
@@ -152,7 +156,6 @@ class DrawerMenu extends StatelessWidget {
                       selectedIndex: selectedIndex,
                       route: '/registrar_ingreso',
                     ),
-                    // 5. REGISTRAR EGRESOS
                     _buildMenuItem(
                       context,
                       icon: Icons.inventory_2,
@@ -161,7 +164,6 @@ class DrawerMenu extends StatelessWidget {
                       selectedIndex: selectedIndex,
                       route: '/registrar_egreso',
                     ),
-                    // 6. REGISTRAR ACTAS
                     _buildMenuItem(
                       context,
                       icon: Icons.description,
@@ -170,7 +172,6 @@ class DrawerMenu extends StatelessWidget {
                       selectedIndex: selectedIndex,
                       route: '/registrar_acta',
                     ),
-                    // 7. HISTORIAL DE MOVIMIENTOS
                     _buildMenuItem(
                       context,
                       icon: Icons.history,
@@ -179,23 +180,19 @@ class DrawerMenu extends StatelessWidget {
                       selectedIndex: selectedIndex,
                       route: '/historial_movimientos',
                     ),
-                    // 8. REPORTES ✅ CORREGIDO
                     _buildMenuItem(
                       context,
-                      icon: Icons.bar_chart, // ✅ Icono diferente
+                      icon: Icons.bar_chart,
                       title: 'Reportes',
-                      index: 7, // ✅ Índice único
+                      index: 7,
                       selectedIndex: selectedIndex,
-                      route: '/reportes', // ✅ Ruta en minúscula
+                      route: '/reportes',
                     ),
                   ],
                 ),
               ),
             ),
 
-            // ============================================
-            // BOTÓN CERRAR SESIÓN
-            // ============================================
             Divider(color: Colors.grey.shade300, height: 1),
             ListTile(
               leading: Icon(Icons.logout, color: Colors.red.shade700),
@@ -219,9 +216,6 @@ class DrawerMenu extends StatelessWidget {
     );
   }
 
-  // ============================================
-  // CONSTRUIR ITEM DEL MENÚ
-  // ============================================
   Widget _buildMenuItem(
     BuildContext context, {
     required IconData icon,
@@ -233,13 +227,9 @@ class DrawerMenu extends StatelessWidget {
     final bool isSelected = selectedIndex == index;
     const Color verdeInstitucional = Color(0xFF2E7D32);
 
-    // ============================================
-    // FILTRO POR ROL: Registrar Usuarios solo para administrador
-    // ============================================
     if (title == 'Registrar Usuarios' && rol != 'administrador') {
       return const SizedBox.shrink();
     }
-    // FILTRO POR ROL: Historial de Movimientos oculto para almacen
     if (title == 'Historial de Movimientos' && rol == 'almacen') {
       return const SizedBox.shrink();
     }
@@ -268,22 +258,26 @@ class DrawerMenu extends StatelessWidget {
               ),
             )
           : null,
-      onTap: () {
+      onTap: () async {
         Navigator.of(context).pop();
         if (ModalRoute.of(context)!.settings.name != route) {
+          // ✅ Lee el usuario_id de la sesión si no fue pasado
+          final uid = await _obtenerUsuarioId();
           Navigator.pushReplacementNamed(
             context,
             route,
-            arguments: {'username': username, 'sector': sector, 'rol': rol},
+            arguments: {
+              'username': username,
+              'sector': sector,
+              'rol': rol,
+              'usuario_id': uid,
+            },
           );
         }
       },
     );
   }
 
-  // ============================================
-  // CONFIRMAR CIERRE DE SESIÓN
-  // ============================================
   void _confirmarCerrarSesion(BuildContext context) {
     showDialog(
       context: context,
