@@ -11,12 +11,10 @@ class RegistrarIngresoPage extends StatefulWidget {
 }
 
 class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
-  // -------- VARIABLES DE USUARIO --------
   late String username;
   late String sector;
   late String rol;
 
-  // -------- CONTROLADORES DEL FORMULARIO --------
   final _formKey = GlobalKey<FormState>();
   final _numeroIngresoController = TextEditingController();
   final _fechaIngresoController = TextEditingController();
@@ -24,36 +22,29 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
   final _objetoContratoController = TextEditingController();
   final _searchController = TextEditingController();
 
-  // ✅ Controladores para cantidades adicionales en edición
   List<TextEditingController> _cantidadAdicionalControllers = [];
 
-  // -------- VARIABLES DE BÚSQUEDA --------
   String _searchQuery = '';
   List<Map<String, dynamic>> _ingresosFiltrados = [];
 
-  // -------- VARIABLES DEL FORMULARIO --------
   String? _anioSeleccionado;
   int? _contratoSeleccionado;
   static const int BODEGA_FIJA_ID = 1;
   static const String BODEGA_FIJA_NOMBRE = 'Gobernación';
 
-  // -------- LISTAS DE DATOS --------
   List<String> _aniosDisponibles = [];
   List<Map<String, dynamic>> _contratosDisponibles = [];
   List<Map<String, dynamic>> _itemsContrato = [];
   List<Map<String, dynamic>> _detallesIngreso = [];
   List<Map<String, dynamic>> _ingresos = [];
 
-  // -------- ESTADOS DE CARGA Y VISUALIZACIÓN --------
   bool _cargando = false;
   bool _mostrandoLista = false;
   bool _modoEdicion = false;
   int? _ingresoEditandoId;
 
-  // -------- URL DE LA API --------
   static const String _baseUrl = 'http://localhost/samde_db/api';
 
-  // -------- CICLO DE VIDA --------
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -74,7 +65,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     _searchController.addListener(_filtrarIngresos);
   }
 
-  // -------- ✅ SELECCIONAR FECHA CON DATEPICKER --------
   Future<void> _pickDate(TextEditingController ctrl) async {
     final fecha = await showDatePicker(
       context: context,
@@ -85,13 +75,11 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     if (fecha != null) ctrl.text = fecha.toIso8601String().substring(0, 10);
   }
 
-  // -------- ✅ FUNCIÓN PARA FORMATEAR FECHA --------
   String _formatearFechaParaBD(String fecha) {
     if (fecha.isEmpty) return '';
     return fecha;
   }
 
-  // -------- ✅ FUNCIÓN AUXILIAR PARA CONVERTIR A DOUBLE --------
   double _convertirADouble(dynamic valor) {
     if (valor == null) return 0.0;
     if (valor is double) return valor;
@@ -103,7 +91,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     return 0.0;
   }
 
-  // -------- ✅ FUNCIÓN AUXILIAR PARA CONVERTIR A NÚMERO (INT) --------
   int _convertirANumero(dynamic valor) {
     if (valor == null) return 0;
     if (valor is int) return valor;
@@ -115,7 +102,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     return 0;
   }
 
-  // -------- FORMATEAR PRECIO CON PUNTOS DE MIL --------
   String _formatearPrecio(dynamic valor) {
     if (valor == null) return '\$0';
     final double numero = valor is double
@@ -128,14 +114,11 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     for (int i = numeroStr.length - 1; i >= 0; i--) {
       resultado = numeroStr[i] + resultado;
       contador++;
-      if (contador % 3 == 0 && i != 0) {
-        resultado = '.$resultado';
-      }
+      if (contador % 3 == 0 && i != 0) resultado = '.$resultado';
     }
     return '\$$resultado';
   }
 
-  // -------- FORMATEAR NÚMERO (CANTIDADES) --------
   String _formatearNumero(dynamic valor) {
     if (valor == null) return '0';
     final double numero = valor is double
@@ -146,7 +129,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         : numero.toStringAsFixed(2);
   }
 
-  // -------- ✅ VALIDAR CANTIDADES INGRESADAS --------
   bool _validarCantidades() {
     for (int i = 0; i < _detallesIngreso.length; i++) {
       final detalle = _detallesIngreso[i];
@@ -178,7 +160,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     return true;
   }
 
-  // -------- MÉTODOS DE FILTRADO --------
   void _filtrarIngresos() {
     setState(() {
       _searchQuery = _searchController.text.toLowerCase().trim();
@@ -201,7 +182,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     });
   }
 
-  // -------- CARGAR AÑOS DISPONIBLES --------
   void _cargarAnios() {
     final anioActual = DateTime.now().year;
     _aniosDisponibles = {
@@ -211,7 +191,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }.toList()..sort();
   }
 
-  // -------- CARGAR CONTRATOS POR AÑO --------
   Future<void> _cargarContratosPorAnio(String anio) async {
     setState(() => _cargando = true);
     _contratosDisponibles = [];
@@ -247,7 +226,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- ✅ CARGAR TODOS LOS CONTRATOS --------
   Future<void> _cargarTodosLosContratos() async {
     try {
       final response = await http
@@ -269,7 +247,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- CARGAR ITEMS DEL CONTRATO --------
   Future<void> _cargarItemsContrato(int contratoId) async {
     setState(() => _cargando = true);
     _itemsContrato = [];
@@ -341,7 +318,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- ACTUALIZAR CANTIDAD INGRESADA (MODO REGISTRO) --------
   void _actualizarCantidadIngresada(int index, String valor) {
     final cantidad = _convertirADouble(valor);
     final contratada = _convertirADouble(
@@ -360,7 +336,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- ACTUALIZAR CANTIDAD ADICIONAL (MODO EDICIÓN) --------
   void _actualizarCantidadAdicional(int index, String valor) {
     final adicional = _convertirADouble(valor);
     final baseIngresada = _convertirADouble(
@@ -379,7 +354,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- MOSTRAR MENSAJES --------
   void _mostrarMensaje(String mensaje, Color color) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -388,7 +362,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     ).showSnackBar(SnackBar(content: Text(mensaje), backgroundColor: color));
   }
 
-  // -------- REGISTRAR INGRESO --------
   Future<void> _registrarIngreso() async {
     if (!_formKey.currentState!.validate()) return;
     if (_contratoSeleccionado == null) {
@@ -460,7 +433,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- VER DETALLE DEL INGRESO --------
   Future<void> _verIngresoDetalle(Map<String, dynamic> ingreso) async {
     final ingresoId = ingreso['id'];
     showDialog(
@@ -503,7 +475,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- MOSTRAR DIÁLOGO DE DETALLE --------
   void _mostrarDialogoDetalle(
     Map<String, dynamic> ingresoData,
     List<Map<String, dynamic>> detalles,
@@ -533,150 +504,154 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
               ),
             ],
           ),
-          content: SizedBox(
-            width: 600,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoRow('Fecha', ingresoData['fecha'] ?? 'N/A'),
-                  _buildInfoRow(
-                    'Contrato',
-                    ingresoData['numero_contrato'] ?? 'N/A',
-                  ),
-                  _buildInfoRow('Bodega', ingresoData['bodega'] ?? 'N/A'),
-                  _buildInfoRow('Usuario', usuario),
-                  if (observacion.isNotEmpty)
-                    _buildInfoRow('Observación', observacion),
-                  const Divider(height: 24),
-                  const Text(
-                    'Items del Ingreso',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2E7D32),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 700, maxHeight: 600),
+            child: SizedBox(
+              width: double.infinity,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInfoRow('Fecha', ingresoData['fecha'] ?? 'N/A'),
+                    _buildInfoRow(
+                      'Contrato',
+                      ingresoData['numero_contrato'] ?? 'N/A',
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  if (detalles.isEmpty)
+                    _buildInfoRow('Bodega', ingresoData['bodega'] ?? 'N/A'),
+                    _buildInfoRow('Usuario', usuario),
+                    if (observacion.isNotEmpty)
+                      _buildInfoRow('Observación', observacion),
+                    const Divider(height: 24),
                     const Text(
-                      'No hay items registrados',
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
-                    )
-                  else
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
+                      'Items del Ingreso',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2E7D32),
                       ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          columnSpacing: 12,
-                          headingRowHeight: 36,
-                          headingRowColor: WidgetStateProperty.all(
-                            Colors.green.shade50,
-                          ),
-                          columns: const [
-                            DataColumn(
-                              label: Text(
-                                '#',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (detalles.isEmpty)
+                      const Text(
+                        'No hay items registrados',
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                      )
+                    else
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            columnSpacing: 12,
+                            headingRowHeight: 36,
+                            headingRowColor: WidgetStateProperty.all(
+                              Colors.green.shade50,
                             ),
-                            DataColumn(
-                              label: Text(
-                                'Item',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                            columns: const [
+                              DataColumn(
+                                label: Text(
+                                  '#',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Cant. Contratada',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                              DataColumn(
+                                label: Text(
+                                  'Item',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Cant. Ingresada',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                              DataColumn(
+                                label: Text(
+                                  'Cant. Contratada',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Precio Unit.',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                              DataColumn(
+                                label: Text(
+                                  'Cant. Ingresada',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Subtotal',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                              DataColumn(
+                                label: Text(
+                                  'Precio Unit.',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                               ),
-                            ),
-                          ],
-                          rows: detalles.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final detalle = entry.value;
-                            final cantidadIngresada = _convertirADouble(
-                              detalle['cantidad_ingresada'],
-                            );
-                            final precioUnitario = _convertirADouble(
-                              detalle['precio_unitario'],
-                            );
-                            final subtotal = cantidadIngresada * precioUnitario;
+                              DataColumn(
+                                label: Text(
+                                  'Subtotal',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                            rows: detalles.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final detalle = entry.value;
+                              final cantidadIngresada = _convertirADouble(
+                                detalle['cantidad_ingresada'],
+                              );
+                              final precioUnitario = _convertirADouble(
+                                detalle['precio_unitario'],
+                              );
+                              final subtotal =
+                                  cantidadIngresada * precioUnitario;
 
-                            return DataRow(
-                              cells: [
-                                DataCell(Text('${index + 1}')),
-                                DataCell(
-                                  Text(
-                                    detalle['nombre_item'] ?? 'N/A',
-                                    style: const TextStyle(fontSize: 12),
+                              return DataRow(
+                                cells: [
+                                  DataCell(Text('${index + 1}')),
+                                  DataCell(
+                                    Text(
+                                      detalle['nombre_item'] ?? 'N/A',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
                                   ),
-                                ),
-                                DataCell(
-                                  Center(
-                                    child: Text(
-                                      _formatearNumero(
-                                        detalle['cantidad_contratada'],
+                                  DataCell(
+                                    Center(
+                                      child: Text(
+                                        _formatearNumero(
+                                          detalle['cantidad_contratada'],
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                DataCell(
-                                  Center(
-                                    child: Text(
-                                      _formatearNumero(
-                                        detalle['cantidad_ingresada'],
+                                  DataCell(
+                                    Center(
+                                      child: Text(
+                                        _formatearNumero(
+                                          detalle['cantidad_ingresada'],
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    _formatearPrecio(precioUnitario),
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    _formatearPrecio(subtotal),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                                  DataCell(
+                                    Text(
+                                      _formatearPrecio(precioUnitario),
+                                      style: const TextStyle(fontSize: 12),
                                     ),
                                   ),
-                                ),
-                              ],
-                            );
-                          }).toList(),
+                                  DataCell(
+                                    Text(
+                                      _formatearPrecio(subtotal),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
                         ),
                       ),
-                    ),
-                  const SizedBox(height: 16),
-                  if (detalles.isNotEmpty) ...[_buildTotalRow(detalles)],
-                ],
+                    const SizedBox(height: 16),
+                    if (detalles.isNotEmpty) _buildTotalRow(detalles),
+                  ],
+                ),
               ),
             ),
           ),
@@ -754,7 +729,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     );
   }
 
-  // -------- CARGAR INGRESO PARA EDITAR --------
   Future<void> _cargarIngresoParaEditar(int ingresoId) async {
     setState(() => _cargando = true);
     try {
@@ -782,7 +756,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         final contratoId = _convertirANumero(
           ingresoData['contrato_id'] ?? ingresoData['id_contrato'],
         );
-
         await _cargarItemsContrato(contratoId);
 
         final contratoEncontrado = _contratosDisponibles.firstWhere(
@@ -790,7 +763,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
           orElse: () => {},
         );
 
-        // ✅ Inicializar controllers de cantidad adicional vacíos
         for (final c in _cantidadAdicionalControllers) {
           c.dispose();
         }
@@ -811,12 +783,10 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
               contratoEncontrado['objeto']?.toString() ??
               'No especificado';
 
-          // ✅ Inicializar controllers adicionales vacíos
           _cantidadAdicionalControllers = _detallesIngreso
               .map((_) => TextEditingController(text: ''))
               .toList();
 
-          // ✅ Asignar cantidades base del ingreso que se está editando
           for (var detalleIngreso in detallesData) {
             final itemId = _convertirANumero(
               detalleIngreso['id_item_contrato'],
@@ -849,12 +819,10 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- ACTUALIZAR INGRESO --------
   Future<void> _actualizarIngreso() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_validarCantidades()) return;
 
-    // ✅ Construir detalles con cantidad_base + cantidad_adicional
     final detallesActualizados = <Map<String, dynamic>>[];
     for (int i = 0; i < _detallesIngreso.length; i++) {
       final detalle = _detallesIngreso[i];
@@ -924,7 +892,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- ELIMINAR INGRESO --------
   Future<void> _eliminarIngreso(int ingresoId, String numeroIngreso) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -977,7 +944,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- CARGAR INGRESOS --------
   Future<void> _cargarIngresos() async {
     setState(() => _cargando = true);
     try {
@@ -1001,7 +967,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     }
   }
 
-  // -------- LIMPIAR FORMULARIO --------
   void _limpiarFormulario() {
     _numeroIngresoController.clear();
     _fechaIngresoController.clear();
@@ -1015,14 +980,12 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     _modoEdicion = false;
     _ingresoEditandoId = null;
 
-    // ✅ Limpiar controllers adicionales
     for (final c in _cantidadAdicionalControllers) {
       c.dispose();
     }
     _cantidadAdicionalControllers = [];
   }
 
-  // -------- DECORACIÓN DE INPUT --------
   InputDecoration _inputDeco(
     String label, {
     String? hint,
@@ -1038,7 +1001,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     );
   }
 
-  // -------- COLUMNA DE DATATABLE --------
   DataColumn _buildDataColumn(String label, Color verde) {
     return DataColumn(
       label: Text(
@@ -1052,7 +1014,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     );
   }
 
-  // -------- CONSTRUIR TARJETA DE INGRESO --------
   Widget _buildCardIngreso(Map<String, dynamic> ingreso, Color verde) {
     final bool puedeEliminar =
         (rol == 'administrador' || rol == 'administrativo');
@@ -1236,7 +1197,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     );
   }
 
-  // -------- LISTA DE INGRESOS CON BÚSQUEDA --------
   Widget _buildListaIngresos() {
     const Color verde = Color(0xFF2E7D32);
 
@@ -1394,7 +1354,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     );
   }
 
-  // -------- BOTONES DE ACCIÓN --------
   Widget _buildBotones(Color verde) {
     return Column(
       children: [
@@ -1461,8 +1420,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     );
   }
 
-  // -------- SECCIÓN: DETALLES DEL INGRESO --------
-  Widget _buildSeccionDetalles(Color verde) {
+  Widget _buildSeccionDetalles(Color verde, bool isMobile) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1498,7 +1456,6 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         ),
         const Divider(height: 20, thickness: 1),
         const SizedBox(height: 8),
-
         _detallesIngreso.isEmpty
             ? Container(
                 padding: const EdgeInsets.all(20),
@@ -1528,255 +1485,536 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
                   ],
                 ),
               )
-            : Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: IntrinsicHeight(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      key: ValueKey(_modoEdicion),
-                      columnSpacing: 12,
-                      headingRowHeight: 36,
-                      headingRowColor: WidgetStateProperty.all(
-                        Colors.green.shade50,
-                      ),
-                      columns: [
-                        _buildDataColumn('#', verde),
-                        _buildDataColumn('Item', verde),
-                        _buildDataColumn('Descripción', verde),
-                        _buildDataColumn('Cant. Contratada', verde),
-                        _buildDataColumn('Total Ingresado (Base)', verde),
-                        _buildDataColumn('Pendiente por Ingresar', verde),
-                        _buildDataColumn(
-                          _modoEdicion
-                              ? 'Cant. Adicional *'
-                              : 'Cant. a Ingresar *',
-                          verde,
-                        ),
-                      ],
-                      rows: _detallesIngreso.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final detalle = entry.value;
-
-                        final cantidadContratada = _convertirADouble(
-                          detalle['cantidad_contratada'],
-                        );
-                        final totalIngresado = _convertirADouble(
-                          detalle['total_ingresado'] ?? 0,
-                        );
-                        final stockContrato =
-                            cantidadContratada - totalIngresado;
-                        final baseIngresada = _convertirADouble(
-                          detalle['cantidad_ingresada'],
-                        );
-
-                        final cantidadAdicional =
-                            _modoEdicion &&
-                                index < _cantidadAdicionalControllers.length
-                            ? _convertirADouble(
-                                _cantidadAdicionalControllers[index].text,
-                              )
-                            : 0.0;
-                        final cantidadTotal = baseIngresada + cantidadAdicional;
-
-                        final tieneError =
-                            cantidadTotal > cantidadContratada &&
-                            cantidadContratada > 0;
-
-                        return DataRow(
-                          cells: [
-                            DataCell(
-                              Text(
-                                '${index + 1}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                detalle['nombre_item'] ?? '',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                width: 150,
-                                child: Text(
-                                  detalle['descripcion'] ?? '-',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey.shade600,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.purple.shade50,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: Colors.purple.shade200,
-                                  ),
-                                ),
-                                child: Text(
-                                  _formatearNumero(cantidadContratada),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.purple.shade700,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: Colors.blue.shade200,
-                                  ),
-                                ),
-                                child: Text(
-                                  _formatearNumero(totalIngresado),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blue.shade700,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // ✅ Stock Contrato
-                            DataCell(
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: stockContrato > 0
-                                      ? Colors.green.shade50
-                                      : Colors.grey.shade50,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: stockContrato > 0
-                                        ? Colors.green.shade200
-                                        : Colors.grey.shade200,
-                                  ),
-                                ),
-                                child: Text(
-                                  _formatearNumero(stockContrato),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: stockContrato > 0
-                                        ? Colors.green.shade700
-                                        : Colors.grey.shade700,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // ✅ Campo editable (Sin la columna naranja de base)
-                            DataCell(
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: tieneError ? Colors.red.shade50 : null,
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: tieneError
-                                      ? Border.all(color: Colors.red.shade300)
-                                      : null,
-                                ),
-                                child: SizedBox(
-                                  width: 100,
-                                  child: TextFormField(
-                                    controller: _modoEdicion
-                                        ? (_cantidadAdicionalControllers
-                                                      .length >
-                                                  index
-                                              ? _cantidadAdicionalControllers[index]
-                                              : TextEditingController())
-                                        : null,
-                                    initialValue: _modoEdicion
-                                        ? null
-                                        : (baseIngresada == 0
-                                              ? ''
-                                              : _formatearNumero(
-                                                  baseIngresada,
-                                                )),
-                                    keyboardType: TextInputType.number,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: tieneError
-                                          ? Colors.red.shade700
-                                          : Colors.black,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: _modoEdicion ? '0' : null,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 4,
-                                          ),
-                                      isDense: true,
-                                      errorText: tieneError ? 'Excede' : null,
-                                      errorStyle: const TextStyle(fontSize: 9),
-                                    ),
-                                    onChanged: (value) {
-                                      if (_modoEdicion) {
-                                        _actualizarCantidadAdicional(
-                                          index,
-                                          value,
-                                        );
-                                      } else {
-                                        _actualizarCantidadIngresada(
-                                          index,
-                                          value,
-                                        );
-                                      }
-                                    },
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty)
-                                        return null;
-                                      final cantidad = double.tryParse(value);
-                                      if (cantidad == null || cantidad < 0)
-                                        return 'Inválido';
-                                      return null;
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-              ),
+            : isMobile
+            ? _buildDetallesMobile(verde)
+            : _buildDetallesDesktop(verde),
       ],
     );
   }
 
-  // -------- SECCIÓN: DATOS DEL INGRESO --------
-  Widget _buildSeccionDatosIngreso(Color verde) {
+  Widget _buildDetallesMobile(Color verde) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _detallesIngreso.length,
+      itemBuilder: (context, index) {
+        final detalle = _detallesIngreso[index];
+        final cantidadContratada = _convertirADouble(
+          detalle['cantidad_contratada'],
+        );
+        final totalIngresado = _convertirADouble(
+          detalle['total_ingresado'] ?? 0,
+        );
+        final stockContrato = cantidadContratada - totalIngresado;
+        final baseIngresada = _convertirADouble(detalle['cantidad_ingresada']);
+
+        final cantidadAdicional =
+            _modoEdicion && index < _cantidadAdicionalControllers.length
+            ? _convertirADouble(_cantidadAdicionalControllers[index].text)
+            : 0.0;
+        final cantidadTotal = baseIngresada + cantidadAdicional;
+        final tieneError =
+            cantidadTotal > cantidadContratada && cantidadContratada > 0;
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: verde.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '#${index + 1}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: verde,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        detalle['nombre_item'] ?? '',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if ((detalle['descripcion'] ?? '').toString().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      detalle['descripcion'],
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _buildBadge(
+                      'Contratada',
+                      _formatearNumero(cantidadContratada),
+                      Colors.purple,
+                    ),
+                    _buildBadge(
+                      'Ya ingresado',
+                      _formatearNumero(totalIngresado),
+                      Colors.blue,
+                    ),
+                    _buildBadge(
+                      'Pendiente',
+                      _formatearNumero(stockContrato),
+                      stockContrato > 0 ? Colors.green : Colors.grey,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _modoEdicion ? 'Cantidad adicional:' : 'Cantidad a ingresar:',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextFormField(
+                  controller: _modoEdicion
+                      ? (_cantidadAdicionalControllers.length > index
+                            ? _cantidadAdicionalControllers[index]
+                            : TextEditingController())
+                      : null,
+                  initialValue: _modoEdicion
+                      ? null
+                      : (baseIngresada == 0
+                            ? ''
+                            : _formatearNumero(baseIngresada)),
+                  keyboardType: TextInputType.number,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: tieneError ? Colors.red.shade700 : Colors.black,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: _modoEdicion ? '0' : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    isDense: true,
+                    errorText: tieneError ? 'Excede contratado' : null,
+                    errorStyle: const TextStyle(fontSize: 10),
+                  ),
+                  onChanged: (value) {
+                    if (_modoEdicion) {
+                      _actualizarCantidadAdicional(index, value);
+                    } else {
+                      _actualizarCantidadIngresada(index, value);
+                    }
+                    setState(() {});
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return null;
+                    final cantidad = double.tryParse(value);
+                    if (cantidad == null || cantidad < 0) return 'Inválido';
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBadge(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetallesDesktop(Color verde) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: IntrinsicHeight(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            key: ValueKey(_modoEdicion),
+            columnSpacing: 12,
+            headingRowHeight: 36,
+            headingRowColor: WidgetStateProperty.all(Colors.green.shade50),
+            columns: [
+              _buildDataColumn('#', verde),
+              _buildDataColumn('Item', verde),
+              _buildDataColumn('Descripción', verde),
+              _buildDataColumn('Cant. Contratada', verde),
+              _buildDataColumn('Total Ingresado (Base)', verde),
+              _buildDataColumn('Pendiente por Ingresar', verde),
+              _buildDataColumn(
+                _modoEdicion ? 'Cant. Adicional *' : 'Cant. a Ingresar *',
+                verde,
+              ),
+            ],
+            rows: _detallesIngreso.asMap().entries.map((entry) {
+              final index = entry.key;
+              final detalle = entry.value;
+
+              final cantidadContratada = _convertirADouble(
+                detalle['cantidad_contratada'],
+              );
+              final totalIngresado = _convertirADouble(
+                detalle['total_ingresado'] ?? 0,
+              );
+              final stockContrato = cantidadContratada - totalIngresado;
+              final baseIngresada = _convertirADouble(
+                detalle['cantidad_ingresada'],
+              );
+
+              final cantidadAdicional =
+                  _modoEdicion && index < _cantidadAdicionalControllers.length
+                  ? _convertirADouble(_cantidadAdicionalControllers[index].text)
+                  : 0.0;
+              final cantidadTotal = baseIngresada + cantidadAdicional;
+              final tieneError =
+                  cantidadTotal > cantidadContratada && cantidadContratada > 0;
+
+              return DataRow(
+                cells: [
+                  DataCell(
+                    Text('${index + 1}', style: const TextStyle(fontSize: 12)),
+                  ),
+                  DataCell(
+                    Text(
+                      detalle['nombre_item'] ?? '',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                  DataCell(
+                    SizedBox(
+                      width: 150,
+                      child: Text(
+                        detalle['descripcion'] ?? '-',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.purple.shade200),
+                      ),
+                      child: Text(
+                        _formatearNumero(cantidadContratada),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple.shade700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Text(
+                        _formatearNumero(totalIngresado),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: stockContrato > 0
+                            ? Colors.green.shade50
+                            : Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: stockContrato > 0
+                              ? Colors.green.shade200
+                              : Colors.grey.shade200,
+                        ),
+                      ),
+                      child: Text(
+                        _formatearNumero(stockContrato),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: stockContrato > 0
+                              ? Colors.green.shade700
+                              : Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Container(
+                      decoration: BoxDecoration(
+                        color: tieneError ? Colors.red.shade50 : null,
+                        borderRadius: BorderRadius.circular(4),
+                        border: tieneError
+                            ? Border.all(color: Colors.red.shade300)
+                            : null,
+                      ),
+                      child: SizedBox(
+                        width: 100,
+                        child: TextFormField(
+                          controller: _modoEdicion
+                              ? (_cantidadAdicionalControllers.length > index
+                                    ? _cantidadAdicionalControllers[index]
+                                    : TextEditingController())
+                              : null,
+                          initialValue: _modoEdicion
+                              ? null
+                              : (baseIngresada == 0
+                                    ? ''
+                                    : _formatearNumero(baseIngresada)),
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: tieneError
+                                ? Colors.red.shade700
+                                : Colors.black,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: _modoEdicion ? '0' : null,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 4,
+                            ),
+                            isDense: true,
+                            errorText: tieneError ? 'Excede' : null,
+                            errorStyle: const TextStyle(fontSize: 9),
+                          ),
+                          onChanged: (value) {
+                            if (_modoEdicion) {
+                              _actualizarCantidadAdicional(index, value);
+                            } else {
+                              _actualizarCantidadIngresada(index, value);
+                            }
+                          },
+                          validator: (value) {
+                            if (value == null || value.isEmpty) return null;
+                            final cantidad = double.tryParse(value);
+                            if (cantidad == null || cantidad < 0)
+                              return 'Inválido';
+                            return null;
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSeccionDatosIngreso(Color verde, bool isMobile) {
+    final usuarioField = TextFormField(
+      initialValue: username,
+      decoration: InputDecoration(
+        labelText: 'Usuario que registra',
+        prefixIcon: const Icon(Icons.person, size: 20),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+        isDense: true,
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+      readOnly: true,
+      enabled: false,
+    );
+
+    final numeroField = TextFormField(
+      controller: _numeroIngresoController,
+      decoration: _inputDeco('Número de Ingreso *', hint: 'Ej: 0001'),
+      style: const TextStyle(fontSize: 14),
+      validator: (v) =>
+          (v == null || v.trim().isEmpty) ? 'Ingrese número de ingreso' : null,
+    );
+
+    final bodegaField = TextFormField(
+      initialValue: BODEGA_FIJA_NOMBRE,
+      decoration: InputDecoration(
+        labelText: 'Bodega',
+        prefixIcon: const Icon(Icons.store, size: 20),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+        isDense: true,
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+      readOnly: true,
+      enabled: false,
+    );
+
+    final fechaField = TextFormField(
+      controller: _fechaIngresoController,
+      decoration: _inputDeco('Fecha Ingreso *', hint: 'YYYY-MM-DD'),
+      style: const TextStyle(fontSize: 14),
+      readOnly: true,
+      onTap: () => _pickDate(_fechaIngresoController),
+      validator: (v) =>
+          (v == null || v.trim().isEmpty) ? 'Ingrese fecha ingreso' : null,
+    );
+
+    final anioField = DropdownButtonFormField<String>(
+      value: _anioSeleccionado,
+      hint: const Text('Seleccione año contrato *'),
+      isExpanded: true,
+      items: _aniosDisponibles
+          .map(
+            (anio) => DropdownMenuItem<String>(value: anio, child: Text(anio)),
+          )
+          .toList(),
+      onChanged: _modoEdicion
+          ? null
+          : (newValue) {
+              setState(() {
+                _anioSeleccionado = newValue;
+                _contratoSeleccionado = null;
+                _contratosDisponibles = [];
+                _itemsContrato = [];
+                _detallesIngreso = [];
+                _objetoContratoController.clear();
+              });
+              if (newValue != null) _cargarContratosPorAnio(newValue);
+            },
+      decoration: _inputDeco('Seleccione año contrato *'),
+      validator: (v) => v == null ? 'Seleccione un año' : null,
+    );
+
+    final contratoField = DropdownButtonFormField<int>(
+      value: _contratoSeleccionado,
+      hint: const Text('Seleccione Contrato *'),
+      isExpanded: true,
+      items: _contratosDisponibles
+          .map(
+            (c) => DropdownMenuItem<int>(
+              value: c['id'],
+              child: Text(c['numero_contrato'] ?? ''),
+            ),
+          )
+          .toList(),
+      onChanged: _modoEdicion
+          ? null
+          : (newValue) {
+              setState(() {
+                _contratoSeleccionado = newValue;
+                _itemsContrato = [];
+                _detallesIngreso = [];
+                final contratoSeleccionado = _contratosDisponibles.firstWhere(
+                  (c) => c['id'] == newValue,
+                  orElse: () => {},
+                );
+                final objeto =
+                    contratoSeleccionado['objeto_contrato']?.toString() ??
+                    contratoSeleccionado['objeto']?.toString() ??
+                    'No especificado';
+                _objetoContratoController.text = objeto;
+              });
+              if (newValue != null) _cargarItemsContrato(newValue);
+            },
+      decoration: _inputDeco('Seleccione Contrato *'),
+      validator: (v) => v == null ? 'Seleccione un contrato' : null,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1796,163 +2034,43 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         ),
         const Divider(height: 20, thickness: 1),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                initialValue: username,
-                decoration: InputDecoration(
-                  labelText: 'Usuario que registra',
-                  prefixIcon: const Icon(Icons.person, size: 20),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  isDense: true,
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                ),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-                readOnly: true,
-                enabled: false,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: TextFormField(
-                controller: _numeroIngresoController,
-                decoration: _inputDeco('Número de Ingreso *', hint: 'Ej: 0001'),
-                style: const TextStyle(fontSize: 14),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Ingrese número de ingreso'
-                    : null,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                initialValue: BODEGA_FIJA_NOMBRE,
-                decoration: InputDecoration(
-                  labelText: 'Bodega',
-                  prefixIcon: const Icon(Icons.store, size: 20),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  isDense: true,
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                ),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-                readOnly: true,
-                enabled: false,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: TextFormField(
-                controller: _fechaIngresoController,
-                decoration: _inputDeco('Fecha Ingreso *', hint: 'YYYY-MM-DD'),
-                style: const TextStyle(fontSize: 14),
-                readOnly: true,
-                onTap: () => _pickDate(_fechaIngresoController),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Ingrese fecha ingreso'
-                    : null,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                initialValue: _anioSeleccionado,
-                hint: const Text('Seleccione año contrato *'),
-                isExpanded: true,
-                items: _aniosDisponibles
-                    .map(
-                      (anio) => DropdownMenuItem<String>(
-                        value: anio,
-                        child: Text(anio),
-                      ),
-                    )
-                    .toList(),
-                onChanged: _modoEdicion
-                    ? null
-                    : (newValue) {
-                        setState(() {
-                          _anioSeleccionado = newValue;
-                          _contratoSeleccionado = null;
-                          _contratosDisponibles = [];
-                          _itemsContrato = [];
-                          _detallesIngreso = [];
-                          _objetoContratoController.clear();
-                        });
-                        if (newValue != null) _cargarContratosPorAnio(newValue);
-                      },
-                decoration: _inputDeco('Seleccione año contrato *'),
-                validator: (v) => v == null ? 'Seleccione un año' : null,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: DropdownButtonFormField<int>(
-                initialValue: _contratoSeleccionado,
-                hint: const Text('Seleccione Contrato *'),
-                isExpanded: true,
-                items: _contratosDisponibles
-                    .map(
-                      (c) => DropdownMenuItem<int>(
-                        value: c['id'],
-                        child: Text(c['numero_contrato'] ?? ''),
-                      ),
-                    )
-                    .toList(),
-                onChanged: _modoEdicion
-                    ? null
-                    : (newValue) {
-                        setState(() {
-                          _contratoSeleccionado = newValue;
-                          _itemsContrato = [];
-                          _detallesIngreso = [];
-                          final contratoSeleccionado = _contratosDisponibles
-                              .firstWhere(
-                                (c) => c['id'] == newValue,
-                                orElse: () => {},
-                              );
-                          final objeto =
-                              contratoSeleccionado['objeto_contrato']
-                                  ?.toString() ??
-                              contratoSeleccionado['objeto']?.toString() ??
-                              'No especificado';
-                          _objetoContratoController.text = objeto;
-                        });
-                        if (newValue != null) _cargarItemsContrato(newValue);
-                      },
-                decoration: _inputDeco('Seleccione Contrato *'),
-                validator: (v) => v == null ? 'Seleccione un contrato' : null,
-              ),
-            ),
-          ],
-        ),
+        if (isMobile) ...[
+          usuarioField,
+          const SizedBox(height: 14),
+          numeroField,
+          const SizedBox(height: 14),
+          bodegaField,
+          const SizedBox(height: 14),
+          fechaField,
+          const SizedBox(height: 14),
+          anioField,
+          const SizedBox(height: 14),
+          contratoField,
+        ] else ...[
+          Row(
+            children: [
+              Expanded(child: usuarioField),
+              const SizedBox(width: 14),
+              Expanded(child: numeroField),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: bodegaField),
+              const SizedBox(width: 14),
+              Expanded(child: fechaField),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: anioField),
+              const SizedBox(width: 14),
+              Expanded(child: contratoField),
+            ],
+          ),
+        ],
         const SizedBox(height: 14),
         TextFormField(
           controller: _objetoContratoController,
@@ -1972,10 +2090,12 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
     );
   }
 
-  // -------- BUILD --------
   @override
   Widget build(BuildContext context) {
     const Color verdeInstitucional = Color(0xFF2E7D32);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 900;
 
     return Scaffold(
       drawer: DrawerMenu(
@@ -1986,94 +2106,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
       ),
       body: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: Color.fromARGB(255, 192, 231, 195),
-              border: Border(
-                bottom: BorderSide(color: verdeInstitucional, width: 4),
-              ),
-            ),
-            child: Row(
-              children: [
-                Builder(
-                  builder: (innerContext) => IconButton(
-                    icon: const Icon(
-                      Icons.menu,
-                      color: verdeInstitucional,
-                      size: 30,
-                    ),
-                    onPressed: () => Scaffold.of(innerContext).openDrawer(),
-                    tooltip: 'Abrir menú',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Image.asset(
-                  'assets/logos/banner_gobernacion.png',
-                  height: 110,
-                  fit: BoxFit.contain,
-                ),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      _modoEdicion
-                          ? 'Editar Ingreso #$_ingresoEditandoId'
-                          : 'Registrar Ingresos',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2E7D32),
-                      ),
-                    ),
-                  ),
-                ),
-                if (!_modoEdicion)
-                  SizedBox(
-                    height: 36,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        setState(() => _mostrandoLista = !_mostrandoLista);
-                        if (_mostrandoLista) _cargarIngresos();
-                      },
-                      icon: Icon(
-                        _mostrandoLista ? Icons.add : Icons.list,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      label: Text(
-                        _mostrandoLista ? 'Nuevo' : 'Ver Listado',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _mostrandoLista
-                            ? verdeInstitucional
-                            : Colors.blue.shade700,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        elevation: 2,
-                      ),
-                    ),
-                  ),
-                if (_modoEdicion)
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red, size: 28),
-                    onPressed: () {
-                      _limpiarFormulario();
-                      setState(() => _mostrandoLista = true);
-                    },
-                    tooltip: 'Cancelar edición',
-                  ),
-              ],
-            ),
-          ),
+          _buildResponsiveHeader(verdeInstitucional, isMobile, isTablet),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -2085,32 +2118,34 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
               ),
               child: _mostrandoLista
                   ? _buildListaIngresos()
-                  : Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1000),
-                          child: Form(
-                            key: _formKey,
-                            child: Card(
-                              elevation: 4,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildSeccionDatosIngreso(
-                                      verdeInstitucional,
-                                    ),
-                                    const SizedBox(height: 20),
-                                    _buildSeccionDetalles(verdeInstitucional),
-                                    const SizedBox(height: 20),
-                                    _buildBotones(verdeInstitucional),
-                                  ],
-                                ),
+                  : SingleChildScrollView(
+                      padding: EdgeInsets.all(isMobile ? 12 : 20),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1000),
+                        child: Form(
+                          key: _formKey,
+                          child: Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.all(isMobile ? 16 : 20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildSeccionDatosIngreso(
+                                    verdeInstitucional,
+                                    isMobile,
+                                  ),
+                                  SizedBox(height: isMobile ? 20 : 24),
+                                  _buildSeccionDetalles(
+                                    verdeInstitucional,
+                                    isMobile,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _buildBotones(verdeInstitucional),
+                                ],
                               ),
                             ),
                           ),
@@ -2122,6 +2157,208 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildResponsiveHeader(Color verde, bool isMobile, bool isTablet) {
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(bottom: BorderSide(color: verde, width: 3)),
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 72,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Image.asset(
+                    'assets/logos/banner_gobernacion.png',
+                    height: 72,
+                    fit: BoxFit.contain,
+                  ),
+                  Positioned(
+                    left: 0,
+                    child: Builder(
+                      builder: (ctx) => IconButton(
+                        icon: Icon(Icons.menu, color: verde, size: 28),
+                        onPressed: () => Scaffold.of(ctx).openDrawer(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
+                  ),
+                  if (!_modoEdicion)
+                    Positioned(
+                      right: 0,
+                      child: SizedBox(
+                        height: 32,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() => _mostrandoLista = !_mostrandoLista);
+                            if (_mostrandoLista) _cargarIngresos();
+                          },
+                          icon: Icon(
+                            _mostrandoLista ? Icons.add : Icons.list,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          label: Text(
+                            _mostrandoLista ? 'Nuevo' : 'Listado',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _mostrandoLista
+                                ? verde
+                                : Colors.blue.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (_modoEdicion)
+                    Positioned(
+                      right: 0,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.red,
+                          size: 26,
+                        ),
+                        onPressed: () {
+                          _limpiarFormulario();
+                          setState(() => _mostrandoLista = true);
+                        },
+                        tooltip: 'Cancelar edición',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _modoEdicion
+                  ? 'Editar Ingreso #$_ingresoEditandoId'
+                  : 'Registrar Ingresos',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: verde,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(bottom: BorderSide(color: verde, width: 4)),
+        ),
+        child: Row(
+          children: [
+            Builder(
+              builder: (innerContext) => IconButton(
+                icon: Icon(Icons.menu, color: verde, size: 30),
+                onPressed: () => Scaffold.of(innerContext).openDrawer(),
+                tooltip: 'Abrir menú',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: Image.asset(
+                'assets/logos/banner_gobernacion.png',
+                height: isTablet ? 100 : 130,
+                fit: BoxFit.contain,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                _modoEdicion
+                    ? 'Editar Ingreso #$_ingresoEditandoId'
+                    : 'Registrar Ingresos',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: isTablet ? 22 : 26,
+                  fontWeight: FontWeight.bold,
+                  color: verde,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: !_modoEdicion
+                    ? SizedBox(
+                        height: 36,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() => _mostrandoLista = !_mostrandoLista);
+                            if (_mostrandoLista) _cargarIngresos();
+                          },
+                          icon: Icon(
+                            _mostrandoLista ? Icons.add : Icons.list,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _mostrandoLista ? 'Nuevo' : 'Ver Listado',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _mostrandoLista
+                                ? verde
+                                : Colors.blue.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 2,
+                          ),
+                        ),
+                      )
+                    : IconButton(
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.red,
+                          size: 28,
+                        ),
+                        onPressed: () {
+                          _limpiarFormulario();
+                          setState(() => _mostrandoLista = true);
+                        },
+                        tooltip: 'Cancelar edición',
+                      ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override

@@ -110,371 +110,406 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
     final bool esConsulta = rol == 'consulta';
 
     final bool puedeVerUsuarios = esAdmin;
-    // ✅ Ahora consulta también puede ver acciones rápidas
     final bool puedeVerSecciones =
         esAdmin || esAlmacen || esAdministrativo || esConsulta;
+
+    // 🎯 Detectar breakpoints
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 900;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       drawer: esConsulta
-          ? null // 🚫 No Drawer para rol consulta
+          ? null
           : DrawerMenu(
               username: username,
               sector: sectorUsuario,
               rol: rol,
               selectedIndex: 0,
             ),
-      body: Column(
-        children: [
-          // HEADER
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: const BoxDecoration(
-              color: Color.fromARGB(255, 192, 231, 195),
-              border: Border(
-                bottom: BorderSide(color: verdeInstitucional, width: 4),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return Column(
+            children: [
+              // HEADER RESPONSIVE
+              _buildResponsiveHeader(
+                context,
+                esConsulta,
+                nombreCompleto,
+                rol,
+                isMobile,
+                isTablet,
               ),
-            ),
-            child: Row(
-              children: [
-                if (!esConsulta) // 🚫 Ocultar botón menú en rol consulta
-                  Builder(
-                    builder: (ctx) => IconButton(
-                      icon: const Icon(
-                        Icons.menu,
-                        color: verdeInstitucional,
-                        size: 30,
-                      ),
-                      onPressed: () => Scaffold.of(ctx).openDrawer(),
-                      tooltip: 'Abrir menú de navegación',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 2,
-                  child: Image.asset(
-                    'assets/logos/banner_gobernacion.png',
-                    height: 130,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                const Expanded(
-                  flex: 2,
-                  child: Text(
-                    'PANEL DE CONTROL',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2E7D32),
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        nombreCompleto.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _getRolColor(rol).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          ' ${rol.toUpperCase()}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: _getRolColor(rol),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ElevatedButton(
-                        onPressed: () => _confirmarCerrarSesion(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade50,
-                          foregroundColor: Colors.red.shade700,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        child: const Text(
-                          'Cerrar sesión',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
 
-          // CONTENIDO
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _cargarEstadisticas,
-              color: verdeInstitucional,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Saludo
-                    Text(
-                      '¡Hola, ${username.split(' ')[0]}! 👋',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const Text(
-                      'Aquí tienes un resumen de la actividad del sistema.',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // ✅ Acciones rápidas visibles también para consulta
-                    if (puedeVerSecciones || puedeVerUsuarios) ...[
-                      _buildSectionTitle('Acciones Rápidas', Icons.bolt),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        alignment: WrapAlignment.start,
-                        spacing: 16,
-                        runSpacing: 16,
-                        children: [
-                          _buildActionCard(
-                            context,
-                            'Consultar Actas',
-                            Icons.assignment_turned_in,
-                            Colors.blue.shade50,
-                            '/consultar_actas',
-                          ),
-                          _buildActionCard(
-                            context,
-                            'Consultar Egreso',
-                            Icons.remove_shopping_cart,
-                            Colors.orange.shade50,
-                            '/consultar_egreso',
-                          ),
-                          _buildActionCard(
-                            context,
-                            'Consultar Ingreso',
-                            Icons.add_shopping_cart,
-                            Colors.green.shade50,
-                            '/consultar_ingreso',
-                          ),
-                          _buildActionCard(
-                            context,
-                            'Consultar Contrato',
-                            Icons.file_present,
-                            Colors.purple.shade50,
-                            '/consultar_contrato',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
-                    ],
-
-                    // 2. KPIs
-                    if (_cargandoStats)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(40),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    else
-                      GridView.count(
-                        crossAxisCount: 4,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 1.6,
-                        children: [
-                          _buildKpiCard(
-                            'Total Actas',
-                            '${_stats['total_actas']}',
-                            Icons.description,
-                            Colors.blue,
-                          ),
-                          _buildKpiCard(
-                            'Stock Disponible',
-                            '${_stats['stock_disponible']}',
-                            Icons.warehouse,
-                            Colors.green,
-                          ),
-                          _buildKpiCard(
-                            'Contratos Activos',
-                            '${_stats['contratos_activos']}',
-                            Icons.file_present,
-                            Colors.purple,
-                          ),
-                          _buildKpiCard(
-                            'Alertas Stock',
-                            '${_stats['alertas_stock']}',
-                            Icons.warning_amber_rounded,
-                            Colors.orange,
-                          ),
-                        ],
-                      ),
-
-                    const SizedBox(height: 32),
-
-                    // 3. FILA DE GRÁFICAS
-                    Row(
+              // CONTENIDO
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _cargarEstadisticas,
+                  color: verdeInstitucional,
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(isMobile ? 16 : 24),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Gráfico de Barras
-                        Expanded(
-                          child: Card(
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.bar_chart,
-                                        color: verdeInstitucional,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Text(
-                                        'Movimientos del Sistema',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 20),
-                                  SizedBox(
-                                    height: 250,
-                                    child: FlBarChart(
-                                      ingresos: _toDouble(
-                                        _stats['total_ingresos'],
-                                      ),
-                                      egresos: _toDouble(
-                                        _stats['total_egresos'],
-                                      ),
-                                      entregas: _toDouble(
-                                        _stats['total_entregas'],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                        // Saludo
+                        Text(
+                          '¡Hola, ${username.split(' ')[0]}! 👋',
+                          style: TextStyle(
+                            fontSize: isMobile ? 20 : 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
                           ),
                         ),
-                        const SizedBox(width: 24),
-                        // Gráfico Circular
-                        Expanded(
-                          child: Card(
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.pie_chart,
-                                        color: verdeInstitucional,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Text(
-                                        'Distribución de Movimientos',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 20),
-                                  SizedBox(
-                                    height: 250,
-                                    child: FlPieChart(
-                                      ingresos: _toDouble(
-                                        _stats['total_ingresos'],
-                                      ),
-                                      egresos: _toDouble(
-                                        _stats['total_egresos'],
-                                      ),
-                                      entregas: _toDouble(
-                                        _stats['total_entregas'],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                        Text(
+                          'Aquí tienes un resumen de la actividad del sistema.',
+                          style: TextStyle(
+                            fontSize: isMobile ? 13 : 14,
+                            color: Colors.grey,
                           ),
                         ),
+                        SizedBox(height: isMobile ? 20 : 24),
+
+                        // Acciones rápidas
+                        if (puedeVerSecciones || puedeVerUsuarios) ...[
+                          _buildSectionTitle('Acciones Rápidas', Icons.bolt),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            alignment: WrapAlignment.start,
+                            spacing: isMobile ? 12 : 16,
+                            runSpacing: isMobile ? 12 : 16,
+                            children: [
+                              _buildActionCard(
+                                context,
+                                'Consultar Actas',
+                                Icons.assignment_turned_in,
+                                Colors.blue.shade50,
+                                '/consultar_actas',
+                                isMobile,
+                              ),
+                              _buildActionCard(
+                                context,
+                                'Consultar Egreso',
+                                Icons.remove_shopping_cart,
+                                Colors.orange.shade50,
+                                '/consultar_egreso',
+                                isMobile,
+                              ),
+                              _buildActionCard(
+                                context,
+                                'Consultar Ingreso',
+                                Icons.add_shopping_cart,
+                                Colors.green.shade50,
+                                '/consultar_ingreso',
+                                isMobile,
+                              ),
+                              _buildActionCard(
+                                context,
+                                'Consultar Contrato',
+                                Icons.file_present,
+                                Colors.purple.shade50,
+                                '/consultar_contrato',
+                                isMobile,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 32),
+                        ],
+
+                        // KPIs RESPONSIVE
+                        if (_cargandoStats)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(40),
+                              child: CircularProgressIndicator(),
+                            ),
+                          )
+                        else
+                          GridView.count(
+                            crossAxisCount: isMobile
+                                ? 1
+                                : isTablet
+                                ? 2
+                                : 4,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: isMobile
+                                ? 2.5
+                                : isTablet
+                                ? 1.8
+                                : 1.6,
+                            children: [
+                              _buildKpiCard(
+                                'Total Actas',
+                                '${_stats['total_actas']}',
+                                Icons.description,
+                                Colors.blue,
+                              ),
+                              _buildKpiCard(
+                                'Stock Disponible',
+                                '${_stats['stock_disponible']}',
+                                Icons.warehouse,
+                                Colors.green,
+                              ),
+                              _buildKpiCard(
+                                'Contratos Activos',
+                                '${_stats['contratos_activos']}',
+                                Icons.file_present,
+                                Colors.purple,
+                              ),
+                              _buildKpiCard(
+                                'Alertas Stock',
+                                '${_stats['alertas_stock']}',
+                                Icons.warning_amber_rounded,
+                                Colors.orange,
+                              ),
+                            ],
+                          ),
+
+                        const SizedBox(height: 32),
+
+                        // GRÁFICOS RESPONSIVE
+                        if (isMobile)
+                          Column(
+                            children: [
+                              _buildBarChartCard(),
+                              const SizedBox(height: 24),
+                              _buildPieChartCard(),
+                            ],
+                          )
+                        else
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: _buildBarChartCard()),
+                              const SizedBox(width: 24),
+                              Expanded(child: _buildPieChartCard()),
+                            ],
+                          ),
+
+                        const SizedBox(height: 32),
+
+                        // Actividad Reciente
+                        if (!(esAlmacen || esConsulta)) ...[
+                          _buildSectionTitle(
+                            'Movimientos Recientes',
+                            Icons.history,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildRecentActivityList(),
+                          const SizedBox(height: 24),
+                        ],
                       ],
                     ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
-                    const SizedBox(height: 32),
-
-                    // 4. Actividad Reciente
-                    if (!(esAlmacen || esConsulta)) ...[
-                      _buildSectionTitle(
-                        'Movimientos Recientes',
-                        Icons.history,
+  // ========================================================
+  // HEADER RESPONSIVE
+  // ========================================================
+  Widget _buildResponsiveHeader(
+    BuildContext context,
+    bool esConsulta,
+    String nombreCompleto,
+    String rol,
+    bool isMobile,
+    bool isTablet,
+  ) {
+    if (isMobile) {
+      // 📱 MOBILE: Header compacto con banner centrado
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: const BoxDecoration(
+          color: Color.fromARGB(255, 192, 231, 195),
+          border: Border(
+            bottom: BorderSide(color: verdeInstitucional, width: 3),
+          ),
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 72,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Banner 100% centrado
+                  Image.asset(
+                    'assets/logos/banner_gobernacion.png',
+                    height: 72,
+                    fit: BoxFit.contain,
+                  ),
+                  // 📋 Menú a la izquierda (roles con drawer)
+                  if (!esConsulta)
+                    Positioned(
+                      left: 0,
+                      child: Builder(
+                        builder: (ctx) => IconButton(
+                          icon: const Icon(
+                            Icons.menu,
+                            color: verdeInstitucional,
+                            size: 28,
+                          ),
+                          onPressed: () => Scaffold.of(ctx).openDrawer(),
+                          tooltip: 'Abrir menú de navegación',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      _buildRecentActivityList(),
-                      const SizedBox(height: 24),
-                    ],
-                  ],
+                    ),
+                  // 🚪 Salida a la derecha SOLO rol consulta (sin drawer)
+                  if (esConsulta)
+                    Positioned(
+                      right: 0,
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.logout,
+                          color: Colors.red.shade700,
+                          size: 26,
+                        ),
+                        onPressed: () => _confirmarCerrarSesion(context),
+                        tooltip: 'Cerrar sesión',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'PANEL DE CONTROL',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2E7D32),
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // 🖥️ TABLET/DESKTOP: Header horizontal
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: const BoxDecoration(
+          color: Color.fromARGB(255, 192, 231, 195),
+          border: Border(
+            bottom: BorderSide(color: verdeInstitucional, width: 4),
+          ),
+        ),
+        child: Row(
+          children: [
+            if (!esConsulta)
+              Builder(
+                builder: (ctx) => IconButton(
+                  icon: const Icon(
+                    Icons.menu,
+                    color: verdeInstitucional,
+                    size: 30,
+                  ),
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                  tooltip: 'Abrir menú de navegación',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: Image.asset(
+                'assets/logos/banner_gobernacion.png',
+                height: isTablet ? 100 : 130,
+                fit: BoxFit.contain,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                'PANEL DE CONTROL',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: isTablet ? 22 : 26,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF2E7D32),
+                  letterSpacing: 1.2,
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    nombreCompleto.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getRolColor(rol).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      ' ${rol.toUpperCase()}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: _getRolColor(rol),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () => _confirmarCerrarSesion(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade50,
+                      foregroundColor: Colors.red.shade700,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    child: const Text(
+                      'Cerrar sesión',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   double _toDouble(dynamic value) {
@@ -555,6 +590,7 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
     IconData icon,
     Color bgColor,
     String route,
+    bool isMobile,
   ) {
     return InkWell(
       onTap: () {
@@ -570,8 +606,8 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        width: 180,
-        height: 100,
+        width: isMobile ? double.infinity : 180,
+        height: isMobile ? 90 : 100,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: bgColor,
@@ -581,15 +617,85 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: verdeInstitucional, size: 32),
+            Icon(icon, color: verdeInstitucional, size: isMobile ? 28 : 32),
             const SizedBox(height: 8),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
+              style: TextStyle(
+                fontSize: isMobile ? 13 : 14,
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Card de gráfico de barras
+  Widget _buildBarChartCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.bar_chart, color: verdeInstitucional, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Movimientos del Sistema',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 250,
+              child: FlBarChart(
+                ingresos: _toDouble(_stats['total_ingresos']),
+                egresos: _toDouble(_stats['total_egresos']),
+                entregas: _toDouble(_stats['total_entregas']),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Card de gráfico circular
+  Widget _buildPieChartCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.pie_chart, color: verdeInstitucional, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Distribución de Movimientos',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 250,
+              child: FlPieChart(
+                ingresos: _toDouble(_stats['total_ingresos']),
+                egresos: _toDouble(_stats['total_egresos']),
+                entregas: _toDouble(_stats['total_entregas']),
               ),
             ),
           ],
@@ -697,7 +803,7 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    tipoLabel, // ✅ CORREGIDO: Ya no muestra el número
+                    tipoLabel,
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -909,7 +1015,7 @@ class FlBarChart extends StatelessWidget {
 }
 
 // ========================================================
-// GRÁFICO CIRCULAR - DISTRIBUCIÓN (SIN TOOLTIPS)
+// GRÁFICO CIRCULAR - DISTRIBUCIÓN
 // ========================================================
 class FlPieChart extends StatefulWidget {
   final double ingresos;
@@ -962,7 +1068,7 @@ class _FlPieChartState extends State<FlPieChart> {
       ),
     );
   }
-// 
+
   List<PieChartSectionData> _showingSections() {
     final total = widget.ingresos + widget.egresos + widget.entregas;
 

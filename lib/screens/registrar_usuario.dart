@@ -204,8 +204,8 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                 ],
               ),
               content: SingleChildScrollView(
-                child: SizedBox(
-                  width: 400,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 500),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -228,7 +228,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                         ),
                       ),
                       const SizedBox(height: 16),
-
                       TextField(
                         controller: editPasswordController,
                         obscureText: ocultarPassword,
@@ -445,72 +444,79 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
               Text('Papelera de Usuarios'),
             ],
           ),
-          content: SizedBox(
-            width: 500,
-            height: 400,
-            child: usuariosEliminados.isEmpty
-                ? const Center(
-                    child: Text(
-                      'La papelera está vacía.',
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 500),
+            child: SizedBox(
+              width: double.infinity,
+              height: 400,
+              child: usuariosEliminados.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'La papelera está vacía.',
+                        style: TextStyle(color: Colors.grey, fontSize: 16),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: usuariosEliminados.length,
+                      itemBuilder: (context, index) {
+                        final usuario = usuariosEliminados[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 5),
+                          color: Colors.grey[100],
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                              vertical: 8.0,
+                            ),
+                            child: Row(
+                              children: [
+                                const CircleAvatar(
+                                  backgroundColor: Colors.grey,
+                                  child: Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        usuario['username'] ?? 'Sin usuario',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        usuario['email'] ?? 'Sin correo',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.settings_backup_restore,
+                                    color: Colors.green,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                    _cambiarEstadoUsuario(usuario['id'], 1);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  )
-                : ListView.builder(
-                    itemCount: usuariosEliminados.length,
-                    itemBuilder: (context, index) {
-                      final usuario = usuariosEliminados[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 5),
-                        color: Colors.grey[100],
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0,
-                            vertical: 8.0,
-                          ),
-                          child: Row(
-                            children: [
-                              const CircleAvatar(
-                                backgroundColor: Colors.grey,
-                                child: Icon(Icons.person, color: Colors.white),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      usuario['username'] ?? 'Sin usuario',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      usuario['email'] ?? 'Sin correo',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.settings_backup_restore,
-                                  color: Colors.green,
-                                ),
-                                onPressed: () {
-                                  Navigator.of(context).pop();
-                                  _cambiarEstadoUsuario(usuario['id'], 1);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+            ),
           ),
           actions: [
             TextButton(
@@ -535,6 +541,8 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
         .where((u) => u['estado'] == 1 || u['estado'] == 2)
         .toList();
     const Color verdeInstitucional = Color(0xFF2E7D32);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -546,371 +554,44 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
       ),
       body: Column(
         children: [
-          // ============================================
-          // BANNER INSTITUCIONAL
-          // ============================================
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: Color.fromARGB(255, 192, 231, 195),
-              border: Border(
-                bottom: BorderSide(color: verdeInstitucional, width: 4),
-              ),
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(Icons.menu, color: verdeInstitucional, size: 30),
-                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                  tooltip: 'Abrir menú',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                const SizedBox(width: 8),
-                Image.asset(
-                  'assets/logos/banner_gobernacion.png',
-                  height: 110,
-                  fit: BoxFit.contain,
-                ),
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      'Gestión de Usuarios y Roles',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2E7D32),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 80),
-              ],
-            ),
-          ),
-
-          // ============================================
-          // CONTENIDO PRINCIPAL
-          // ============================================
+          _buildResponsiveHeader(verdeInstitucional, isMobile),
           Expanded(
-            child: Row(
-              children: [
-                // COLUMNA IZQUIERDA: FORMULARIO
-                Expanded(
-                  flex: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          const Icon(
-                            Icons.person_add,
-                            size: 80,
-                            color: Color(0xFF2E7D32),
-                          ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'REGISTRAR NUEVO USUARIO',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2E7D32),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          TextField(
-                            controller: _usernameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Nombre de Usuario',
-                              prefixIcon: Icon(Icons.person),
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: _emailController,
-                            decoration: const InputDecoration(
-                              labelText: 'Correo Electrónico',
-                              prefixIcon: Icon(Icons.email),
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: _contrasenaController,
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Contraseña',
-                              prefixIcon: Icon(Icons.lock),
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: 'Rol del Usuario',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _rolSeleccionado,
-                                isExpanded: true,
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'administrador',
-                                    child: Text('ADMINISTRADOR'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'administrativo',
-                                    child: Text('ADMINISTRATIVO'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'almacen',
-                                    child: Text('ALMACEN'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'consulta',
-                                    child: Text('CONSULTA'),
-                                  ),
-                                ],
-                                onChanged: (value) =>
-                                    setState(() => _rolSeleccionado = value!),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: 'Sector',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _sectorSeleccionado,
-                                isExpanded: true,
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'No Asignado',
-                                    child: Text('NO ASIGNADO'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'Medio Ambiente',
-                                    child: Text('MEDIO AMBIENTE'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'Agropecuario',
-                                    child: Text('AGROPECUARIO'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'Desarrollo Económico',
-                                    child: Text('DESARROLLO ECONÓMICO'),
-                                  ),
-                                ],
-                                onChanged: (value) => setState(
-                                  () => _sectorSeleccionado = value!,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 45,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF2E7D32),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                              ),
-                              onPressed: _registrarUsuario,
-                              child: const Text(
-                                'GUARDAR',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const VerticalDivider(width: 1, thickness: 1),
-                // COLUMNA DERECHA: LISTADO
-                Expanded(
-                  flex: 3,
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                if (isMobile) {
+                  return SingleChildScrollView(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'USUARIOS EN EL SISTEMA',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2E7D32),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Expanded(
-                          child: _cargando
-                              ? const Center(child: CircularProgressIndicator())
-                              : usuariosVisibles.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    'No hay usuarios activos o inactivos.',
-                                  ),
-                                )
-                              : ListView.builder(
-                                  itemCount: usuariosVisibles.length,
-                                  itemBuilder: (context, index) {
-                                    final usuario = usuariosVisibles[index];
-                                    final bool esActivo =
-                                        usuario['estado'] == 1;
-                                    String sectorTexto =
-                                        (usuario['sector'] ?? 'NO ASIGNADO')
-                                            .toString()
-                                            .toUpperCase();
-                                    return Card(
-                                      margin: const EdgeInsets.symmetric(
-                                        vertical: 5,
-                                      ),
-                                      color: const Color(0xFFF1F4F1),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12.0),
-                                        child: Row(
-                                          children: [
-                                            const CircleAvatar(
-                                              backgroundColor: Color(
-                                                0xFFD0DDD0,
-                                              ),
-                                              child: Icon(
-                                                Icons.person,
-                                                color: Color(0xFF2E7D32),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 16),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      Text(
-                                                        usuario['username'] ??
-                                                            'Sin nombre',
-                                                        style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontSize: 15,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Container(
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 6,
-                                                              vertical: 2,
-                                                            ),
-                                                        decoration: BoxDecoration(
-                                                          color: esActivo
-                                                              ? Colors
-                                                                    .green[100]
-                                                              : Colors.red[100],
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                5,
-                                                              ),
-                                                        ),
-                                                        child: Text(
-                                                          esActivo
-                                                              ? 'Activo'
-                                                              : 'Inactivo',
-                                                          style: TextStyle(
-                                                            color: esActivo
-                                                                ? Colors
-                                                                      .green[700]
-                                                                : Colors
-                                                                      .red[700],
-                                                            fontSize: 11,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    "${usuario['email'] ?? 'Sin correo'}\nRol: ${usuario['rol'].toString().toUpperCase()}  |  Sector: $sectorTexto",
-                                                    style: TextStyle(
-                                                      color: Colors.grey[700],
-                                                      fontSize: 13,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            Row(
-                                              children: [
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.edit,
-                                                    color: Colors.blue,
-                                                  ),
-                                                  onPressed: () =>
-                                                      _mostrarFormularioEditar(
-                                                        usuario,
-                                                      ),
-                                                ),
-                                                Switch(
-                                                  value: esActivo,
-                                                  activeThumbColor:
-                                                      Colors.green,
-                                                  onChanged: (bool value) =>
-                                                      _cambiarEstadoUsuario(
-                                                        usuario['id'],
-                                                        value ? 1 : 2,
-                                                      ),
-                                                ),
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.delete,
-                                                    color: Colors.red,
-                                                  ),
-                                                  onPressed: () =>
-                                                      _confirmarEliminacion(
-                                                        usuario['id'],
-                                                        usuario['username'],
-                                                      ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
+                        _buildFormulario(verdeInstitucional, isMobile),
+                        const Divider(height: 1),
+                        _buildListado(
+                          verdeInstitucional,
+                          usuariosVisibles,
+                          isMobile,
                         ),
                       ],
                     ),
-                  ),
-                ),
-              ],
+                  );
+                } else {
+                  return Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: _buildFormulario(verdeInstitucional, isMobile),
+                      ),
+                      const VerticalDivider(width: 1, thickness: 1),
+                      Expanded(
+                        flex: 3,
+                        child: _buildListado(
+                          verdeInstitucional,
+                          usuariosVisibles,
+                          isMobile,
+                        ),
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
           ),
         ],
@@ -919,6 +600,523 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
         onPressed: _mostrarPapeleraDialog,
         backgroundColor: const Color.fromARGB(255, 227, 6, 6),
         child: const Icon(Icons.delete_sweep, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _buildResponsiveHeader(Color verdeInstitucional, bool isMobile) {
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(
+            bottom: BorderSide(color: verdeInstitucional, width: 3),
+          ),
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 72,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Image.asset(
+                    'assets/logos/banner_gobernacion.png',
+                    height: 72,
+                    fit: BoxFit.contain,
+                  ),
+                  Positioned(
+                    left: 0,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.menu,
+                        color: verdeInstitucional,
+                        size: 28,
+                      ),
+                      onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                      tooltip: 'Abrir menú',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Gestión de Usuarios y Roles',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2E7D32),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(
+            bottom: BorderSide(color: verdeInstitucional, width: 4),
+          ),
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              icon: Icon(Icons.menu, color: verdeInstitucional, size: 30),
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              tooltip: 'Abrir menú',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: Image.asset(
+                'assets/logos/banner_gobernacion.png',
+                height: 130,
+                fit: BoxFit.contain,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: const Text(
+                'Gestión de Usuarios y Roles',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2E7D32),
+                ),
+              ),
+            ),
+            const Expanded(flex: 2, child: SizedBox()),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildFormulario(Color verdeInstitucional, bool isMobile) {
+    return Padding(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            Icon(
+              Icons.person_add,
+              size: isMobile ? 60 : 80,
+              color: verdeInstitucional,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'REGISTRAR NUEVO USUARIO',
+              style: TextStyle(
+                fontSize: isMobile ? 16 : 18,
+                fontWeight: FontWeight.bold,
+                color: verdeInstitucional,
+              ),
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _usernameController,
+              decoration: const InputDecoration(
+                labelText: 'Nombre de Usuario',
+                prefixIcon: Icon(Icons.person),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: 'Correo Electrónico',
+                prefixIcon: Icon(Icons.email),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _contrasenaController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Contraseña',
+                prefixIcon: Icon(Icons.lock),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Rol del Usuario',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _rolSeleccionado,
+                  isExpanded: true,
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'administrador',
+                      child: Text('ADMINISTRADOR'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'administrativo',
+                      child: Text('ADMINISTRATIVO'),
+                    ),
+                    DropdownMenuItem(value: 'almacen', child: Text('ALMACEN')),
+                    DropdownMenuItem(
+                      value: 'consulta',
+                      child: Text('CONSULTA'),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _rolSeleccionado = value!),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Sector',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _sectorSeleccionado,
+                  isExpanded: true,
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'No Asignado',
+                      child: Text('NO ASIGNADO'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Medio Ambiente',
+                      child: Text('MEDIO AMBIENTE'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Agropecuario',
+                      child: Text('AGROPECUARIO'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Desarrollo Económico',
+                      child: Text('DESARROLLO ECONÓMICO'),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _sectorSeleccionado = value!),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 45,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E7D32),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                onPressed: _registrarUsuario,
+                child: const Text(
+                  'GUARDAR',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildListado(
+    Color verdeInstitucional,
+    List usuariosVisibles,
+    bool isMobile,
+  ) {
+    final Widget lista = _cargando
+        ? const SizedBox(
+            height: 200,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        : usuariosVisibles.isEmpty
+        ? const SizedBox(
+            height: 100,
+            child: Center(child: Text('No hay usuarios activos o inactivos.')),
+          )
+        : ListView.builder(
+            shrinkWrap: isMobile,
+            physics: isMobile ? const NeverScrollableScrollPhysics() : null,
+            itemCount: usuariosVisibles.length,
+            itemBuilder: (context, index) {
+              final usuario = usuariosVisibles[index];
+              final bool esActivo = usuario['estado'] == 1;
+              String sectorTexto = (usuario['sector'] ?? 'NO ASIGNADO')
+                  .toString()
+                  .toUpperCase();
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 5),
+                color: const Color(0xFFF1F4F1),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const CircleAvatar(
+                                  backgroundColor: Color(0xFFD0DDD0),
+                                  child: Icon(
+                                    Icons.person,
+                                    color: Color(0xFF2E7D32),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              usuario['username'] ??
+                                                  'Sin nombre',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 15,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: esActivo
+                                                  ? Colors.green[100]
+                                                  : Colors.red[100],
+                                              borderRadius:
+                                                  BorderRadius.circular(5),
+                                            ),
+                                            child: Text(
+                                              esActivo ? 'Activo' : 'Inactivo',
+                                              style: TextStyle(
+                                                color: esActivo
+                                                    ? Colors.green[700]
+                                                    : Colors.red[700],
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        usuario['email'] ?? 'Sin correo',
+                                        style: TextStyle(
+                                          color: Colors.grey[700],
+                                          fontSize: 12,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "Rol: ${usuario['rol'].toString().toUpperCase()} | Sector: $sectorTexto",
+                              style: TextStyle(
+                                color: Colors.grey[700],
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: Colors.blue,
+                                    size: 22,
+                                  ),
+                                  onPressed: () =>
+                                      _mostrarFormularioEditar(usuario),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                                const SizedBox(width: 12),
+                                Switch(
+                                  value: esActivo,
+                                  activeThumbColor: Colors.green,
+                                  onChanged: (bool value) =>
+                                      _cambiarEstadoUsuario(
+                                        usuario['id'],
+                                        value ? 1 : 2,
+                                      ),
+                                ),
+                                const SizedBox(width: 12),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                    size: 22,
+                                  ),
+                                  onPressed: () => _confirmarEliminacion(
+                                    usuario['id'],
+                                    usuario['username'],
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            const CircleAvatar(
+                              backgroundColor: Color(0xFFD0DDD0),
+                              child: Icon(
+                                Icons.person,
+                                color: Color(0xFF2E7D32),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        usuario['username'] ?? 'Sin nombre',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: esActivo
+                                              ? Colors.green[100]
+                                              : Colors.red[100],
+                                          borderRadius: BorderRadius.circular(
+                                            5,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          esActivo ? 'Activo' : 'Inactivo',
+                                          style: TextStyle(
+                                            color: esActivo
+                                                ? Colors.green[700]
+                                                : Colors.red[700],
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "${usuario['email'] ?? 'Sin correo'}\nRol: ${usuario['rol'].toString().toUpperCase()}  |  Sector: $sectorTexto",
+                                    style: TextStyle(
+                                      color: Colors.grey[700],
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: Colors.blue,
+                                  ),
+                                  onPressed: () =>
+                                      _mostrarFormularioEditar(usuario),
+                                ),
+                                Switch(
+                                  value: esActivo,
+                                  activeThumbColor: Colors.green,
+                                  onChanged: (bool value) =>
+                                      _cambiarEstadoUsuario(
+                                        usuario['id'],
+                                        value ? 1 : 2,
+                                      ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: () => _confirmarEliminacion(
+                                    usuario['id'],
+                                    usuario['username'],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                ),
+              );
+            },
+          );
+
+    return Padding(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'USUARIOS EN EL SISTEMA',
+            style: TextStyle(
+              fontSize: isMobile ? 16 : 18,
+              fontWeight: FontWeight.bold,
+              color: verdeInstitucional,
+            ),
+          ),
+          const SizedBox(height: 16),
+          if (isMobile) lista else Expanded(child: lista),
+        ],
       ),
     );
   }

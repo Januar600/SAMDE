@@ -11,13 +11,11 @@ class RegistrarEgresoPage extends StatefulWidget {
 }
 
 class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
-  // ── USUARIO ────────────────────────────────────────────────
   late String username;
   late int usuarioId;
   late String sector;
   late String rol;
 
-  // ── FORMULARIO ─────────────────────────────────────────────
   final _formKey = GlobalKey<FormState>();
   final _numeroEgresoController = TextEditingController();
   final _fechaEgresoController = TextEditingController();
@@ -25,17 +23,14 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
   final _objetoContratoController = TextEditingController();
   final _searchController = TextEditingController();
 
-  // ── CONTROLADORES POR FILA (cantidad a egresar) ────────────
   List<TextEditingController> _cantidadControllers = [];
 
-  // ── VARIABLES DEL FORMULARIO ───────────────────────────────
   String? _anioSeleccionado;
   int? _contratoSeleccionado;
   String _contratoNumero = '';
   static const int BODEGA_FIJA_ID = 2;
   static const String BODEGA_FIJA_NOMBRE = 'SAMDE';
 
-  // ── DATOS ──────────────────────────────────────────────────
   List<String> _aniosDisponibles = [];
   List<Map<String, dynamic>> _contratosDisponibles = [];
   List<Map<String, dynamic>> _itemsContrato = [];
@@ -44,7 +39,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
   List<Map<String, dynamic>> _egresosFiltrados = [];
   String _searchQuery = '';
 
-  // ── ESTADOS ───────────────────────────────────────────────
   bool _cargando = false;
   bool _mostrandoLista = false;
   bool _modoEdicion = false;
@@ -52,7 +46,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
 
   static const String _baseUrl = 'http://localhost/samde_db/api';
 
-  // ── CICLO DE VIDA ──────────────────────────────────────────
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -321,7 +314,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           });
         }
       } else {
-        _snack(' ${data['message'] ?? 'Error al cargar items'}', Colors.red);
+        _snack('${data['message'] ?? 'Error al cargar items'}', Colors.red);
       }
     } catch (e) {
       _snack('❌ Error cargando items: $e', Colors.red);
@@ -401,7 +394,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
         await _cargarEgresos();
         setState(() => _mostrandoLista = true);
       } else {
-        _snack(' ${data['message'] ?? 'Error desconocido'}', Colors.red);
+        _snack('${data['message'] ?? 'Error desconocido'}', Colors.red);
       }
     } catch (e) {
       _snack('❌ Error: $e', Colors.red);
@@ -536,11 +529,10 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
       }
     } catch (e) {
       if (mounted) Navigator.pop(context);
-      _snack(' Error: $e', Colors.red);
+      _snack('Error: $e', Colors.red);
     }
   }
 
-  // ✅ MODIFICADO: Se agregó la columna "Cant. Contratada" ANTES de "Cant. Ingresada"
   void _mostrarDialogoDetalle(
     Map<String, dynamic> eg,
     List<Map<String, dynamic>> detalles,
@@ -563,105 +555,109 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             ),
           ],
         ),
-        content: SizedBox(
-          width: 700,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _infoRow('Fecha', eg['fecha'] ?? 'N/A'),
-                _infoRow('Bodega', eg['bodega_nombre'] ?? 'N/A'),
-                _infoRow('Usuario', eg['usuario_nombre'] ?? 'N/A'),
-                if ((eg['observacion'] ?? '').toString().trim().isNotEmpty)
-                  _infoRow('Obs.', eg['observacion'].toString().trim()),
-                const Divider(height: 24),
-                Text(
-                  'Items del Egreso',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (detalles.isEmpty)
-                  const Text('Sin items', style: TextStyle(color: Colors.grey))
-                else
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      columnSpacing: 12,
-                      headingRowColor: WidgetStateProperty.all(
-                        Colors.green.shade50,
-                      ),
-                      columns: const [
-                        DataColumn(label: Text('#')),
-                        DataColumn(label: Text('Item')),
-                        DataColumn(
-                          label: Text('Cant. Contratada'),
-                        ), // ✅ AGREGADA AQUÍ
-                        DataColumn(label: Text('Cant. Ingresada')),
-                        DataColumn(label: Text('Cant. Egresada')),
-                        DataColumn(label: Text('Precio Unit.')),
-                        DataColumn(label: Text('Subtotal')),
-                      ],
-                      rows: detalles.asMap().entries.map((e) {
-                        final d = e.value;
-                        final cantContratada = _toDouble(
-                          d['cantidad_contratada'] ?? 0,
-                        ); // ✅ DATO CONTRATADA
-                        final cantIngresada = _toDouble(
-                          d['cantidad_ingresada'] ?? cantContratada,
-                        );
-                        final cant = _toDouble(d['cantidad']);
-                        final precio = _toDouble(d['precio_unitario']);
-
-                        return DataRow(
-                          cells: [
-                            DataCell(Text('${e.key + 1}')),
-                            DataCell(
-                              Text(
-                                d['nombre_item'] ?? 'N/A',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            // ✅ CELDA: CANTIDAD CONTRATADA
-                            DataCell(
-                              Center(
-                                child: Text(_formatearNumero(cantContratada)),
-                              ),
-                            ),
-                            // ✅ CELDA: CANTIDAD INGRESADA
-                            DataCell(
-                              Center(
-                                child: Text(_formatearNumero(cantIngresada)),
-                              ),
-                            ),
-                            DataCell(
-                              Center(child: Text(_formatearNumero(cant))),
-                            ),
-                            DataCell(
-                              Center(child: Text(_formatearConPuntos(precio))),
-                            ),
-                            DataCell(
-                              Text(
-                                _formatearConPuntos(cant * precio),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green.shade700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      }).toList(),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 700, maxHeight: 600),
+          child: SizedBox(
+            width: double.infinity,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _infoRow('Fecha', eg['fecha'] ?? 'N/A'),
+                  _infoRow('Bodega', eg['bodega_nombre'] ?? 'N/A'),
+                  _infoRow('Usuario', eg['usuario_nombre'] ?? 'N/A'),
+                  if ((eg['observacion'] ?? '').toString().trim().isNotEmpty)
+                    _infoRow('Obs.', eg['observacion'].toString().trim()),
+                  const Divider(height: 24),
+                  Text(
+                    'Items del Egreso',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade700,
                     ),
                   ),
-                if (detalles.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  _totalRow(detalles),
+                  const SizedBox(height: 8),
+                  if (detalles.isEmpty)
+                    const Text(
+                      'Sin items',
+                      style: TextStyle(color: Colors.grey),
+                    )
+                  else
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        columnSpacing: 12,
+                        headingRowColor: WidgetStateProperty.all(
+                          Colors.green.shade50,
+                        ),
+                        columns: const [
+                          DataColumn(label: Text('#')),
+                          DataColumn(label: Text('Item')),
+                          DataColumn(label: Text('Cant. Contratada')),
+                          DataColumn(label: Text('Cant. Ingresada')),
+                          DataColumn(label: Text('Cant. Egresada')),
+                          DataColumn(label: Text('Precio Unit.')),
+                          DataColumn(label: Text('Subtotal')),
+                        ],
+                        rows: detalles.asMap().entries.map((e) {
+                          final d = e.value;
+                          final cantContratada = _toDouble(
+                            d['cantidad_contratada'] ?? 0,
+                          );
+                          final cantIngresada = _toDouble(
+                            d['cantidad_ingresada'] ?? cantContratada,
+                          );
+                          final cant = _toDouble(d['cantidad']);
+                          final precio = _toDouble(d['precio_unitario']);
+
+                          return DataRow(
+                            cells: [
+                              DataCell(Text('${e.key + 1}')),
+                              DataCell(
+                                Text(
+                                  d['nombre_item'] ?? 'N/A',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              DataCell(
+                                Center(
+                                  child: Text(_formatearNumero(cantContratada)),
+                                ),
+                              ),
+                              DataCell(
+                                Center(
+                                  child: Text(_formatearNumero(cantIngresada)),
+                                ),
+                              ),
+                              DataCell(
+                                Center(child: Text(_formatearNumero(cant))),
+                              ),
+                              DataCell(
+                                Center(
+                                  child: Text(_formatearConPuntos(precio)),
+                                ),
+                              ),
+                              DataCell(
+                                Text(
+                                  _formatearConPuntos(cant * precio),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green.shade700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  if (detalles.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _totalRow(detalles),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -899,6 +895,10 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
   @override
   Widget build(BuildContext context) {
     const Color verde = Color(0xFF2E7D32);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 900;
+
     return Scaffold(
       drawer: DrawerMenu(
         username: username,
@@ -908,85 +908,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
       ),
       body: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: Color.fromARGB(255, 192, 231, 195),
-              border: Border(bottom: BorderSide(color: verde, width: 4)),
-            ),
-            child: Row(
-              children: [
-                Builder(
-                  builder: (ctx) => IconButton(
-                    icon: const Icon(Icons.menu, color: verde, size: 30),
-                    onPressed: () => Scaffold.of(ctx).openDrawer(),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Image.asset(
-                  'assets/logos/banner_gobernacion.png',
-                  height: 110,
-                  fit: BoxFit.contain,
-                ),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      _modoEdicion
-                          ? 'Editar Egreso #$_egresoEditandoId'
-                          : 'Registrar Egresos',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                ),
-                if (!_modoEdicion)
-                  SizedBox(
-                    height: 36,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        setState(() => _mostrandoLista = !_mostrandoLista);
-                        if (_mostrandoLista) _cargarEgresos();
-                      },
-                      icon: Icon(
-                        _mostrandoLista ? Icons.add : Icons.list,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      label: Text(
-                        _mostrandoLista ? 'Nuevo' : 'Ver Listado',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _mostrandoLista
-                            ? verde
-                            : Colors.blue.shade700,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ),
-                if (_modoEdicion)
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red, size: 28),
-                    onPressed: () {
-                      _limpiarFormulario();
-                      setState(() => _mostrandoLista = true);
-                    },
-                  ),
-              ],
-            ),
-          ),
+          _buildResponsiveHeader(verde, isMobile, isTablet),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -998,30 +920,28 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
               ),
               child: _mostrandoLista
                   ? _buildListaEgresos()
-                  : Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1000),
-                          child: Form(
-                            key: _formKey,
-                            child: Card(
-                              elevation: 4,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildSeccionDatos(verde),
-                                    const SizedBox(height: 20),
-                                    _buildSeccionDetalles(verde),
-                                    const SizedBox(height: 20),
-                                    _buildBotones(verde),
-                                  ],
-                                ),
+                  : SingleChildScrollView(
+                      padding: EdgeInsets.all(isMobile ? 12 : 20),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1000),
+                        child: Form(
+                          key: _formKey,
+                          child: Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.all(isMobile ? 16 : 20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildSeccionDatos(verde, isMobile),
+                                  SizedBox(height: isMobile ? 20 : 24),
+                                  _buildSeccionDetalles(verde, isMobile),
+                                  const SizedBox(height: 20),
+                                  _buildBotones(verde),
+                                ],
                               ),
                             ),
                           ),
@@ -1035,7 +955,327 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     );
   }
 
-  Widget _buildSeccionDatos(Color verde) {
+  Widget _buildResponsiveHeader(Color verde, bool isMobile, bool isTablet) {
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(bottom: BorderSide(color: verde, width: 3)),
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 72,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Image.asset(
+                    'assets/logos/banner_gobernacion.png',
+                    height: 72,
+                    fit: BoxFit.contain,
+                  ),
+                  Positioned(
+                    left: 0,
+                    child: Builder(
+                      builder: (ctx) => IconButton(
+                        icon: Icon(Icons.menu, color: verde, size: 28),
+                        onPressed: () => Scaffold.of(ctx).openDrawer(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
+                  ),
+                  if (!_modoEdicion)
+                    Positioned(
+                      right: 0,
+                      child: SizedBox(
+                        height: 32,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() => _mostrandoLista = !_mostrandoLista);
+                            if (_mostrandoLista) _cargarEgresos();
+                          },
+                          icon: Icon(
+                            _mostrandoLista ? Icons.add : Icons.list,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          label: Text(
+                            _mostrandoLista ? 'Nuevo' : 'Listado',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _mostrandoLista
+                                ? verde
+                                : Colors.blue.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (_modoEdicion)
+                    Positioned(
+                      right: 0,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.red,
+                          size: 26,
+                        ),
+                        onPressed: () {
+                          _limpiarFormulario();
+                          setState(() => _mostrandoLista = true);
+                        },
+                        tooltip: 'Cancelar edición',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _modoEdicion
+                  ? 'Editar Egreso #$_egresoEditandoId'
+                  : 'Registrar Egresos',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: verde,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(bottom: BorderSide(color: verde, width: 4)),
+        ),
+        child: Row(
+          children: [
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: Icon(Icons.menu, color: verde, size: 30),
+                onPressed: () => Scaffold.of(ctx).openDrawer(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: Image.asset(
+                'assets/logos/banner_gobernacion.png',
+                height: isTablet ? 100 : 130,
+                fit: BoxFit.contain,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                _modoEdicion
+                    ? 'Editar Egreso #$_egresoEditandoId'
+                    : 'Registrar Egresos',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: isTablet ? 22 : 26,
+                  fontWeight: FontWeight.bold,
+                  color: verde,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: !_modoEdicion
+                    ? SizedBox(
+                        height: 36,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() => _mostrandoLista = !_mostrandoLista);
+                            if (_mostrandoLista) _cargarEgresos();
+                          },
+                          icon: Icon(
+                            _mostrandoLista ? Icons.add : Icons.list,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _mostrandoLista ? 'Nuevo' : 'Ver Listado',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _mostrandoLista
+                                ? verde
+                                : Colors.blue.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 2,
+                          ),
+                        ),
+                      )
+                    : IconButton(
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.red,
+                          size: 28,
+                        ),
+                        onPressed: () {
+                          _limpiarFormulario();
+                          setState(() => _mostrandoLista = true);
+                        },
+                        tooltip: 'Cancelar edición',
+                      ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildSeccionDatos(Color verde, bool isMobile) {
+    final usuarioField = TextFormField(
+      initialValue: username,
+      readOnly: true,
+      enabled: false,
+      decoration: InputDecoration(
+        labelText: 'Usuario que registra',
+        prefixIcon: const Icon(Icons.person, size: 20),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+        isDense: true,
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+    );
+
+    final numeroField = TextFormField(
+      controller: _numeroEgresoController,
+      decoration: _deco('Número de Egreso *', hint: 'Ej: EGR-0001'),
+      validator: (v) =>
+          (v == null || v.trim().isEmpty) ? 'Ingrese número de egreso' : null,
+    );
+
+    final bodegaField = TextFormField(
+      initialValue: BODEGA_FIJA_NOMBRE,
+      readOnly: true,
+      enabled: false,
+      decoration: InputDecoration(
+        labelText: 'Bodega',
+        prefixIcon: const Icon(Icons.store, size: 20),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+        isDense: true,
+        filled: true,
+        fillColor: Colors.grey.shade50,
+      ),
+    );
+
+    final fechaField = TextFormField(
+      controller: _fechaEgresoController,
+      decoration: _deco('Fecha Egreso *', hint: 'YYYY-MM-DD'),
+      readOnly: true,
+      onTap: () => _pickDate(_fechaEgresoController),
+      validator: (v) =>
+          (v == null || v.trim().isEmpty) ? 'Ingrese fecha' : null,
+    );
+
+    final anioField = DropdownButtonFormField<String>(
+      value: _anioSeleccionado,
+      hint: const Text('Año contrato *'),
+      isExpanded: true,
+      items: _aniosDisponibles
+          .map((a) => DropdownMenuItem(value: a, child: Text(a)))
+          .toList(),
+      onChanged: _modoEdicion
+          ? null
+          : (v) {
+              setState(() {
+                _anioSeleccionado = v;
+                _contratoSeleccionado = null;
+                _contratosDisponibles = [];
+                _itemsContrato = [];
+                _detallesEgreso = [];
+                _objetoContratoController.clear();
+                _contratoNumero = '';
+              });
+              if (v != null) _cargarContratosPorAnio(v);
+            },
+      decoration: _deco('Año contrato *'),
+      validator: (v) => v == null ? 'Seleccione año' : null,
+    );
+
+    final contratoField = DropdownButtonFormField<int>(
+      value:
+          _contratoSeleccionado != null &&
+              _contratosDisponibles.any(
+                (c) => _toInt(c['id']) == _contratoSeleccionado,
+              )
+          ? _contratoSeleccionado
+          : null,
+      hint: const Text('Contrato *'),
+      isExpanded: true,
+      items: _contratosDisponibles
+          .map(
+            (c) => DropdownMenuItem<int>(
+              value: _toInt(c['id']),
+              child: Text(c['numero_contrato'] ?? ''),
+            ),
+          )
+          .toList(),
+      onChanged: _modoEdicion
+          ? null
+          : (v) {
+              setState(() {
+                _contratoSeleccionado = v;
+                _itemsContrato = [];
+                _detallesEgreso = [];
+                final contratoSeleccionado = _contratosDisponibles.firstWhere(
+                  (c) => _toInt(c['id']) == v,
+                  orElse: () => {},
+                );
+                _contratoNumero =
+                    contratoSeleccionado['numero_contrato']?.toString() ?? '';
+                _objetoContratoController.text =
+                    contratoSeleccionado['objeto_contrato']?.toString() ??
+                    contratoSeleccionado['objeto']?.toString() ??
+                    'No especificado';
+              });
+              if (v != null) _cargarItemsContrato(v);
+            },
+      decoration: _deco('Contrato *'),
+      validator: (v) => v == null ? 'Seleccione contrato' : null,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1055,157 +1295,43 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
         ),
         const Divider(height: 20, thickness: 1),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                initialValue: username,
-                readOnly: true,
-                enabled: false,
-                decoration: InputDecoration(
-                  labelText: 'Usuario que registra',
-                  prefixIcon: const Icon(Icons.person, size: 20),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  isDense: true,
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: TextFormField(
-                controller: _numeroEgresoController,
-                decoration: _deco('Número de Egreso *', hint: 'Ej: EGR-0001'),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Ingrese número de egreso'
-                    : null,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                initialValue: BODEGA_FIJA_NOMBRE,
-                readOnly: true,
-                enabled: false,
-                decoration: InputDecoration(
-                  labelText: 'Bodega',
-                  prefixIcon: const Icon(Icons.store, size: 20),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  isDense: true,
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: TextFormField(
-                controller: _fechaEgresoController,
-                decoration: _deco('Fecha Egreso *', hint: 'YYYY-MM-DD'),
-                readOnly: true,
-                onTap: () => _pickDate(_fechaEgresoController),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Ingrese fecha' : null,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                initialValue: _anioSeleccionado,
-                hint: const Text('Año contrato *'),
-                isExpanded: true,
-                items: _aniosDisponibles
-                    .map((a) => DropdownMenuItem(value: a, child: Text(a)))
-                    .toList(),
-                onChanged: _modoEdicion
-                    ? null
-                    : (v) {
-                        setState(() {
-                          _anioSeleccionado = v;
-                          _contratoSeleccionado = null;
-                          _contratosDisponibles = [];
-                          _itemsContrato = [];
-                          _detallesEgreso = [];
-                          _objetoContratoController.clear();
-                          _contratoNumero = '';
-                        });
-                        if (v != null) _cargarContratosPorAnio(v);
-                      },
-                decoration: _deco('Año contrato *'),
-                validator: (v) => v == null ? 'Seleccione año' : null,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: DropdownButtonFormField<int>(
-                initialValue:
-                    _contratoSeleccionado != null &&
-                        _contratosDisponibles.any(
-                          (c) => _toInt(c['id']) == _contratoSeleccionado,
-                        )
-                    ? _contratoSeleccionado
-                    : null,
-                hint: const Text('Contrato *'),
-                isExpanded: true,
-                items: _contratosDisponibles
-                    .map(
-                      (c) => DropdownMenuItem<int>(
-                        value: _toInt(c['id']),
-                        child: Text(c['numero_contrato'] ?? ''),
-                      ),
-                    )
-                    .toList(),
-                onChanged: _modoEdicion
-                    ? null
-                    : (v) {
-                        setState(() {
-                          _contratoSeleccionado = v;
-                          _itemsContrato = [];
-                          _detallesEgreso = [];
-                          final contratoSeleccionado = _contratosDisponibles
-                              .firstWhere(
-                                (c) => _toInt(c['id']) == v,
-                                orElse: () => {},
-                              );
-                          _contratoNumero =
-                              contratoSeleccionado['numero_contrato']
-                                  ?.toString() ??
-                              '';
-                          _objetoContratoController.text =
-                              contratoSeleccionado['objeto_contrato']
-                                  ?.toString() ??
-                              contratoSeleccionado['objeto']?.toString() ??
-                              'No especificado';
-                        });
-                        if (v != null) _cargarItemsContrato(v);
-                      },
-                decoration: _deco('Contrato *'),
-                validator: (v) => v == null ? 'Seleccione contrato' : null,
-              ),
-            ),
-          ],
-        ),
+        if (isMobile) ...[
+          usuarioField,
+          const SizedBox(height: 14),
+          numeroField,
+          const SizedBox(height: 14),
+          bodegaField,
+          const SizedBox(height: 14),
+          fechaField,
+          const SizedBox(height: 14),
+          anioField,
+          const SizedBox(height: 14),
+          contratoField,
+        ] else ...[
+          Row(
+            children: [
+              Expanded(child: usuarioField),
+              const SizedBox(width: 14),
+              Expanded(child: numeroField),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: bodegaField),
+              const SizedBox(width: 14),
+              Expanded(child: fechaField),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: anioField),
+              const SizedBox(width: 14),
+              Expanded(child: contratoField),
+            ],
+          ),
+        ],
         const SizedBox(height: 14),
         TextFormField(
           controller: _objetoContratoController,
@@ -1233,7 +1359,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     );
   }
 
-  Widget _buildSeccionDetalles(Color verde) {
+  Widget _buildSeccionDetalles(Color verde, bool isMobile) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1293,283 +1419,432 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             ),
           )
         else
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columnSpacing: 12,
-                headingRowHeight: 36,
-                headingRowColor: WidgetStateProperty.all(Colors.green.shade50),
-                columns: [
-                  DataColumn(
-                    label: Text(
-                      '#',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                  DataColumn(
-                    label: Text(
-                      'Item',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                  DataColumn(
-                    label: Text(
-                      'Cant. Contratada',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                  DataColumn(
-                    label: Text(
-                      'Cant. Ingresada',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                  if (!_modoEdicion)
-                    DataColumn(
-                      label: Text(
-                        'Cant. Egresada (base)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: verde,
-                        ),
-                      ),
-                    ),
-                  if (_modoEdicion)
-                    DataColumn(
-                      label: Text(
-                        'Cant. Egresada (Base)',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: verde,
-                        ),
-                      ),
-                    ),
-                  DataColumn(
-                    label: Text(
-                      'Stock Disponible',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                  DataColumn(
-                    label: Text(
-                      _modoEdicion ? 'Cant. Adicional *' : 'Cant. a Egresar *',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                ],
-                rows: _detallesEgreso.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final detalle = entry.value;
-                  final contratada = _toDouble(detalle['cantidad_contratada']);
-                  final ingresada = _toDouble(detalle['total_ingresado']);
-                  final baseEgresada = _modoEdicion
-                      ? _toDouble(detalle['cantidad_egresada'])
-                      : _toDouble(detalle['total_egresado']);
-                  final adicional = _toDouble(detalle['cantidad_adicional']);
-                  final stock = _toDouble(detalle['stock_disponible']);
-                  final cantidadMostrar = _modoEdicion
-                      ? adicional
-                      : _toDouble(detalle['cantidad_egresada']);
-                  final excede = _modoEdicion
-                      ? (adicional > stock && adicional > 0)
-                      : (cantidadMostrar > stock && cantidadMostrar > 0);
+          isMobile ? _buildDetallesMobile(verde) : _buildDetallesDesktop(verde),
+      ],
+    );
+  }
 
-                  return DataRow(
-                    cells: [
-                      DataCell(
-                        Text('${i + 1}', style: const TextStyle(fontSize: 12)),
+  Widget _buildDetallesMobile(Color verde) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _detallesEgreso.length,
+      itemBuilder: (context, index) {
+        final detalle = _detallesEgreso[index];
+        final contratada = _toDouble(detalle['cantidad_contratada']);
+        final ingresada = _toDouble(detalle['total_ingresado']);
+        final baseEgresada = _modoEdicion
+            ? _toDouble(detalle['cantidad_egresada'])
+            : _toDouble(detalle['total_egresado']);
+        final stock = _toDouble(detalle['stock_disponible']);
+        final cantidadMostrar = _modoEdicion
+            ? _toDouble(detalle['cantidad_adicional'])
+            : _toDouble(detalle['cantidad_egresada']);
+        final excede = _modoEdicion
+            ? (cantidadMostrar > stock && cantidadMostrar > 0)
+            : (cantidadMostrar > stock && cantidadMostrar > 0);
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
                       ),
-                      DataCell(
-                        Text(
-                          detalle['nombre_item'] ?? '',
-                          style: const TextStyle(fontSize: 12),
-                        ),
+                      decoration: BoxDecoration(
+                        color: verde.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.purple.shade200),
-                          ),
-                          child: Text(
-                            _formatearNumero(contratada),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.purple.shade700,
-                            ),
-                          ),
-                        ),
-                      ),
-                      DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.blue.shade200),
-                          ),
-                          child: Text(
-                            _formatearNumero(ingresada),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue.shade700,
-                            ),
-                          ),
+                      child: Text(
+                        '#${index + 1}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: verde,
                         ),
                       ),
-                      if (!_modoEdicion)
-                        DataCell(
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade50,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.orange.shade200),
-                            ),
-                            child: Text(
-                              _formatearNumero(baseEgresada),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange.shade700,
-                              ),
-                            ),
-                          ),
-                        ),
-                      if (_modoEdicion)
-                        DataCell(
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade100,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.orange.shade300),
-                            ),
-                            child: Text(
-                              _formatearNumero(baseEgresada),
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange.shade700,
-                              ),
-                            ),
-                          ),
-                        ),
-                      DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: stock > 0
-                                ? Colors.green.shade50
-                                : Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: stock > 0
-                                  ? Colors.green.shade200
-                                  : Colors.red.shade200,
-                            ),
-                          ),
-                          child: Text(
-                            _formatearNumero(stock),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: stock > 0
-                                  ? Colors.green.shade700
-                                  : Colors.red.shade700,
-                            ),
-                          ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        detalle['nombre_item'] ?? '',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
                         ),
                       ),
-                      DataCell(
-                        SizedBox(
-                          width: 100,
-                          child: TextField(
-                            controller: _cantidadControllers.length > i
-                                ? _cantidadControllers[i]
-                                : null,
-                            keyboardType: TextInputType.number,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: excede
-                                  ? Colors.red.shade700
-                                  : Colors.black,
-                            ),
-                            decoration: InputDecoration(
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 4,
-                              ),
-                              isDense: true,
-                              filled: excede,
-                              fillColor: excede ? Colors.red.shade50 : null,
-                              errorText: excede ? 'Excede' : null,
-                              errorStyle: const TextStyle(fontSize: 9),
-                            ),
-                            onChanged: (v) => _actualizarCantidad(i, v),
-                          ),
-                        ),
+                    ),
+                  ],
+                ),
+                if ((detalle['descripcion'] ?? '').toString().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      detalle['descripcion'],
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontStyle: FontStyle.italic,
                       ),
-                    ],
-                  );
-                }).toList(),
-              ),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _buildBadge(
+                      'Contratada',
+                      _formatearNumero(contratada),
+                      Colors.purple,
+                    ),
+                    _buildBadge(
+                      'Ingresada',
+                      _formatearNumero(ingresada),
+                      Colors.blue,
+                    ),
+                    if (_modoEdicion)
+                      _buildBadge(
+                        'Base egresada',
+                        _formatearNumero(baseEgresada),
+                        Colors.orange,
+                      ),
+                    _buildBadge(
+                      'Stock',
+                      _formatearNumero(stock),
+                      stock > 0 ? Colors.green : Colors.red,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _modoEdicion ? 'Cantidad adicional:' : 'Cantidad a egresar:',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                TextField(
+                  controller: _cantidadControllers.length > index
+                      ? _cantidadControllers[index]
+                      : null,
+                  keyboardType: TextInputType.number,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: excede ? Colors.red.shade700 : Colors.black,
+                  ),
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    isDense: true,
+                    filled: excede,
+                    fillColor: excede ? Colors.red.shade50 : null,
+                    errorText: excede ? 'Excede stock' : null,
+                    errorStyle: const TextStyle(fontSize: 10),
+                  ),
+                  onChanged: (v) {
+                    _actualizarCantidad(index, v);
+                    setState(() {});
+                  },
+                ),
+              ],
             ),
           ),
-      ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBadge(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetallesDesktop(Color verde) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          columnSpacing: 12,
+          headingRowHeight: 36,
+          headingRowColor: WidgetStateProperty.all(Colors.green.shade50),
+          columns: [
+            DataColumn(
+              label: Text(
+                '#',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: verde,
+                ),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Item',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: verde,
+                ),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Cant. Contratada',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: verde,
+                ),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Cant. Ingresada',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: verde,
+                ),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Cant. Egresada (Base)',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: verde,
+                ),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'Stock Disponible',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: verde,
+                ),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                _modoEdicion ? 'Cant. Adicional *' : 'Cant. a Egresar *',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: verde,
+                ),
+              ),
+            ),
+          ],
+          rows: _detallesEgreso.asMap().entries.map((entry) {
+            final i = entry.key;
+            final detalle = entry.value;
+            final contratada = _toDouble(detalle['cantidad_contratada']);
+            final ingresada = _toDouble(detalle['total_ingresado']);
+            final baseEgresada = _modoEdicion
+                ? _toDouble(detalle['cantidad_egresada'])
+                : _toDouble(detalle['total_egresado']);
+            final adicional = _toDouble(detalle['cantidad_adicional']);
+            final stock = _toDouble(detalle['stock_disponible']);
+            final cantidadMostrar = _modoEdicion
+                ? adicional
+                : _toDouble(detalle['cantidad_egresada']);
+            final excede = _modoEdicion
+                ? (adicional > stock && adicional > 0)
+                : (cantidadMostrar > stock && cantidadMostrar > 0);
+
+            return DataRow(
+              cells: [
+                DataCell(
+                  Text('${i + 1}', style: const TextStyle(fontSize: 12)),
+                ),
+                DataCell(
+                  Text(
+                    detalle['nombre_item'] ?? '',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                DataCell(
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.purple.shade200),
+                    ),
+                    child: Text(
+                      _formatearNumero(contratada),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.purple.shade700,
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Text(
+                      _formatearNumero(ingresada),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade700,
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _modoEdicion
+                          ? Colors.orange.shade100
+                          : Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _modoEdicion
+                            ? Colors.orange.shade300
+                            : Colors.orange.shade200,
+                      ),
+                    ),
+                    child: Text(
+                      _formatearNumero(baseEgresada),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: stock > 0
+                          ? Colors.green.shade50
+                          : Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: stock > 0
+                            ? Colors.green.shade200
+                            : Colors.red.shade200,
+                      ),
+                    ),
+                    child: Text(
+                      _formatearNumero(stock),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: stock > 0
+                            ? Colors.green.shade700
+                            : Colors.red.shade700,
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  SizedBox(
+                    width: 100,
+                    child: TextField(
+                      controller: _cantidadControllers.length > i
+                          ? _cantidadControllers[i]
+                          : null,
+                      keyboardType: TextInputType.number,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: excede ? Colors.red.shade700 : Colors.black,
+                      ),
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
+                        isDense: true,
+                        filled: excede,
+                        fillColor: excede ? Colors.red.shade50 : null,
+                        errorText: excede ? 'Excede' : null,
+                        errorStyle: const TextStyle(fontSize: 9),
+                      ),
+                      onChanged: (v) => _actualizarCantidad(i, v),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
+      ),
     );
   }
 

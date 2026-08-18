@@ -24,8 +24,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
   final _fechaFinController = TextEditingController();
 
   String _estadoSeleccionado = 'EN EJECUCIÓN';
-
-  // ✅ NUEVOS CAMPOS
   String _tipoContrato = 'Contrato de obra';
   String _modalidadSeleccion = 'Contratación directa';
 
@@ -46,6 +44,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
   String _searchQuery = '';
 
   int? _editandoId;
+  bool _formateando = false;
 
   static const String _baseUrl = 'http://localhost/samde_db/api/contratos';
 
@@ -64,7 +63,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     super.initState();
     _cargarContratos();
     _searchController.addListener(_filtrarContratos);
-
     _valorTotalController.addListener(
       () => _formatearMiles(_valorTotalController),
     );
@@ -92,22 +90,16 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     for (int i = parteEntera.length - 1; i >= 0; i--) {
       resultado = parteEntera[i] + resultado;
       contador++;
-      if (contador % 3 == 0 && i != 0) {
-        resultado = '.$resultado';
-      }
+      if (contador % 3 == 0 && i != 0) resultado = '.$resultado';
     }
 
-    if (parteDecimal.isNotEmpty) {
-      resultado += '.$parteDecimal';
-    }
+    if (parteDecimal.isNotEmpty) resultado += '.$parteDecimal';
 
     _formateando = true;
     controller.text = resultado;
     controller.selection = TextSelection.collapsed(offset: resultado.length);
     _formateando = false;
   }
-
-  bool _formateando = false;
 
   void _filtrarContratos() {
     setState(() {
@@ -142,9 +134,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     for (int i = numeroStr.length - 1; i >= 0; i--) {
       resultado = numeroStr[i] + resultado;
       contador++;
-      if (contador % 3 == 0 && i != 0) {
-        resultado = '.$resultado';
-      }
+      if (contador % 3 == 0 && i != 0) resultado = '.$resultado';
     }
 
     if (numero != entero) {
@@ -186,216 +176,216 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
               ),
             ],
           ),
-          content: SizedBox(
-            width: 700,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoRow('Proveedor', proveedor),
-                  _buildInfoRow('Número', numero),
-                  _buildInfoRow('Tipo Contrato', tipoContrato),
-                  _buildInfoRow('Modalidad', modalidad),
-                  _buildInfoRow('Fecha Inicio', fechaInicio),
-                  _buildInfoRow('Fecha Fin', fechaFin),
-                  _buildInfoRow('Objeto del Contrato', objeto),
-                  _buildInfoRow(
-                    'Valor Total',
-                    '\$${_formatearConPuntos(valorTotal)}',
-                  ),
-                  _buildInfoRow(
-                    'Estado',
-                    estado,
-                    color: _getEstadoColor(estado),
-                  ),
-                  const Divider(height: 24),
-                  const Text(
-                    'Items del Contrato',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2E7D32),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 700, maxHeight: 600),
+            child: SizedBox(
+              width: double.infinity,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInfoRow('Proveedor', proveedor),
+                    _buildInfoRow('Número', numero),
+                    _buildInfoRow('Tipo Contrato', tipoContrato),
+                    _buildInfoRow('Modalidad', modalidad),
+                    _buildInfoRow('Fecha Inicio', fechaInicio),
+                    _buildInfoRow('Fecha Fin', fechaFin),
+                    _buildInfoRow('Objeto del Contrato', objeto),
+                    _buildInfoRow(
+                      'Valor Total',
+                      '\$${_formatearConPuntos(valorTotal)}',
                     ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  if (items.isEmpty)
+                    _buildInfoRow(
+                      'Estado',
+                      estado,
+                      color: _getEstadoColor(estado),
+                    ),
+                    const Divider(height: 24),
                     const Text(
-                      'No hay items registrados',
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
-                    )
-                  else
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
+                      'Items del Contrato',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2E7D32),
                       ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          columnSpacing: 12,
-                          headingRowHeight: 36,
-                          headingRowColor: WidgetStateProperty.all(
-                            Colors.green.shade50,
+                    ),
+                    const SizedBox(height: 8),
+                    if (items.isEmpty)
+                      const Text(
+                        'No hay items registrados',
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                      )
+                    else
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            columnSpacing: 12,
+                            headingRowHeight: 36,
+                            headingRowColor: WidgetStateProperty.all(
+                              Colors.green.shade50,
+                            ),
+                            columns: const [
+                              DataColumn(
+                                label: Text(
+                                  '#',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              DataColumn(
+                                label: Text(
+                                  'Código',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              DataColumn(
+                                label: Text(
+                                  'Item',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              DataColumn(
+                                label: Text(
+                                  'Descripción',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              DataColumn(
+                                label: Text(
+                                  'Unidad',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              DataColumn(
+                                label: Text(
+                                  'Cantidad',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              DataColumn(
+                                label: Text(
+                                  'V. Unitario',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              DataColumn(
+                                label: Text(
+                                  'Subtotal',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                            rows: items.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final item = entry.value;
+                              final cantidad =
+                                  double.tryParse(
+                                    item['cantidad']?.toString() ?? '0',
+                                  ) ??
+                                  0;
+                              final valorUnitario =
+                                  double.tryParse(
+                                    item['valor_unitario']?.toString() ?? '0',
+                                  ) ??
+                                  0;
+                              final subtotal = cantidad * valorUnitario;
+
+                              return DataRow(
+                                cells: [
+                                  DataCell(Text('${index + 1}')),
+                                  DataCell(
+                                    Text(
+                                      item['codigo']?.toString() ?? '-',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      item['nombre']?.toString() ?? 'N/A',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    SizedBox(
+                                      width: 120,
+                                      child: Text(
+                                        item['descripcion']?.toString() ?? '-',
+                                        style: const TextStyle(fontSize: 11),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      item['unidad']?.toString() ?? '-',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      _formatearConPuntos(cantidad),
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      '\$${_formatearConPuntos(valorUnitario)}',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      '\$${_formatearConPuntos(subtotal)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: Color(0xFF2E7D32),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
                           ),
-                          columns: const [
-                            DataColumn(
-                              label: Text(
-                                '#',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    if (items.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            const Text(
+                              'TOTAL: ',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            DataColumn(
-                              label: Text(
-                                'Código',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Item',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Descripción',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Unidad',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Cantidad',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'V. Unitario',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            DataColumn(
-                              label: Text(
-                                'Subtotal',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                            Text(
+                              '\$${_formatearConPuntos(valorTotal)}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2E7D32),
                               ),
                             ),
                           ],
-                          rows: items.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final item = entry.value;
-                            final cantidad =
-                                double.tryParse(
-                                  item['cantidad']?.toString() ?? '0',
-                                ) ??
-                                0;
-                            final valorUnitario =
-                                double.tryParse(
-                                  item['valor_unitario']?.toString() ?? '0',
-                                ) ??
-                                0;
-                            final subtotal = cantidad * valorUnitario;
-
-                            return DataRow(
-                              cells: [
-                                DataCell(Text('${index + 1}')),
-                                DataCell(
-                                  Text(
-                                    item['codigo']?.toString() ?? '-',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    item['nombre']?.toString() ?? 'N/A',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                DataCell(
-                                  SizedBox(
-                                    width: 120,
-                                    child: Text(
-                                      item['descripcion']?.toString() ?? '-',
-                                      style: const TextStyle(fontSize: 11),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    item['unidad']?.toString() ?? '-',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    _formatearConPuntos(cantidad),
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    '\$${_formatearConPuntos(valorUnitario)}',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                DataCell(
-                                  Text(
-                                    '\$${_formatearConPuntos(subtotal)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      color: Color(0xFF2E7D32),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          }).toList(),
                         ),
                       ),
-                    ),
-
-                  const SizedBox(height: 16),
-                  if (items.isNotEmpty) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.green.shade200),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          const Text(
-                            'TOTAL: ',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            '\$${_formatearConPuntos(valorTotal)}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2E7D32),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -451,7 +441,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
 
     final cantidadTexto = _itemCantidadController.text.replaceAll('.', '');
     final valorTexto = _itemValorUnitarioController.text.replaceAll('.', '');
-
     final double cant = double.tryParse(cantidadTexto) ?? 0;
     final double valor = double.tryParse(valorTexto) ?? 0;
 
@@ -661,7 +650,6 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
 
   Map<String, dynamic> _buildPayload() {
     final valorTotalTexto = _valorTotalController.text.replaceAll('.', '');
-
     return {
       'numero_contrato': _numeroController.text.trim(),
       'objeto_contrato': _objetoController.text.trim(),
@@ -758,6 +746,9 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
   Widget build(BuildContext context) {
     const Color verde = Color(0xFF2E7D32);
     final bool modoEdicion = _editandoId != null;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 900;
 
     return Scaffold(
       drawer: DrawerMenu(
@@ -768,85 +759,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
       ),
       body: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: Color.fromARGB(255, 192, 231, 195),
-              border: Border(bottom: BorderSide(color: verde, width: 4)),
-            ),
-            child: Row(
-              children: [
-                Builder(
-                  builder: (ctx) => IconButton(
-                    icon: const Icon(Icons.menu, color: verde, size: 30),
-                    onPressed: () => Scaffold.of(ctx).openDrawer(),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Image.asset(
-                  'assets/logos/banner_gobernacion.png',
-                  height: 110,
-                  fit: BoxFit.contain,
-                ),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      modoEdicion ? 'Editar Contrato' : 'Registrar Contratos',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                ),
-                if (!modoEdicion)
-                  SizedBox(
-                    height: 36,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        setState(() => _mostrandoLista = !_mostrandoLista);
-                        if (_mostrandoLista) _cargarContratos();
-                      },
-                      icon: Icon(
-                        _mostrandoLista ? Icons.add : Icons.list,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      label: Text(
-                        _mostrandoLista ? 'Nuevo' : 'Ver Listado',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _mostrandoLista
-                            ? verde
-                            : Colors.blue.shade700,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        elevation: 2,
-                      ),
-                    ),
-                  ),
-                if (modoEdicion)
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red, size: 28),
-                    onPressed: () {
-                      _limpiarFormulario();
-                      setState(() => _mostrandoLista = true);
-                    },
-                    tooltip: 'Cancelar edición',
-                  ),
-              ],
-            ),
-          ),
+          _buildResponsiveHeader(verde, modoEdicion, isMobile, isTablet),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -858,66 +771,60 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
               ),
               child: _mostrandoLista
                   ? _buildListaContratos(verde)
-                  : Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1000),
-                          child: Form(
-                            key: _formKey,
-                            child: Card(
-                              elevation: 4,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (modoEdicion)
-                                      Container(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 12,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.orange.shade50,
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.orange.shade300,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.edit,
-                                              color: Colors.orange.shade700,
-                                              size: 16,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              'Editando contrato #${_numeroController.text}',
-                                              style: TextStyle(
-                                                color: Colors.orange.shade700,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ],
+                  : SingleChildScrollView(
+                      padding: EdgeInsets.all(isMobile ? 12 : 20),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1000),
+                        child: Form(
+                          key: _formKey,
+                          child: Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: EdgeInsets.all(isMobile ? 16 : 20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (modoEdicion)
+                                    Container(
+                                      margin: const EdgeInsets.only(bottom: 12),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: Colors.orange.shade300,
                                         ),
                                       ),
-                                    _buildSeccionDatos(verde),
-                                    const SizedBox(height: 24),
-                                    _buildSeccionItems(verde),
-                                    const SizedBox(height: 20),
-                                    _buildBotones(verde, modoEdicion),
-                                  ],
-                                ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.edit,
+                                            color: Colors.orange.shade700,
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Editando contrato #${_numeroController.text}',
+                                            style: TextStyle(
+                                              color: Colors.orange.shade700,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  _buildSeccionDatos(verde, isMobile),
+                                  SizedBox(height: isMobile ? 20 : 24),
+                                  _buildSeccionItems(verde, isMobile),
+                                  const SizedBox(height: 20),
+                                  _buildBotones(verde, modoEdicion),
+                                ],
                               ),
                             ),
                           ),
@@ -931,7 +838,209 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
     );
   }
 
-  Widget _buildSeccionDatos(Color verde) {
+  Widget _buildResponsiveHeader(
+    Color verde,
+    bool modoEdicion,
+    bool isMobile,
+    bool isTablet,
+  ) {
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(bottom: BorderSide(color: verde, width: 3)),
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 72,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Image.asset(
+                    'assets/logos/banner_gobernacion.png',
+                    height: 72,
+                    fit: BoxFit.contain,
+                  ),
+                  Positioned(
+                    left: 0,
+                    child: Builder(
+                      builder: (ctx) => IconButton(
+                        icon: Icon(Icons.menu, color: verde, size: 28),
+                        onPressed: () => Scaffold.of(ctx).openDrawer(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
+                  ),
+                  if (!modoEdicion)
+                    Positioned(
+                      right: 0,
+                      child: SizedBox(
+                        height: 32,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() => _mostrandoLista = !_mostrandoLista);
+                            if (_mostrandoLista) _cargarContratos();
+                          },
+                          icon: Icon(
+                            _mostrandoLista ? Icons.add : Icons.list,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          label: Text(
+                            _mostrandoLista ? 'Nuevo' : 'Listado',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _mostrandoLista
+                                ? verde
+                                : Colors.blue.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (modoEdicion)
+                    Positioned(
+                      right: 0,
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.red,
+                          size: 26,
+                        ),
+                        onPressed: () {
+                          _limpiarFormulario();
+                          setState(() => _mostrandoLista = true);
+                        },
+                        tooltip: 'Cancelar edición',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              modoEdicion ? 'Editar Contrato' : 'Registrar Contratos',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: verde,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(bottom: BorderSide(color: verde, width: 4)),
+        ),
+        child: Row(
+          children: [
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: Icon(Icons.menu, color: verde, size: 30),
+                onPressed: () => Scaffold.of(ctx).openDrawer(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: Image.asset(
+                'assets/logos/banner_gobernacion.png',
+                height: isTablet ? 100 : 130,
+                fit: BoxFit.contain,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                modoEdicion ? 'Editar Contrato' : 'Registrar Contratos',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: isTablet ? 22 : 26,
+                  fontWeight: FontWeight.bold,
+                  color: verde,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: !modoEdicion
+                    ? SizedBox(
+                        height: 36,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() => _mostrandoLista = !_mostrandoLista);
+                            if (_mostrandoLista) _cargarContratos();
+                          },
+                          icon: Icon(
+                            _mostrandoLista ? Icons.add : Icons.list,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _mostrandoLista ? 'Nuevo' : 'Ver Listado',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _mostrandoLista
+                                ? verde
+                                : Colors.blue.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 2,
+                          ),
+                        ),
+                      )
+                    : IconButton(
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.red,
+                          size: 28,
+                        ),
+                        onPressed: () {
+                          _limpiarFormulario();
+                          setState(() => _mostrandoLista = true);
+                        },
+                        tooltip: 'Cancelar edición',
+                      ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildSeccionDatos(Color verde, bool isMobile) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -951,192 +1060,336 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
         ),
         const Divider(height: 20, thickness: 1),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _proveedorController,
-                decoration: _deco('Proveedor *'),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Ingrese el proveedor'
-                    : null,
+        if (isMobile) ...[
+          TextFormField(
+            controller: _proveedorController,
+            decoration: _deco('Proveedor *'),
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Ingrese el proveedor' : null,
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _numeroController,
+            decoration: _deco('Número del Contrato *', hint: 'Ej: 001-2026'),
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Ingrese el número' : null,
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _fechaInicioController,
+            decoration: _deco('Fecha Inicio *', hint: 'YYYY-MM-DD'),
+            readOnly: true,
+            onTap: () => _pickDate(_fechaInicioController),
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Ingrese fecha inicio' : null,
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _fechaFinController,
+            decoration: _deco('Fecha Fin *', hint: 'YYYY-MM-DD'),
+            readOnly: true,
+            onTap: () => _pickDate(_fechaFinController),
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Ingrese fecha fin' : null,
+          ),
+          const SizedBox(height: 14),
+          DropdownButtonFormField<String>(
+            value: _tipoContrato,
+            decoration: _deco('Tipo de Contrato *'),
+            isDense: true,
+            items:
+                const [
+                      'Contrato de obra',
+                      'Contrato de prestación de servicios',
+                      'Contrato de consultoría',
+                      'Contrato de suministro',
+                      'Contrato de interventoría',
+                      'Contrato de compraventa',
+                      'Contrato de arrendamiento',
+                    ]
+                    .map(
+                      (String value) => DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      ),
+                    )
+                    .toList(),
+            onChanged: (val) => setState(() => _tipoContrato = val!),
+          ),
+          const SizedBox(height: 14),
+          DropdownButtonFormField<String>(
+            value: _modalidadSeleccion,
+            decoration: _deco('Modalidad de Selección *'),
+            isDense: true,
+            items:
+                const [
+                      'Mínima Cuantía',
+                      'Menor Cuantía',
+                      'Contratación directa',
+                      'Licitación pública',
+                      'Subasta Inversa',
+                      'Concurso de méritos',
+                    ]
+                    .map(
+                      (String value) => DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      ),
+                    )
+                    .toList(),
+            onChanged: (val) => setState(() => _modalidadSeleccion = val!),
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _objetoController,
+            maxLines: 2,
+            decoration: _deco('Objeto del Contrato *', alignLabel: true),
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Ingrese el objeto' : null,
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _valorTotalController,
+            decoration: _deco('Valor Total *', prefix: '\$ '),
+            keyboardType: TextInputType.number,
+            validator: (v) {
+              final valorLimpio = (v ?? '').replaceAll('.', '');
+              return (valorLimpio.isEmpty ||
+                      double.tryParse(valorLimpio) == null)
+                  ? 'Ingrese el valor total'
+                  : null;
+            },
+          ),
+          const SizedBox(height: 14),
+          InputDecorator(
+            decoration: InputDecoration(
+              labelText: 'Estado',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              isDense: true,
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _estadoSeleccionado,
+                isExpanded: true,
+                style: const TextStyle(fontSize: 14, color: Colors.black87),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'EN EJECUCIÓN',
+                    child: Text('EN EJECUCIÓN'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'FINALIZADO',
+                    child: Text('FINALIZADO'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'SUSPENDIDO',
+                    child: Text('SUSPENDIDO'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'CANCELADO',
+                    child: Text('CANCELADO'),
+                  ),
+                ],
+                onChanged: (v) => setState(() => _estadoSeleccionado = v!),
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: TextFormField(
-                controller: _numeroController,
-                decoration: _deco(
-                  'Número del Contrato *',
-                  hint: 'Ej: 001-2026',
+          ),
+        ] else ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _proveedorController,
+                  decoration: _deco('Proveedor *'),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Ingrese el proveedor'
+                      : null,
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Ingrese el número'
-                    : null,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _fechaInicioController,
-                decoration: _deco('Fecha Inicio *', hint: 'YYYY-MM-DD'),
-                readOnly: true,
-                onTap: () => _pickDate(_fechaInicioController),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Ingrese fecha inicio'
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: TextFormField(
-                controller: _fechaFinController,
-                decoration: _deco('Fecha Fin *', hint: 'YYYY-MM-DD'),
-                readOnly: true,
-                onTap: () => _pickDate(_fechaFinController),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Ingrese fecha fin'
-                    : null,
-              ),
-            ),
-          ],
-        ),
-
-        // ✅ NUEVOS CAMPOS ANTES DE OBJETO
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: _tipoContrato,
-                decoration: _deco('Tipo de Contrato *'),
-                isDense: true,
-                items:
-                    const [
-                          'Contrato de obra',
-                          'Contrato de prestación de servicios',
-                          'Contrato de consultoría',
-                          'Contrato de suministro',
-                          'Contrato de interventoría',
-                          'Contrato de compraventa',
-                          'Contrato de arrendamiento',
-                        ]
-                        .map(
-                          (String value) => DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          ),
-                        )
-                        .toList(),
-                onChanged: (val) => setState(() => _tipoContrato = val!),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                value: _modalidadSeleccion,
-                decoration: _deco('Modalidad de Selección *'),
-                isDense: true,
-                items:
-                    const [
-                          'Mínima Cuantía',
-                          'Menor Cuantía',
-                          'Contratación directa',
-                          'Licitación pública',
-                          'Subasta Inversa',
-                          'Concurso de méritos',
-                        ]
-                        .map(
-                          (String value) => DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          ),
-                        )
-                        .toList(),
-                onChanged: (val) => setState(() => _modalidadSeleccion = val!),
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 14),
-        TextFormField(
-          controller: _objetoController,
-          maxLines: 2,
-          decoration: _deco('Objeto del Contrato *', alignLabel: true),
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Ingrese el objeto' : null,
-        ),
-        const SizedBox(height: 14),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _valorTotalController,
-                decoration: _deco('Valor Total *', prefix: '\$ '),
-                keyboardType: TextInputType.number,
-                validator: (v) {
-                  final valorLimpio = (v ?? '').replaceAll('.', '');
-                  return (valorLimpio.isEmpty ||
-                          double.tryParse(valorLimpio) == null)
-                      ? 'Ingrese el valor total'
-                      : null;
-                },
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: 'Estado',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+              const SizedBox(width: 14),
+              Expanded(
+                child: TextFormField(
+                  controller: _numeroController,
+                  decoration: _deco(
+                    'Número del Contrato *',
+                    hint: 'Ej: 001-2026',
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Ingrese el número'
+                      : null,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _fechaInicioController,
+                  decoration: _deco('Fecha Inicio *', hint: 'YYYY-MM-DD'),
+                  readOnly: true,
+                  onTap: () => _pickDate(_fechaInicioController),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Ingrese fecha inicio'
+                      : null,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: TextFormField(
+                  controller: _fechaFinController,
+                  decoration: _deco('Fecha Fin *', hint: 'YYYY-MM-DD'),
+                  readOnly: true,
+                  onTap: () => _pickDate(_fechaFinController),
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Ingrese fecha fin'
+                      : null,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _tipoContrato,
+                  decoration: _deco('Tipo de Contrato *'),
                   isDense: true,
+                  items:
+                      const [
+                            'Contrato de obra',
+                            'Contrato de prestación de servicios',
+                            'Contrato de consultoría',
+                            'Contrato de suministro',
+                            'Contrato de interventoría',
+                            'Contrato de compraventa',
+                            'Contrato de arrendamiento',
+                          ]
+                          .map(
+                            (String value) => DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            ),
+                          )
+                          .toList(),
+                  onChanged: (val) => setState(() => _tipoContrato = val!),
                 ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _estadoSeleccionado,
-                    isExpanded: true,
-                    style: const TextStyle(fontSize: 14, color: Colors.black87),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'EN EJECUCIÓN',
-                        child: Text('EN EJECUCIÓN'),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _modalidadSeleccion,
+                  decoration: _deco('Modalidad de Selección *'),
+                  isDense: true,
+                  items:
+                      const [
+                            'Mínima Cuantía',
+                            'Menor Cuantía',
+                            'Contratación directa',
+                            'Licitación pública',
+                            'Subasta Inversa',
+                            'Concurso de méritos',
+                          ]
+                          .map(
+                            (String value) => DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            ),
+                          )
+                          .toList(),
+                  onChanged: (val) =>
+                      setState(() => _modalidadSeleccion = val!),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _objetoController,
+            maxLines: 2,
+            decoration: _deco('Objeto del Contrato *', alignLabel: true),
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'Ingrese el objeto' : null,
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _valorTotalController,
+                  decoration: _deco('Valor Total *', prefix: '\$ '),
+                  keyboardType: TextInputType.number,
+                  validator: (v) {
+                    final valorLimpio = (v ?? '').replaceAll('.', '');
+                    return (valorLimpio.isEmpty ||
+                            double.tryParse(valorLimpio) == null)
+                        ? 'Ingrese el valor total'
+                        : null;
+                  },
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: 'Estado',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    isDense: true,
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _estadoSeleccionado,
+                      isExpanded: true,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
                       ),
-                      DropdownMenuItem(
-                        value: 'FINALIZADO',
-                        child: Text('FINALIZADO'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'SUSPENDIDO',
-                        child: Text('SUSPENDIDO'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'CANCELADO',
-                        child: Text('CANCELADO'),
-                      ),
-                    ],
-                    onChanged: (v) => setState(() => _estadoSeleccionado = v!),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'EN EJECUCIÓN',
+                          child: Text('EN EJECUCIÓN'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'FINALIZADO',
+                          child: Text('FINALIZADO'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'SUSPENDIDO',
+                          child: Text('SUSPENDIDO'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'CANCELADO',
+                          child: Text('CANCELADO'),
+                        ),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _estadoSeleccionado = v!),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ],
     );
   }
 
-  Widget _buildSeccionItems(Color verde) {
+  Widget _buildSeccionItems(Color verde, bool isMobile) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1193,6 +1446,106 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                     ),
                   ],
                 ),
+              )
+            : isMobile
+            ? ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _items.length,
+                itemBuilder: (context, index) {
+                  final item = _items[index];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: verde.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '#${index + 1}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: verde,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  item['nombre'] ?? '',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red.shade400,
+                                  size: 20,
+                                ),
+                                onPressed: () => _eliminarItem(index),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Código: ${item['codigo'] ?? ''} | Unidad: ${item['unidad'] ?? ''}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          if ((item['descripcion'] ?? '').isNotEmpty)
+                            Text(
+                              item['descripcion'],
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Cant: ${_formatearConPuntos(item['cantidad'])}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              Text(
+                                'V.Unit: \$${_formatearConPuntos(item['valor_unitario'])}',
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              Text(
+                                'Subtotal: \$${_formatearConPuntos(item['subtotal'])}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: verde,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               )
             : Container(
                 decoration: BoxDecoration(
@@ -1310,7 +1663,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
               ),
         const SizedBox(height: 12),
         Container(
-          padding: const EdgeInsets.all(14),
+          padding: EdgeInsets.all(isMobile ? 12 : 14),
           decoration: BoxDecoration(
             color: Colors.grey.shade50,
             borderRadius: BorderRadius.circular(8),
@@ -1334,132 +1687,222 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 1,
-                    child: TextFormField(
-                      controller: _itemCodigoController,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(fontSize: 13),
-                      decoration: InputDecoration(
-                        labelText: 'Código',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 10,
-                        ),
-                        isDense: true,
-                        errorStyle: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.orange,
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) return null;
-                        if (!RegExp(r'^\d+$').hasMatch(value)) {
-                          return 'solo caracteres numéricos';
-                        }
-                        return null;
-                      },
-                      onChanged: (value) {
-                        final soloNumeros = value.replaceAll(
-                          RegExp(r'[^\d]'),
-                          '',
-                        );
-                        if (soloNumeros != value) {
-                          _itemCodigoController.text = soloNumeros;
-                          _itemCodigoController.selection =
-                              TextSelection.collapsed(
-                                offset: soloNumeros.length,
-                              );
-                          _snack('solo caracteres numéricos', Colors.orange);
-                        }
-                      },
+              if (isMobile) ...[
+                TextFormField(
+                  controller: _itemCodigoController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    labelText: 'Código',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    isDense: true,
+                    errorStyle: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.orange,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: _itemField(_itemNombreController, 'Nombre *'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: _itemField(
-                      _itemDescripcionController,
-                      'Descripción',
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return null;
+                    if (!RegExp(r'^\d+$').hasMatch(value))
+                      return 'solo caracteres numéricos';
+                    return null;
+                  },
+                  onChanged: (value) {
+                    final soloNumeros = value.replaceAll(RegExp(r'[^\d]'), '');
+                    if (soloNumeros != value) {
+                      _itemCodigoController.text = soloNumeros;
+                      _itemCodigoController.selection = TextSelection.collapsed(
+                        offset: soloNumeros.length,
+                      );
+                      _snack('solo caracteres numéricos', Colors.orange);
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+                _itemField(_itemNombreController, 'Nombre *'),
+                const SizedBox(height: 10),
+                _itemField(_itemDescripcionController, 'Descripción'),
+                const SizedBox(height: 10),
+                _itemField(_itemUnidadController, 'Unidad de medida'),
+                const SizedBox(height: 10),
+                _itemField(
+                  _itemCantidadController,
+                  'Cantidad *',
+                  kb: TextInputType.number,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _itemValorUnitarioController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: InputDecoration(
+                    labelText: 'Valor Unitario *',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 1,
-                    child: _itemField(
-                      _itemUnidadController,
-                      'Unidad de medida',
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
                     ),
+                    isDense: true,
                   ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _itemField(
-                      _itemCantidadController,
-                      'Cantidad *',
-                      kb: TextInputType.number,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _itemValorUnitarioController,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(fontSize: 13),
-                      decoration: InputDecoration(
-                        labelText: 'Valor Unitario *',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 10,
-                        ),
-                        isDense: true,
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  height: 40,
+                  child: ElevatedButton(
+                    onPressed: _agregarItem,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: verde,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    height: 40,
-                    child: ElevatedButton(
-                      onPressed: _agregarItem,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: verde,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.add, size: 18),
-                          SizedBox(width: 4),
-                          Text('Agregar', style: TextStyle(fontSize: 12)),
-                        ],
-                      ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add, size: 18),
+                        SizedBox(width: 4),
+                        Text('Agregar', style: TextStyle(fontSize: 12)),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: TextFormField(
+                        controller: _itemCodigoController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: InputDecoration(
+                          labelText: 'Código',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 10,
+                          ),
+                          isDense: true,
+                          errorStyle: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.orange,
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return null;
+                          if (!RegExp(r'^\d+$').hasMatch(value))
+                            return 'solo caracteres numéricos';
+                          return null;
+                        },
+                        onChanged: (value) {
+                          final soloNumeros = value.replaceAll(
+                            RegExp(r'[^\d]'),
+                            '',
+                          );
+                          if (soloNumeros != value) {
+                            _itemCodigoController.text = soloNumeros;
+                            _itemCodigoController.selection =
+                                TextSelection.collapsed(
+                                  offset: soloNumeros.length,
+                                );
+                            _snack('solo caracteres numéricos', Colors.orange);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: _itemField(_itemNombreController, 'Nombre *'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: _itemField(
+                        _itemDescripcionController,
+                        'Descripción',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 1,
+                      child: _itemField(
+                        _itemUnidadController,
+                        'Unidad de medida',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _itemField(
+                        _itemCantidadController,
+                        'Cantidad *',
+                        kb: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _itemValorUnitarioController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: InputDecoration(
+                          labelText: 'Valor Unitario *',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 10,
+                          ),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      height: 40,
+                      child: ElevatedButton(
+                        onPressed: _agregarItem,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: verde,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.add, size: 18),
+                            SizedBox(width: 4),
+                            Text('Agregar', style: TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -1468,42 +1911,36 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
   }
 
   Widget _buildBotones(Color verde, bool modoEdicion) {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          height: 46,
-          child: ElevatedButton(
-            onPressed: _cargando
-                ? null
-                : (modoEdicion ? _guardarEdicion : _registrarContrato),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: modoEdicion ? Colors.orange.shade700 : verde,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: _cargando
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : Text(
-                    modoEdicion ? 'GUARDAR CAMBIOS' : 'REGISTRAR CONTRATO',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-          ),
+    return SizedBox(
+      width: double.infinity,
+      height: 46,
+      child: ElevatedButton(
+        onPressed: _cargando
+            ? null
+            : (modoEdicion ? _guardarEdicion : _registrarContrato),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: modoEdicion ? Colors.orange.shade700 : verde,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-      ],
+        child: _cargando
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Text(
+                modoEdicion ? 'GUARDAR CAMBIOS' : 'REGISTRAR CONTRATO',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+      ),
     );
   }
 
@@ -1693,9 +2130,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                               size: 20,
                             ),
                             tooltip: 'Editar contrato',
-                            onPressed: () {
-                              _prepararEdicion(contrato);
-                            },
+                            onPressed: () => _prepararEdicion(contrato),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                           ),
@@ -1708,9 +2143,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                                 size: 20,
                               ),
                               tooltip: 'Eliminar contrato',
-                              onPressed: () {
-                                _eliminarContrato(id, numero);
-                              },
+                              onPressed: () => _eliminarContrato(id, numero),
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                             ),

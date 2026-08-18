@@ -41,7 +41,6 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
     _cargarIngresos();
   }
 
-  // ── HELPERS DE FORMATO ───────────────────────────────────────
   String _formatDate(dynamic date) {
     if (date == null) return 'N/A';
     try {
@@ -93,7 +92,6 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
     return 0.0;
   }
 
-  // ── LÓGICA DE DATOS ──────────────────────────────────────────
   Future<void> _cargarIngresos() async {
     setState(() => _cargando = true);
     try {
@@ -132,8 +130,13 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
     });
   }
 
-  // ── MODAL DE DETALLES PROFESIONAL ────────────────────────────
+  // ========================================================
+  // VISTA PREVIA RESPONSIVE (TABLA COMPLETA CON SCROLL HORIZONTAL)
+  // ========================================================
   Future<void> _verDetalleIngreso(Map<String, dynamic> ingreso) async {
+    final ingresoId = ingreso['id'];
+    if (ingresoId == null) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -143,13 +146,11 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
 
     List<Map<String, dynamic>> detalles = [];
     try {
-      final ingresoId = ingreso['id'];
       final response = await http
           .get(
             Uri.parse('$_baseUrl/ingresos/obtener_ingreso.php?id=$ingresoId'),
           )
           .timeout(const Duration(seconds: 10));
-
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 && data['success'] == true) {
         detalles = List<Map<String, dynamic>>.from(
@@ -162,7 +163,8 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
       if (mounted) Navigator.pop(context);
     }
 
-    // Calcular total
+    if (!mounted) return;
+
     double total = 0.0;
     for (var item in detalles) {
       final cantidad = _convertirADouble(item['cantidad_ingresada']);
@@ -175,318 +177,65 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
     final usuarioMostrar =
         ingreso['usuario_nombre'] ?? ingreso['usuario_registro'] ?? 'N/A';
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final bool isMobile = screenWidth < 600;
+    final dialogWidth = isMobile ? screenWidth - 32 : 900.0;
+    final dialogMaxHeight = screenHeight * 0.85;
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: 900,
-          constraints: const BoxConstraints(maxHeight: 700),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: dialogWidth,
+            maxHeight: dialogMaxHeight,
+          ),
+          child: SizedBox(
+            width: dialogWidth,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── HEADER ─
+                Container(
+                  padding: EdgeInsets.all(isMobile ? 14 : 20),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                    border: Border(
+                      bottom: BorderSide(color: Colors.green.shade200),
+                    ),
                   ),
-                  border: Border(
-                    bottom: BorderSide(color: Colors.green.shade200),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.inventory_2,
-                      color: Colors.green.shade700,
-                      size: 28,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Ingreso #${ingreso['numero_ingreso']}',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green.shade800,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Contrato: ${ingreso['numero_contrato'] ?? 'N/A'}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.green.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                      color: Colors.grey.shade600,
-                    ),
-                  ],
-                ),
-              ),
-
-              // Contenido Scrollable
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      _buildInfoSection('Información General', [
-                        _buildInfoRow(
-                          'Fecha:',
-                          _formatDate(
-                            ingreso['fecha_ingreso'] ?? ingreso['fecha'],
-                          ),
-                        ),
-                        _buildInfoRow('Bodega:', ingreso['bodega'] ?? 'N/A'),
-                        _buildInfoRow('Usuario:', usuarioMostrar),
-                        if ((ingreso['observacion'] ?? '')
-                            .toString()
-                            .trim()
-                            .isNotEmpty)
-                          _buildInfoRow(
-                            'Observación:',
-                            ingreso['observacion'].toString().trim(),
-                          ),
-                      ]),
-                      const SizedBox(height: 20),
-
-                      // Tabla de Items
-                      Text(
-                        'Items del Ingreso',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade800,
-                        ),
+                      Icon(
+                        Icons.inventory_2,
+                        color: Colors.green.shade700,
+                        size: isMobile ? 22 : 28,
                       ),
-                      const SizedBox(height: 12),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.green.shade200),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                      const SizedBox(width: 12),
+                      Expanded(
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Header Tabla
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade100,
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(9),
-                                  topRight: Radius.circular(9),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 1,
-                                    child: _buildTableHeader('#'),
-                                  ),
-                                  Expanded(
-                                    flex: 3,
-                                    child: _buildTableHeader('Item'),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: _buildTableHeader(
-                                      'Cant. Contratada',
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: _buildTableHeader('Cant. Ingresada'),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: _buildTableHeader('Precio Unit.'),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: _buildTableHeader('Subtotal'),
-                                  ),
-                                ],
+                            Text(
+                              'Ingreso #${ingreso['numero_ingreso']}',
+                              style: TextStyle(
+                                fontSize: isMobile ? 16 : 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green.shade800,
                               ),
                             ),
-
-                            // Filas de Items
-                            if (detalles.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.all(24),
-                                child: Center(
-                                  child: Text(
-                                    'No hay items registrados',
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                ),
-                              )
-                            else
-                              ...detalles.asMap().entries.map((entry) {
-                                final index = entry.key;
-                                final item = entry.value;
-                                final cantIngresada = _convertirADouble(
-                                  item['cantidad_ingresada'],
-                                );
-                                final precio = _convertirADouble(
-                                  item['precio_unitario'] ??
-                                      item['valor_unitario'],
-                                );
-                                final subtotal = cantIngresada * precio;
-
-                                return Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        color: Colors.green.shade100,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 1,
-                                        child: Text(
-                                          '${index + 1}',
-                                          style: const TextStyle(fontSize: 13),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 3,
-                                        child: Text(
-                                          item['nombre_item'] ?? 'Sin nombre',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          _formatearNumero(
-                                            item['cantidad_contratada'],
-                                          ),
-                                          textAlign: TextAlign.center,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green.shade50,
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                            border: Border.all(
-                                              color: Colors.green.shade200,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            _formatearNumero(cantIngresada),
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.green.shade700,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          _formatearPrecio(precio),
-                                          textAlign: TextAlign.right,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          _formatearPrecio(subtotal),
-                                          textAlign: TextAlign.right,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.green.shade700,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }),
-
-                            // Footer Total
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade50,
-                                borderRadius: const BorderRadius.only(
-                                  bottomLeft: Radius.circular(9),
-                                  bottomRight: Radius.circular(9),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    'TOTAL: ',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Colors.green.shade800,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade200,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: Colors.green.shade300,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      _formatearPrecio(total),
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                        color: Colors.green.shade800,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                            const SizedBox(height: 4),
+                            Text(
+                              'Contrato: ${ingreso['numero_contrato'] ?? 'N/A'}',
+                              style: TextStyle(
+                                fontSize: isMobile ? 11 : 13,
+                                color: Colors.green.shade700,
                               ),
                             ),
                           ],
@@ -495,57 +244,367 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
                     ],
                   ),
                 ),
-              ),
 
-              // Botones de Acción
-              Container(
-                padding: const EdgeInsets.all(20),
+                // ── CONTENIDO SCROLLABLE ──
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(isMobile ? 16 : 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildInfoSection('Información General', [
+                          _buildInfoRow(
+                            'Fecha:',
+                            _formatDate(
+                              ingreso['fecha_ingreso'] ?? ingreso['fecha'],
+                            ),
+                          ),
+                          _buildInfoRow('Bodega:', ingreso['bodega'] ?? 'N/A'),
+                          _buildInfoRow('Usuario:', usuarioMostrar),
+                          if ((ingreso['observacion'] ?? '')
+                              .toString()
+                              .trim()
+                              .isNotEmpty)
+                            _buildInfoRow(
+                              'Observación:',
+                              ingreso['observacion'].toString().trim(),
+                            ),
+                        ]),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Items del Ingreso',
+                          style: TextStyle(
+                            fontSize: isMobile ? 16 : 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (isMobile)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.swipe,
+                                  size: 16,
+                                  color: Colors.grey.shade600,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Desliza horizontalmente para ver toda la tabla',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        // ✅ TABLA COMPLETA: en móvil con scroll horizontal
+                        isMobile
+                            ? SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: _buildTablaItems(detalles, total, true),
+                              )
+                            : _buildTablaItems(detalles, total, false),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ── FOOTER ──
+                Container(
+                  padding: EdgeInsets.all(isMobile ? 14 : 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: isMobile
+                      ? Column(
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () => Navigator.pop(context),
+                                icon: const Icon(Icons.close),
+                                label: const Text('Cerrar'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  side: BorderSide(color: Colors.grey.shade400),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Imprimiendo ingreso...'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.print),
+                                label: const Text('Imprimir'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green.shade700,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => Navigator.pop(context),
+                                icon: const Icon(Icons.close),
+                                label: const Text('Cerrar'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  side: BorderSide(color: Colors.grey.shade400),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Imprimiendo ingreso...'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.print),
+                                label: const Text('Imprimir'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green.shade700,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✅ TABLA CON TODAS LAS COLUMNAS (móvil y desktop)
+  Widget _buildTablaItems(
+    List<Map<String, dynamic>> detalles,
+    double total,
+    bool isMobile,
+  ) {
+    return Container(
+      width: isMobile ? 640 : double.infinity,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.green.shade200),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          // Header de la tabla
+          Container(
+            padding: EdgeInsets.all(isMobile ? 10 : 14),
+            decoration: BoxDecoration(
+              color: Colors.green.shade100,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(9),
+                topRight: Radius.circular(9),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(flex: 1, child: _buildTableHeader('#')),
+                Expanded(flex: 3, child: _buildTableHeader('Item')),
+                Expanded(flex: 2, child: _buildTableHeader('Cant. Contratada')),
+                Expanded(flex: 2, child: _buildTableHeader('Cant. Ingresada')),
+                Expanded(flex: 2, child: _buildTableHeader('Precio Unit.')),
+                Expanded(flex: 2, child: _buildTableHeader('Subtotal')),
+              ],
+            ),
+          ),
+
+          // Filas de items
+          if (detalles.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: Text(
+                  'No hay items registrados',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            ...detalles.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              final cantIngresada = _convertirADouble(
+                item['cantidad_ingresada'],
+              );
+              final precio = _convertirADouble(
+                item['precio_unitario'] ?? item['valor_unitario'],
+              );
+              final subtotal = cantIngresada * precio;
+
+              return Container(
+                padding: EdgeInsets.all(isMobile ? 8 : 12),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
+                  border: Border(
+                    bottom: BorderSide(color: Colors.green.shade100),
                   ),
                 ),
                 child: Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close),
-                        label: const Text('Cerrar'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          side: BorderSide(color: Colors.grey.shade400),
+                      flex: 1,
+                      child: Text(
+                        '${index + 1}',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        item['nombre_item'] ?? 'Sin nombre',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Imprimiendo ingreso...'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.print),
-                        label: const Text('Imprimir'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green.shade700,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                      flex: 2,
+                      child: Text(
+                        _formatearNumero(item['cantidad_contratada']),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 4 : 8,
+                          vertical: isMobile ? 4 : 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: Text(
+                          _formatearNumero(cantIngresada),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        _formatearPrecio(precio),
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        _formatearPrecio(subtotal),
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade700,
+                          fontSize: 13,
                         ),
                       ),
                     ),
                   ],
                 ),
+              );
+            }),
+
+          // Footer con total
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(9),
+                bottomRight: Radius.circular(9),
               ),
-            ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'TOTAL: ',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: isMobile ? 13 : 16,
+                    color: Colors.green.shade800,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade200,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade300),
+                  ),
+                  child: Text(
+                    _formatearPrecio(total),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: isMobile ? 13 : 16,
+                      color: Colors.green.shade800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -561,6 +620,7 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
   );
 
   Widget _buildInfoSection(String title, List<Widget> children) {
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -573,16 +633,20 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
           ),
         ),
         const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: children,
+        // ✅ En desktop el contenedor ocupa solo la mitad; en móvil todo el ancho
+        FractionallySizedBox(
+          widthFactor: isMobile ? 1.0 : 0.5,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
+            ),
           ),
         ),
       ],
@@ -590,13 +654,14 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
   }
 
   Widget _buildInfoRow(String label, String value) {
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: isMobile ? 110 : 160,
             child: Text(
               label,
               style: TextStyle(
@@ -606,58 +671,24 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
               ),
             ),
           ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+          const SizedBox(width: 12),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
         ],
       ),
     );
   }
 
-  // ── UI PRINCIPAL ─────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     const Color verde = Color(0xFF2E7D32);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 900;
 
     return Scaffold(
       body: Column(
         children: [
-          // Header
-          Container(
-            height: 130,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: Color.fromARGB(255, 192, 231, 195),
-              border: Border(bottom: BorderSide(color: verde, width: 4)),
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: verde, size: 30),
-                  onPressed: () => Navigator.pop(context),
-                  tooltip: 'Volver al dashboard',
-                ),
-                const SizedBox(width: 8),
-                Image.asset(
-                  'assets/logos/banner_gobernacion.png',
-                  height: 110,
-                  fit: BoxFit.contain,
-                ),
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      'Consultar Ingresos',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Contenido
+          _buildResponsiveHeader(verde, isMobile, isTablet),
           Expanded(
             child: Container(
               width: double.infinity,
@@ -668,7 +699,7 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
                   colors: [Color(0xFFF1F8F1), Colors.white],
                 ),
               ),
-              child: _buildLista(verde),
+              child: _buildLista(verde, isMobile),
             ),
           ),
         ],
@@ -676,7 +707,97 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
     );
   }
 
-  Widget _buildLista(Color verde) {
+  Widget _buildResponsiveHeader(Color verde, bool isMobile, bool isTablet) {
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(bottom: BorderSide(color: verde, width: 3)),
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 72,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Image.asset(
+                    'assets/logos/banner_gobernacion.png',
+                    height: 72,
+                    fit: BoxFit.contain,
+                  ),
+                  Positioned(
+                    left: 0,
+                    child: IconButton(
+                      icon: Icon(Icons.arrow_back, color: verde, size: 28),
+                      onPressed: () => Navigator.pop(context),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Volver al dashboard',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Consultar Ingresos',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2E7D32),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        height: 130,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(bottom: BorderSide(color: verde, width: 4)),
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              icon: Icon(Icons.arrow_back, color: verde, size: 30),
+              onPressed: () => Navigator.pop(context),
+              tooltip: 'Volver al dashboard',
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: Image.asset(
+                'assets/logos/banner_gobernacion.png',
+                height: isTablet ? 100 : 110,
+                fit: BoxFit.contain,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: const Text(
+                'Consultar Ingresos',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2E7D32),
+                ),
+              ),
+            ),
+            const Expanded(flex: 2, child: SizedBox()),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildLista(Color verde, bool isMobile) {
     if (_ingresos.isEmpty && !_cargando) {
       return Center(
         child: Card(
@@ -684,13 +805,13 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Padding(
-            padding: EdgeInsets.all(48),
+          child: Padding(
+            padding: EdgeInsets.all(isMobile ? 32 : 48),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.inbox_outlined, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
                   'No hay ingresos registrados',
                   style: TextStyle(
@@ -708,9 +829,8 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
 
     return Column(
       children: [
-        // Barra de búsqueda
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
           child: TextField(
             controller: _busquedaController,
             onChanged: _filtrarIngresos,
@@ -740,17 +860,15 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
               ),
               filled: true,
               fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(
+              contentPadding: EdgeInsets.symmetric(
                 horizontal: 16,
-                vertical: 14,
+                vertical: isMobile ? 10 : 14,
               ),
             ),
           ),
         ),
-
-        // Contador
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16),
           child: Row(
             children: [
               Text(
@@ -775,14 +893,15 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
           ),
         ),
         const SizedBox(height: 12),
-
-        // Lista
         Expanded(
           child: RefreshIndicator(
             onRefresh: _cargarIngresos,
             color: verde,
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 12 : 16,
+                vertical: 8,
+              ),
               itemCount: _ingresosFiltrados.length,
               itemBuilder: (ctx, i) {
                 final ingreso = _ingresosFiltrados[i];
@@ -796,81 +915,74 @@ class _ConsultarIngresoPageState extends State<ConsultarIngresoPage> {
                     onTap: () => _verDetalleIngreso(ingreso),
                     borderRadius: BorderRadius.circular(12),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
+                      padding: EdgeInsets.all(isMobile ? 12 : 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
                             children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade100,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      '${ingreso['numero_ingreso']}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: Colors.green.shade800,
-                                      ),
-                                    ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '#${ingreso['numero_ingreso']}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: isMobile ? 12 : 14,
+                                    color: Colors.green.shade800,
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                'Contrato: ${ingreso['numero_contrato'] ?? 'N/A'}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 14,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              const Spacer(),
+                              Icon(
+                                Icons.chevron_right,
+                                color: Colors.green.shade700,
+                                size: isMobile ? 24 : 28,
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: isMobile ? 8 : 10),
+                          Text(
+                            'Contrato: ${ingreso['numero_contrato'] ?? 'N/A'}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              fontSize: isMobile ? 13 : 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 12,
+                            children: [
                               Text(
                                 'Bodega: ${ingreso['bodega'] ?? 'N/A'}',
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: isMobile ? 11 : 13,
                                   color: Colors.grey.shade700,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Usuario: ${ingreso['usuario_registro'] ?? 'N/A'}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
                               Text(
                                 'Fecha: ${_formatDate(ingreso['fecha_ingreso'] ?? ingreso['fecha'])}',
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: isMobile ? 11 : 13,
                                   color: Colors.grey.shade700,
                                 ),
                               ),
-                              const SizedBox(height: 4),
                               Text(
                                 'Items: ${ingreso['total_items'] ?? '0'}',
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: isMobile ? 11 : 13,
                                   color: Colors.grey.shade700,
                                 ),
                               ),
                             ],
-                          ),
-                          const Spacer(),
-                          const Icon(
-                            Icons.visibility_outlined,
-                            color: Colors.blue,
-                            size: 28,
                           ),
                         ],
                       ),

@@ -20,6 +20,7 @@ class _ReportesPageState extends State<ReportesPage> {
   final TextEditingController _fechaFinCtrl = TextEditingController();
 
   String? _areaSeleccionada;
+  String? _rangoSeleccionado; // 👈 NUEVO: para marcar el rango activo
 
   final List<String> _areasDisponibles = [
     'Sector Desarrollo Económico',
@@ -54,7 +55,6 @@ class _ReportesPageState extends State<ReportesPage> {
     super.dispose();
   }
 
-  // ✅ 1. SELECTOR DE FECHA
   Future<void> _seleccionarFecha(TextEditingController controller) async {
     final fecha = await showDatePicker(
       context: context,
@@ -66,10 +66,42 @@ class _ReportesPageState extends State<ReportesPage> {
       setState(() {
         controller.text = fecha.toIso8601String().substring(0, 10);
       });
+      _detectarRangoAutomatico(); // 👈 NUEVO: detecta si coincide con un rango
     }
   }
 
-  // ✅ 2. RANGOS RÁPIDOS
+  // 👇 NUEVO: detecta automáticamente el rango según las fechas seleccionadas
+  void _detectarRangoAutomatico() {
+    final inicio = _fechaInicioCtrl.text;
+    final fin = _fechaFinCtrl.text;
+    if (inicio.isEmpty || fin.isEmpty) return;
+
+    final ahora = DateTime.now();
+    final hoy =
+        '${ahora.year.toString().padLeft(4, '0')}-${ahora.month.toString().padLeft(2, '0')}-${ahora.day.toString().padLeft(2, '0')}';
+
+    if (inicio == hoy && fin == hoy) {
+      setState(() => _rangoSeleccionado = 'hoy');
+      return;
+    }
+
+    final primerDiaMes =
+        '${ahora.year.toString().padLeft(4, '0')}-${ahora.month.toString().padLeft(2, '0')}-01';
+    if (inicio == primerDiaMes && fin == hoy) {
+      setState(() => _rangoSeleccionado = 'mes_actual');
+      return;
+    }
+
+    final primerDiaAnio = '${ahora.year.toString().padLeft(4, '0')}-01-01';
+    if (inicio == primerDiaAnio && fin == hoy) {
+      setState(() => _rangoSeleccionado = 'anio_actual');
+      return;
+    }
+
+    // Si no coincide con ninguno, desmarcar
+    setState(() => _rangoSeleccionado = null);
+  }
+
   void _establecerRangoRapido(String tipo) {
     final ahora = DateTime.now();
     DateTime inicio;
@@ -97,12 +129,12 @@ class _ReportesPageState extends State<ReportesPage> {
     }
 
     setState(() {
+      _rangoSeleccionado = tipo; // 👈 NUEVO: marcar como activo
       _fechaInicioCtrl.text = inicio.toIso8601String().substring(0, 10);
       _fechaFinCtrl.text = fin.toIso8601String().substring(0, 10);
     });
   }
 
-  // ✅ 3. GENERAR REPORTE
   Future<void> _generarReporte() async {
     if (_fechaInicioCtrl.text.isEmpty || _fechaFinCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -148,20 +180,15 @@ class _ReportesPageState extends State<ReportesPage> {
         _errorMensaje = 'Error de conexión: $e';
       });
     } finally {
-      if (mounted) {
-        setState(() {
-          _cargando = false;
-        });
-      }
+      if (mounted) setState(() => _cargando = false);
     }
   }
 
-  // ✅ 4. EXPORTAR EXCEL
   Future<void> _exportarExcel() async {
     if (_fechaInicioCtrl.text.isEmpty || _fechaFinCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('️ Debe seleccionar ambas fechas antes de exportar'),
+          content: Text('⚠️ Debe seleccionar ambas fechas antes de exportar'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -188,7 +215,7 @@ class _ReportesPageState extends State<ReportesPage> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(' No se pudo iniciar la descarga'),
+            content: Text('❌ No se pudo iniciar la descarga'),
             backgroundColor: Colors.red,
           ),
         );
@@ -200,17 +227,9 @@ class _ReportesPageState extends State<ReportesPage> {
     }
   }
 
-  // ✅ 5. VER DETALLE DEL ACTA
   Future<void> _verDetalleActa(Map<String, dynamic> actaResumen) async {
     final actaId = actaResumen['id'];
     if (actaId == null) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) =>
-          const Center(child: CircularProgressIndicator(color: Colors.green)),
-    );
 
     List<Map<String, dynamic>> itemsEntregados = [];
     try {
@@ -226,16 +245,11 @@ class _ReportesPageState extends State<ReportesPage> {
       }
     } catch (e) {
       debugPrint('Error cargando items: $e');
-    } finally {
-      if (mounted) Navigator.pop(context);
     }
 
-    if (mounted) {
-      _mostrarDialogoDetalle(actaResumen, itemsEntregados);
-    }
+    if (mounted) _mostrarDialogoDetalle(actaResumen, itemsEntregados);
   }
 
-  // ✅ 6. DISEÑO DEL POPUP DE DETALLE
   void _mostrarDialogoDetalle(
     Map<String, dynamic> acta,
     List<Map<String, dynamic>> items,
@@ -246,203 +260,204 @@ class _ReportesPageState extends State<ReportesPage> {
       context: context,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: 800,
-          constraints: const BoxConstraints(maxHeight: 600),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                    border: Border(
+                      bottom: BorderSide(color: Colors.green.shade200),
+                    ),
                   ),
-                  border: Border(
-                    bottom: BorderSide(color: Colors.green.shade200),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.description,
-                      color: Colors.green.shade700,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Detalle Acta #${acta['numero_acta']}',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade800,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      _infoRow('Entregado a:', acta['entregado_a'] ?? 'N/A'),
-                      _infoRow('Fecha:', _formatDate(acta['fecha_entrega'])),
-                      _infoRow('Área:', acta['area_dependencia'] ?? 'N/A'),
-                      _infoRow(
-                        'Entregado por:',
-                        acta['nombre_entrego'] ?? 'N/A',
+                      Icon(
+                        Icons.description,
+                        color: Colors.green.shade700,
+                        size: 24,
                       ),
-                      const Divider(height: 32),
-
-                      Text(
-                        'Items Entregados',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: verde,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Detalle Acta #${acta['numero_acta']}',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade800,
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.green.shade200),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              color: Colors.green.shade100,
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 4,
-                                    child: Text(
-                                      'Item',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: verde,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      'Contrato',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: verde,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      'Cant.',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: verde,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (items.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Center(
-                                  child: Text('Sin items registrados'),
-                                ),
-                              )
-                            else
-                              ...items.map(
-                                (item) => Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        color: Colors.green.shade100,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 4,
-                                        child: Text(
-                                          item['nombre_item'] ?? 'N/A',
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          item['numero_contrato'] ?? 'N/A',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Text(
-                                          '${item['cantidad_entregada']}',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: verde,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
                 ),
-              ),
-
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                ),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: verde,
-                      foregroundColor: Colors.white,
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _infoRow('Entregado a:', acta['entregado_a'] ?? 'N/A'),
+                        _infoRow('Fecha:', _formatDate(acta['fecha_entrega'])),
+                        _infoRow('Área:', acta['area_dependencia'] ?? 'N/A'),
+                        _infoRow(
+                          'Entregado por:',
+                          acta['nombre_entrego'] ?? 'N/A',
+                        ),
+                        const Divider(height: 32),
+                        Text(
+                          'Items Entregados',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: verde,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.green.shade200),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                color: Colors.green.shade100,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 4,
+                                      child: Text(
+                                        'Item',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: verde,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'Contrato',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: verde,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        'Cant.',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: verde,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (items.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Center(
+                                    child: Text('Sin items registrados'),
+                                  ),
+                                )
+                              else
+                                ...items.map(
+                                  (item) => Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: Colors.green.shade100,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          flex: 4,
+                                          child: Text(
+                                            item['nombre_item'] ?? 'N/A',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          flex: 2,
+                                          child: Text(
+                                            item['numero_contrato'] ?? 'N/A',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            '${item['cantidad_entregada']}',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: verde,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    child: const Text('Cerrar'),
                   ),
                 ),
-              ),
-            ],
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: verde,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Cerrar'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -472,7 +487,6 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-  // ✅ 7. FORMATO DE FECHA
   String _formatDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty) return 'N/A';
     try {
@@ -487,6 +501,9 @@ class _ReportesPageState extends State<ReportesPage> {
   @override
   Widget build(BuildContext context) {
     const Color verde = Color(0xFF2E7D32);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 900;
 
     return Scaffold(
       drawer: DrawerMenu(
@@ -497,45 +514,7 @@ class _ReportesPageState extends State<ReportesPage> {
       ),
       body: Column(
         children: [
-          Container(
-            height: 130,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: Color.fromARGB(255, 192, 231, 195),
-              border: Border(bottom: BorderSide(color: verde, width: 4)),
-            ),
-            child: Row(
-              children: [
-                Builder(
-                  builder: (ctx) => IconButton(
-                    icon: const Icon(Icons.menu, color: verde, size: 30),
-                    onPressed: () => Scaffold.of(ctx).openDrawer(),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Image.asset(
-                  'assets/logos/banner_gobernacion.png',
-                  height: 110,
-                  fit: BoxFit.contain,
-                ),
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      'Sección De Reportes',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
+          _buildResponsiveHeader(verde, isMobile, isTablet),
           Expanded(
             child: Container(
               width: double.infinity,
@@ -547,755 +526,16 @@ class _ReportesPageState extends State<ReportesPage> {
                 ),
               ),
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(isMobile ? 12 : 24),
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 1100),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Card(
-                          elevation: 4,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.date_range,
-                                      color: verde,
-                                      size: 28,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Text(
-                                      'Filtros de Búsqueda',
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                        color: verde,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const Divider(height: 32),
-
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        controller: _fechaInicioCtrl,
-                                        readOnly: true,
-                                        onTap: () =>
-                                            _seleccionarFecha(_fechaInicioCtrl),
-                                        decoration: InputDecoration(
-                                          labelText: 'Fecha Inicio',
-                                          hintText: 'Seleccione fecha inicial',
-                                          suffixIcon: const Icon(
-                                            Icons.calendar_today,
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: TextFormField(
-                                        controller: _fechaFinCtrl,
-                                        readOnly: true,
-                                        onTap: () =>
-                                            _seleccionarFecha(_fechaFinCtrl),
-                                        decoration: InputDecoration(
-                                          labelText: 'Fecha Fin',
-                                          hintText: 'Seleccione fecha final',
-                                          suffixIcon: const Icon(
-                                            Icons.calendar_today,
-                                          ),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                const SizedBox(height: 16),
-
-                                DropdownButtonFormField<String>(
-                                  value: _areaSeleccionada,
-                                  decoration: InputDecoration(
-                                    labelText: 'Área / Dependencia (Opcional)',
-                                    hintText: 'Todas las áreas',
-                                    suffixIcon: const Icon(Icons.filter_list),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                  isExpanded: true,
-                                  items: [
-                                    const DropdownMenuItem<String>(
-                                      value: '',
-                                      child: Text(
-                                        'Todas las áreas',
-                                        style: TextStyle(color: Colors.grey),
-                                      ),
-                                    ),
-                                    ..._areasDisponibles.map((String area) {
-                                      return DropdownMenuItem<String>(
-                                        value: area,
-                                        child: Text(area),
-                                      );
-                                    }).toList(),
-                                  ],
-                                  onChanged: (String? newValue) {
-                                    setState(() {
-                                      _areaSeleccionada = newValue;
-                                    });
-                                  },
-                                ),
-
-                                const SizedBox(height: 16),
-
-                                const Text(
-                                  'Rangos rápidos:',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: () =>
-                                            _establecerRangoRapido('hoy'),
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 8,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'Hoy',
-                                          style: TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: () => _establecerRangoRapido(
-                                          'mes_actual',
-                                        ),
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 8,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'Este Mes',
-                                          style: TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: () => _establecerRangoRapido(
-                                          'mes_anterior',
-                                        ),
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 8,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'Mes Anterior',
-                                          style: TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: () => _establecerRangoRapido(
-                                          'anio_actual',
-                                        ),
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 8,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'Este Año',
-                                          style: TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                const SizedBox(height: 24),
-
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 2,
-                                      child: ElevatedButton.icon(
-                                        onPressed: _cargando
-                                            ? null
-                                            : _generarReporte,
-                                        icon: _cargando
-                                            ? const SizedBox(
-                                                height: 20,
-                                                width: 20,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      color: Colors.white,
-                                                      strokeWidth: 2,
-                                                    ),
-                                              )
-                                            : const Icon(
-                                                Icons.bar_chart,
-                                                size: 20,
-                                              ),
-                                        label: const Text(
-                                          'GENERAR REPORTE',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: verde,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 14,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      flex: 2,
-                                      child: ElevatedButton.icon(
-                                        onPressed: _cargando
-                                            ? null
-                                            : _exportarExcel,
-                                        icon: const Icon(
-                                          Icons.file_download,
-                                          size: 20,
-                                        ),
-                                        label: const Text(
-                                          'EXPORTAR EXCEL',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              Colors.green.shade700,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 14,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      flex: 1,
-                                      child: OutlinedButton.icon(
-                                        onPressed: () {
-                                          setState(() {
-                                            _fechaInicioCtrl.clear();
-                                            _fechaFinCtrl.clear();
-                                            _areaSeleccionada = null;
-                                            _reporteGenerado = false;
-                                            _resultados.clear();
-                                            _resumen = null;
-                                            _errorMensaje = null;
-                                          });
-                                        },
-                                        icon: const Icon(Icons.clear),
-                                        label: const Text('Limpiar'),
-                                        style: OutlinedButton.styleFrom(
-                                          side: BorderSide(
-                                            color: Colors.grey.shade400,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 14,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
+                        _buildFiltros(verde, isMobile),
                         const SizedBox(height: 24),
-
-                        if (_cargando)
-                          const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(40),
-                              child: CircularProgressIndicator(
-                                color: Colors.green,
-                              ),
-                            ),
-                          )
-                        else if (_errorMensaje != null)
-                          Card(
-                            color: Colors.red.shade50,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.error_outline,
-                                    color: Colors.red.shade700,
-                                    size: 28,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      _errorMensaje!,
-                                      style: TextStyle(
-                                        color: Colors.red.shade700,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        else if (_reporteGenerado) ...[
-                          if (_areaSeleccionada != null &&
-                              _areaSeleccionada!.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              margin: const EdgeInsets.only(bottom: 16),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.blue.shade200),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.filter_alt,
-                                    color: Colors.blue.shade700,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Filtrando por: ${_areaSeleccionada}',
-                                    style: TextStyle(
-                                      color: Colors.blue.shade700,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                          if (_resumen != null) ...[
-                            Row(
-                              children: [
-                                _buildResumenCard(
-                                  'Total Actas',
-                                  '${_resumen!['total_actas']}',
-                                  Icons.description,
-                                  Colors.blue,
-                                ),
-                                const SizedBox(width: 16),
-                                _buildResumenCard(
-                                  'Total Items',
-                                  '${_resumen!['total_items']}',
-                                  Icons.inventory_2,
-                                  Colors.orange,
-                                ),
-                                const SizedBox(width: 16),
-                                _buildResumenCard(
-                                  'Cant. Entregada',
-                                  '${_resumen!['total_cantidad']}',
-                                  Icons.shopping_cart,
-                                  Colors.green,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-                          ],
-
-                          if (_resultados.isEmpty)
-                            Card(
-                              child: Padding(
-                                padding: const EdgeInsets.all(40),
-                                child: Column(
-                                  children: [
-                                    Icon(
-                                      Icons.search_off,
-                                      size: 48,
-                                      color: Colors.grey.shade400,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'No se encontraron actas en este rango de fechas',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey.shade600,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                          else
-                            Card(
-                              elevation: 2,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: verde.withOpacity(0.1),
-                                      borderRadius: const BorderRadius.only(
-                                        topLeft: Radius.circular(12),
-                                        topRight: Radius.circular(12),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            'Acta',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: verde,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            'Fecha',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: verde,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 3,
-                                          child: Text(
-                                            'Entregado a',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: verde,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 3,
-                                          child: Text(
-                                            'Entregado por',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: verde,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 3,
-                                          child: Text(
-                                            'Área',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: verde,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 1,
-                                          child: Text(
-                                            'Items',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: verde,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 1,
-                                          child: Text(
-                                            'Cant.',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: verde,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  ListView.builder(
-                                    shrinkWrap: true,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    itemCount: _resultados.length,
-                                    itemBuilder: (context, index) {
-                                      final acta = _resultados[index];
-                                      return InkWell(
-                                        onTap: () => _verDetalleActa(acta),
-                                        borderRadius: BorderRadius.circular(8),
-                                        hoverColor: Colors.green.withOpacity(
-                                          0.05,
-                                        ),
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 12,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            border: Border(
-                                              bottom: BorderSide(
-                                                color: Colors.grey.shade200,
-                                              ),
-                                            ),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                flex: 2,
-                                                child: Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 4,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.green.shade50,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          6,
-                                                        ),
-                                                  ),
-                                                  child: Text(
-                                                    acta['numero_acta'] ??
-                                                        'N/A',
-                                                    style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: verde,
-                                                      fontSize: 13,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                flex: 2,
-                                                child: Text(
-                                                  _formatDate(
-                                                    acta['fecha_entrega'],
-                                                  ),
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                flex: 3,
-                                                child: Text(
-                                                  acta['entregado_a'] ?? 'N/A',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                flex: 3,
-                                                child: Text(
-                                                  acta['nombre_entrego'] ??
-                                                      'N/A',
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                flex: 3,
-                                                child: Text(
-                                                  acta['area_dependencia'] ??
-                                                      'N/A',
-                                                  style: TextStyle(
-                                                    fontSize: 13,
-                                                    color: Colors.grey.shade700,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                flex: 1,
-                                                child: Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 4,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color:
-                                                        Colors.orange.shade50,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          6,
-                                                        ),
-                                                  ),
-                                                  child: Text(
-                                                    '${acta['total_items']}',
-                                                    textAlign: TextAlign.center,
-                                                    style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: Colors
-                                                          .orange
-                                                          .shade700,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                flex: 1,
-                                                child: Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 4,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.blue.shade50,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          6,
-                                                        ),
-                                                  ),
-                                                  child: Text(
-                                                    '${acta['total_cantidad']}',
-                                                    textAlign: TextAlign.center,
-                                                    style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color:
-                                                          Colors.blue.shade700,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ] else
-                          const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(40),
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.bar_chart,
-                                    size: 64,
-                                    color: Colors.grey,
-                                  ),
-                                  SizedBox(height: 16),
-                                  Text(
-                                    'Seleccione un rango de fechas y presione "Generar Reporte"',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        _buildContenido(verde, isMobile),
                       ],
                     ),
                   ),
@@ -1308,27 +548,953 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
+  Widget _buildResponsiveHeader(Color verde, bool isMobile, bool isTablet) {
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(bottom: BorderSide(color: verde, width: 3)),
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 72,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Image.asset(
+                    'assets/logos/banner_gobernacion.png',
+                    height: 72,
+                    fit: BoxFit.contain,
+                  ),
+                  Positioned(
+                    left: 0,
+                    child: Builder(
+                      builder: (ctx) => IconButton(
+                        icon: Icon(Icons.menu, color: verde, size: 28),
+                        onPressed: () => Scaffold.of(ctx).openDrawer(),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Sección De Reportes',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2E7D32),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        height: 130,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(bottom: BorderSide(color: verde, width: 4)),
+        ),
+        child: Row(
+          children: [
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: Icon(Icons.menu, color: verde, size: 30),
+                onPressed: () => Scaffold.of(ctx).openDrawer(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: Image.asset(
+                'assets/logos/banner_gobernacion.png',
+                height: isTablet ? 100 : 110,
+                fit: BoxFit.contain,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: const Text(
+                'Sección De Reportes',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2E7D32),
+                ),
+              ),
+            ),
+            const Expanded(flex: 2, child: SizedBox()),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildFiltros(Color verde, bool isMobile) {
+    final fechaInicioField = TextFormField(
+      controller: _fechaInicioCtrl,
+      readOnly: true,
+      onTap: () => _seleccionarFecha(_fechaInicioCtrl),
+      decoration: InputDecoration(
+        labelText: 'Fecha Inicio',
+        hintText: 'Seleccione fecha inicial',
+        suffixIcon: const Icon(Icons.calendar_today),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+
+    final fechaFinField = TextFormField(
+      controller: _fechaFinCtrl,
+      readOnly: true,
+      onTap: () => _seleccionarFecha(_fechaFinCtrl),
+      decoration: InputDecoration(
+        labelText: 'Fecha Fin',
+        hintText: 'Seleccione fecha final',
+        suffixIcon: const Icon(Icons.calendar_today),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+
+    final areaField = DropdownButtonFormField<String>(
+      value: _areaSeleccionada,
+      decoration: InputDecoration(
+        labelText: 'Área / Dependencia (Opcional)',
+        hintText: 'Todas las áreas',
+        suffixIcon: const Icon(Icons.filter_list),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+      ),
+      isExpanded: true,
+      items: [
+        const DropdownMenuItem<String>(
+          value: '',
+          child: Text('Todas las áreas', style: TextStyle(color: Colors.grey)),
+        ),
+        ..._areasDisponibles.map(
+          (String area) =>
+              DropdownMenuItem<String>(value: area, child: Text(area)),
+        ),
+      ],
+      onChanged: (String? newValue) =>
+          setState(() => _areaSeleccionada = newValue),
+    );
+
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.date_range, color: verde, size: isMobile ? 22 : 28),
+                const SizedBox(width: 12),
+                Text(
+                  'Filtros de Búsqueda',
+                  style: TextStyle(
+                    fontSize: isMobile ? 16 : 20,
+                    fontWeight: FontWeight.bold,
+                    color: verde,
+                  ),
+                ),
+              ],
+            ),
+            Divider(height: isMobile ? 24 : 32),
+            if (isMobile) ...[
+              fechaInicioField,
+              const SizedBox(height: 16),
+              fechaFinField,
+              const SizedBox(height: 16),
+              areaField,
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(child: fechaInicioField),
+                  const SizedBox(width: 16),
+                  Expanded(child: fechaFinField),
+                ],
+              ),
+              const SizedBox(height: 16),
+              areaField,
+            ],
+            const SizedBox(height: 16),
+            const Text(
+              'Rangos rápidos:',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (isMobile)
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildRangoButton('Hoy', 'hoy', isMobile),
+                  _buildRangoButton('Este Mes', 'mes_actual', isMobile),
+                  _buildRangoButton('Mes Anterior', 'mes_anterior', isMobile),
+                  _buildRangoButton('Este Año', 'anio_actual', isMobile),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  Expanded(child: _buildRangoButton('Hoy', 'hoy', isMobile)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildRangoButton(
+                      'Este Mes',
+                      'mes_actual',
+                      isMobile,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildRangoButton(
+                      'Mes Anterior',
+                      'mes_anterior',
+                      isMobile,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildRangoButton(
+                      'Este Año',
+                      'anio_actual',
+                      isMobile,
+                    ),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 24),
+            if (isMobile) ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _cargando ? null : _generarReporte,
+                  icon: _cargando
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.bar_chart, size: 20),
+                  label: const Text(
+                    'GENERAR REPORTE',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: verde,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _cargando ? null : _exportarExcel,
+                  icon: const Icon(Icons.file_download, size: 20),
+                  label: const Text(
+                    'EXPORTAR EXCEL',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _fechaInicioCtrl.clear();
+                      _fechaFinCtrl.clear();
+                      _areaSeleccionada = null;
+                      _rangoSeleccionado = null; // 👈 NUEVO
+                      _reporteGenerado = false;
+                      _resultados.clear();
+                      _resumen = null;
+                      _errorMensaje = null;
+                    });
+                  },
+                  icon: const Icon(Icons.clear),
+                  label: const Text('Limpiar'),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.grey.shade400),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ] else
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: _cargando ? null : _generarReporte,
+                      icon: _cargando
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.bar_chart, size: 20),
+                      label: const Text(
+                        'GENERAR REPORTE',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: verde,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: _cargando ? null : _exportarExcel,
+                      icon: const Icon(Icons.file_download, size: 20),
+                      label: const Text(
+                        'EXPORTAR EXCEL',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 1,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _fechaInicioCtrl.clear();
+                          _fechaFinCtrl.clear();
+                          _areaSeleccionada = null;
+                          _rangoSeleccionado = null; // 👈 NUEVO
+                          _reporteGenerado = false;
+                          _resultados.clear();
+                          _resumen = null;
+                          _errorMensaje = null;
+                        });
+                      },
+                      icon: const Icon(Icons.clear),
+                      label: const Text('Limpiar'),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.grey.shade400),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 👇 MÉTODO ACTUALIZADO: cambia de color a verde cuando está seleccionado
+  Widget _buildRangoButton(String label, String tipo, bool isMobile) {
+    final bool seleccionado = _rangoSeleccionado == tipo;
+    const Color verde = Color(0xFF2E7D32);
+
+    return OutlinedButton(
+      onPressed: () => _establecerRangoRapido(tipo),
+      style: OutlinedButton.styleFrom(
+        padding: EdgeInsets.symmetric(
+          vertical: isMobile ? 8 : 8,
+          horizontal: isMobile ? 12 : 0,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        backgroundColor: seleccionado ? verde : Colors.white,
+        foregroundColor: seleccionado ? Colors.white : Colors.grey.shade700,
+        side: BorderSide(
+          color: seleccionado ? verde : Colors.grey.shade400,
+          width: seleccionado ? 2 : 1,
+        ),
+        elevation: seleccionado ? 2 : 0,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (seleccionado) ...[
+            const Icon(Icons.check, size: 14),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContenido(Color verde, bool isMobile) {
+    if (_cargando) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(color: Colors.green),
+        ),
+      );
+    }
+
+    if (_errorMensaje != null) {
+      return Card(
+        color: Colors.red.shade50,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red.shade700, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _errorMensaje!,
+                  style: TextStyle(color: Colors.red.shade700, fontSize: 14),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_reporteGenerado) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: Column(
+            children: [
+              Icon(Icons.bar_chart, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'Seleccione un rango de fechas y presione "Generar Reporte"',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        if (_areaSeleccionada != null && _areaSeleccionada!.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.filter_alt, color: Colors.blue.shade700, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Filtrando por: $_areaSeleccionada',
+                    style: TextStyle(
+                      color: Colors.blue.shade700,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (_resumen != null) ...[
+          if (isMobile) ...[
+            _buildResumenCard(
+              'Total Actas',
+              '${_resumen!['total_actas']}',
+              Icons.description,
+              Colors.blue,
+              isMobile,
+            ),
+            const SizedBox(height: 12),
+            _buildResumenCard(
+              'Total Items',
+              '${_resumen!['total_items']}',
+              Icons.inventory_2,
+              Colors.orange,
+              isMobile,
+            ),
+            const SizedBox(height: 12),
+            _buildResumenCard(
+              'Cant. Entregada',
+              '${_resumen!['total_cantidad']}',
+              Icons.shopping_cart,
+              Colors.green,
+              isMobile,
+            ),
+          ] else
+            Row(
+              children: [
+                _buildResumenCard(
+                  'Total Actas',
+                  '${_resumen!['total_actas']}',
+                  Icons.description,
+                  Colors.blue,
+                  isMobile,
+                ),
+                const SizedBox(width: 16),
+                _buildResumenCard(
+                  'Total Items',
+                  '${_resumen!['total_items']}',
+                  Icons.inventory_2,
+                  Colors.orange,
+                  isMobile,
+                ),
+                const SizedBox(width: 16),
+                _buildResumenCard(
+                  'Cant. Entregada',
+                  '${_resumen!['total_cantidad']}',
+                  Icons.shopping_cart,
+                  Colors.green,
+                  isMobile,
+                ),
+              ],
+            ),
+          const SizedBox(height: 24),
+        ],
+        if (_resultados.isEmpty)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(40),
+              child: Column(
+                children: [
+                  Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No se encontraron actas en este rango de fechas',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          isMobile
+              ? _buildResultadosMobile(verde)
+              : _buildResultadosDesktop(verde),
+      ],
+    );
+  }
+
+  Widget _buildResultadosMobile(Color verde) {
+    return Column(
+      children: _resultados.map((acta) {
+        return Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: InkWell(
+            onTap: () => _verDetalleActa(acta),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Acta #${acta['numero_acta'] ?? 'N/A'}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: verde,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        _formatDate(acta['fecha_entrega']),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _buildBadge(
+                        'Entregado a',
+                        acta['entregado_a'] ?? 'N/A',
+                        Colors.blue,
+                      ),
+                      _buildBadge(
+                        'Entregado por',
+                        acta['nombre_entrego'] ?? 'N/A',
+                        Colors.purple,
+                      ),
+                      _buildBadge(
+                        'Área',
+                        acta['area_dependencia'] ?? 'N/A',
+                        Colors.orange,
+                      ),
+                      _buildBadge(
+                        'Items',
+                        '${acta['total_items']}',
+                        Colors.green,
+                      ),
+                      _buildBadge(
+                        'Cantidad',
+                        '${acta['total_cantidad']}',
+                        Colors.teal,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildBadge(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultadosDesktop(Color verde) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: verde.withOpacity(0.1),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Acta',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Fecha',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Entregado a',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Entregado por',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Área',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    'Items',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Text(
+                    'Cant.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ..._resultados.map((acta) {
+            return InkWell(
+              onTap: () => _verDetalleActa(acta),
+              borderRadius: BorderRadius.circular(8),
+              hoverColor: Colors.green.withOpacity(0.05),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey.shade200),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          acta['numero_acta'] ?? 'N/A',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: verde,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        _formatDate(acta['fecha_entrega']),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        acta['entregado_a'] ?? 'N/A',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        acta['nombre_entrego'] ?? 'N/A',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        acta['area_dependencia'] ?? 'N/A',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 1,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${acta['total_items']}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade700,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 1,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${acta['total_cantidad']}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildResumenCard(
     String titulo,
     String valor,
     IconData icono,
     Color color,
+    bool isMobile,
   ) {
     return Expanded(
       child: Card(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(isMobile ? 10 : 12),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icono, color: color, size: 28),
+                child: Icon(icono, color: color, size: isMobile ? 24 : 28),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1347,7 +1513,7 @@ class _ReportesPageState extends State<ReportesPage> {
                     Text(
                       valor,
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: isMobile ? 20 : 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.grey.shade800,
                       ),

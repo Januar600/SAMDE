@@ -34,7 +34,7 @@ class _LoginPageState extends State<LoginPage> {
             context,
             '/menu',
             arguments: {
-              'usuario_id': userData['usuarioId'] ?? 2, // ✅ AGREGADO
+              'usuario_id': userData['usuarioId'] ?? 2,
               'username': userData['username'] ?? 'Usuario',
               'sector': userData['sector'] ?? 'No Asignado',
               'rol': userData['rol'] ?? 'consulta',
@@ -89,12 +89,10 @@ class _LoginPageState extends State<LoginPage> {
           final String sector = userData['sector'] ?? 'No Asignado';
           final String nombreCompleto = userData['nombre_completo'] ?? username;
 
-          // ✅ CORRECCIÓN CLAVE: El PHP devuelve "id", no "usuarioId"
           final int usuarioId = int.tryParse(userData['id'].toString()) ?? 2;
 
           await _storage.guardarUsuario(
-            usuarioId:
-                usuarioId, // ✅ Ahora sí guarda el ID real (8, 9, 10, etc.)
+            usuarioId: usuarioId,
             username: username,
             sector: sector,
             rol: rolString,
@@ -114,7 +112,7 @@ class _LoginPageState extends State<LoginPage> {
               context,
               '/menu',
               arguments: {
-                'usuario_id': usuarioId, // ✅ AGREGADO para que el menú lo tenga
+                'usuario_id': usuarioId,
                 'username': username,
                 'sector': sector,
                 'rol': rolString,
@@ -218,132 +216,174 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   @override
-  void dispose() {
-    _usuarioController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     const Color verdeInstitucional = Color(0xFF2E7D32);
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    // 🎯 Breakpoints responsivos
+    final isSmallMobile = screenWidth < 360;
+    final isMobile = screenWidth < 600;
+
+    // 📏 Tamaños adaptativos
+    final logoHeight = isSmallMobile
+        ? 110.0
+        : isMobile
+        ? 140.0
+        : 190.0;
+    final titleFontSize = isSmallMobile
+        ? 20.0
+        : isMobile
+        ? 24.0
+        : 28.0;
+    final subtitleFontSize = isSmallMobile ? 12.0 : 14.0;
+    final horizontalPadding = isSmallMobile
+        ? 16.0
+        : isMobile
+        ? 24.0
+        : 32.0;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32.0),
-          child: Form(
-            key: _formKey,
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 400),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Image.asset(
-                    'assets/logos/gobernacion.png',
-                    height: 190,
-                    fit: BoxFit.contain,
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'SISTEMA DE INVENTARIO',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2E7D32),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Secretaría de Agricultura, Medio Ambiente y Desarrollo Económico Departamental',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 40),
-                  TextFormField(
-                    controller: _usuarioController,
-                    decoration: const InputDecoration(
-                      labelText: 'Usuario',
-                      prefixIcon: Icon(Icons.person),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) {
-                        return 'Por favor, ingresa tu usuario.';
-                      }
-                      return null;
-                    },
-                    onFieldSubmitted: (_) {
-                      FocusScope.of(context).nextFocus();
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: 'Contraseña',
-                      prefixIcon: const Icon(Icons.lock),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                      border: const OutlineInputBorder(),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.isEmpty) {
-                        return 'Por favor, ingresa tu contraseña.';
-                      }
-                      return null;
-                    },
-                    onFieldSubmitted: (_) {
-                      _iniciarSesion();
-                    },
-                  ),
-                  const SizedBox(height: 32),
-                  ElevatedButton(
-                    onPressed: _cargando ? null : _iniciarSesion,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: verdeInstitucional,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: _cargando
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text(
-                            'INGRESAR',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              // Garantiza que el contenido ocupe al menos toda la altura visible
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: IntrinsicHeight(
+                child: Column(
+                  mainAxisAlignment:
+                      MainAxisAlignment.center, // centra vertical
+                  children: [
+                    Center(
+                      // 👈 ESTE es el que faltaba: centra horizontal
+                      child: Form(
+                        key: _formKey,
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 480),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: horizontalPadding,
+                            vertical: 24,
                           ),
-                  ),
-                ],
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Image.asset(
+                                'assets/logos/gobernacion.png',
+                                height: logoHeight,
+                                fit: BoxFit.contain,
+                              ),
+                              SizedBox(height: isMobile ? 16 : 24),
+                              Text(
+                                'SISTEMA DE INVENTARIO',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: titleFontSize,
+                                  fontWeight: FontWeight.bold,
+                                  color: verdeInstitucional,
+                                  height: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Secretaría de Agricultura, Medio Ambiente y Desarrollo Económico Departamental',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: subtitleFontSize,
+                                  color: Colors.grey[600],
+                                  height: 1.3,
+                                ),
+                              ),
+                              SizedBox(height: isMobile ? 24 : 40),
+                              TextFormField(
+                                controller: _usuarioController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Usuario',
+                                  prefixIcon: Icon(Icons.person),
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty) {
+                                    return 'Por favor, ingresa tu usuario.';
+                                  }
+                                  return null;
+                                },
+                                onFieldSubmitted: (_) {
+                                  FocusScope.of(context).nextFocus();
+                                },
+                              ),
+                              SizedBox(height: isMobile ? 16 : 20),
+                              TextFormField(
+                                controller: _passwordController,
+                                obscureText: _obscurePassword,
+                                decoration: InputDecoration(
+                                  labelText: 'Contraseña',
+                                  prefixIcon: const Icon(Icons.lock),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility
+                                          : Icons.visibility_off,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _obscurePassword = !_obscurePassword;
+                                      });
+                                    },
+                                  ),
+                                  border: const OutlineInputBorder(),
+                                ),
+                                validator: (v) {
+                                  if (v == null || v.isEmpty) {
+                                    return 'Por favor, ingresa tu contraseña.';
+                                  }
+                                  return null;
+                                },
+                                onFieldSubmitted: (_) {
+                                  _iniciarSesion();
+                                },
+                              ),
+                              SizedBox(height: isMobile ? 24 : 32),
+                              ElevatedButton(
+                                onPressed: _cargando ? null : _iniciarSesion,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: verdeInstitucional,
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: isMobile ? 14 : 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: _cargando
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Text(
+                                        'INGRESAR',
+                                        style: TextStyle(
+                                          fontSize: isMobile ? 15 : 16,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

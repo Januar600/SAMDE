@@ -41,7 +41,6 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
     _cargarContratos();
   }
 
-  // ── HELPERS DE FORMATO ───────────────────────────────────────
   String _formatDate(dynamic date) {
     if (date == null) return 'N/A';
     try {
@@ -94,7 +93,6 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
     }
   }
 
-  // ── LÓGICA DE DATOS ──────────────────────────────────────────
   Future<void> _cargarContratos() async {
     setState(() => _cargando = true);
     try {
@@ -133,356 +131,88 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
     });
   }
 
-  // ── MODAL DE DETALLES PROFESIONAL ────────────────────────────
+  // ========================================================
+  // VISTA PREVIA RESPONSIVE
+  // ========================================================
   Future<void> _verDetalleContrato(Map<String, dynamic> contrato) async {
     final items = contrato['items'] as List? ?? [];
     final valorTotal =
         double.tryParse(contrato['valor_total']?.toString() ?? '0') ?? 0;
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final bool isMobile = screenWidth < 600;
+    final dialogWidth = isMobile ? screenWidth - 32 : 900.0;
+    final dialogMaxHeight = screenHeight * 0.85;
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: 900,
-          constraints: const BoxConstraints(maxHeight: 700),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
-                  border: Border(
-                    bottom: BorderSide(color: Colors.green.shade200),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.assignment,
-                      color: Colors.green.shade700,
-                      size: 28,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: dialogWidth,
+            maxHeight: dialogMaxHeight,
+          ),
+          child: SizedBox(
+            width: dialogWidth,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── HEADER ──
+                Container(
+                  padding: EdgeInsets.all(isMobile ? 14 : 20),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Contrato #${contrato['numero_contrato']}',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green.shade800,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _getEstadoColor(
-                                contrato['estado'] ?? '',
-                              ).withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              (contrato['estado'] ?? 'N/A').toUpperCase(),
+                    border: Border(
+                      bottom: BorderSide(color: Colors.green.shade200),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.assignment,
+                        color: Colors.green.shade700,
+                        size: isMobile ? 22 : 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Contrato #${contrato['numero_contrato']}',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: isMobile ? 16 : 20,
                                 fontWeight: FontWeight.bold,
+                                color: Colors.green.shade800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
                                 color: _getEstadoColor(
                                   contrato['estado'] ?? '',
-                                ),
+                                ).withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                      color: Colors.grey.shade600,
-                    ),
-                  ],
-                ),
-              ),
-
-              // Contenido Scrollable
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildInfoSection('Información General', [
-                        _buildInfoRow(
-                          'Proveedor:',
-                          contrato['proveedor'] ?? 'N/A',
-                        ),
-                        _buildInfoRow(
-                          'Fecha Inicio:',
-                          _formatDate(contrato['fecha_inicio']),
-                        ),
-                        _buildInfoRow(
-                          'Fecha Fin:',
-                          _formatDate(contrato['fecha_fin']),
-                        ),
-                        _buildInfoRow(
-                          'Valor Total:',
-                          '\$${_formatearConPuntos(valorTotal)}',
-                        ),
-                        if ((contrato['objeto_contrato'] ?? '')
-                            .toString()
-                            .isNotEmpty)
-                          _buildInfoRow('Objeto:', contrato['objeto_contrato']),
-                      ]),
-                      const SizedBox(height: 20),
-
-                      // Tabla de Items
-                      Text(
-                        'Items del Contrato',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade800,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.green.shade200),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Column(
-                          children: [
-                            // Header Tabla
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade100,
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(9),
-                                  topRight: Radius.circular(9),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 1,
-                                    child: _buildTableHeader('#'),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: _buildTableHeader('Código'),
-                                  ),
-                                  Expanded(
-                                    flex: 3,
-                                    child: _buildTableHeader('Item'),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: _buildTableHeader('Unidad'),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: _buildTableHeader('Cantidad'),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: _buildTableHeader('V. Unitario'),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: _buildTableHeader('Subtotal'),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            // Filas de Items
-                            if (items.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.all(24),
-                                child: Center(
-                                  child: Text(
-                                    'No hay items registrados',
-                                    style: TextStyle(color: Colors.grey),
+                              child: Text(
+                                (contrato['estado'] ?? 'N/A').toUpperCase(),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: _getEstadoColor(
+                                    contrato['estado'] ?? '',
                                   ),
                                 ),
-                              )
-                            else
-                              ...items.asMap().entries.map((entry) {
-                                final index = entry.key;
-                                final item = entry.value;
-                                final cantidad =
-                                    double.tryParse(
-                                      item['cantidad']?.toString() ?? '0',
-                                    ) ??
-                                    0;
-                                final valorUnitario =
-                                    double.tryParse(
-                                      item['valor_unitario']?.toString() ?? '0',
-                                    ) ??
-                                    0;
-                                final subtotal = cantidad * valorUnitario;
-
-                                return Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(
-                                        color: Colors.green.shade100,
-                                      ),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 1,
-                                        child: Text(
-                                          '${index + 1}',
-                                          style: const TextStyle(fontSize: 13),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          item['codigo']?.toString() ?? '-',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 3,
-                                        child: Text(
-                                          item['nombre']?.toString() ?? 'N/A',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          item['unidad']?.toString() ?? '-',
-                                          textAlign: TextAlign.center,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green.shade50,
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
-                                            border: Border.all(
-                                              color: Colors.green.shade200,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            _formatearConPuntos(cantidad),
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.green.shade700,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          '\$${_formatearConPuntos(valorUnitario)}',
-                                          textAlign: TextAlign.right,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          '\$${_formatearConPuntos(subtotal)}',
-                                          textAlign: TextAlign.right,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.green.shade700,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              }),
-
-                            // Footer Total
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade50,
-                                borderRadius: const BorderRadius.only(
-                                  bottomLeft: Radius.circular(9),
-                                  bottomRight: Radius.circular(9),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    'TOTAL: ',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                      color: Colors.green.shade800,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade200,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: Colors.green.shade300,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      '\$${_formatearConPuntos(valorTotal)}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                        color: Colors.green.shade800,
-                                      ),
-                                    ),
-                                  ),
-                                ],
                               ),
                             ),
                           ],
@@ -491,57 +221,392 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
                     ],
                   ),
                 ),
-              ),
 
-              // Botones de Acción
-              Container(
-                padding: const EdgeInsets.all(20),
+                // ── CONTENIDO SCROLLABLE ──
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(isMobile ? 16 : 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildInfoSection('Información General', [
+                          _buildInfoRow(
+                            'Proveedor:',
+                            contrato['proveedor'] ?? 'N/A',
+                          ),
+                          _buildInfoRow(
+                            'Tipo:',
+                            contrato['tipo_contrato'] ?? 'N/A',
+                          ),
+                          _buildInfoRow(
+                            'Modalidad:',
+                            contrato['modalidad_seleccion'] ?? 'N/A',
+                          ),
+                          _buildInfoRow(
+                            'Fecha Inicio:',
+                            _formatDate(contrato['fecha_inicio']),
+                          ),
+                          _buildInfoRow(
+                            'Fecha Fin:',
+                            _formatDate(contrato['fecha_fin']),
+                          ),
+                          _buildInfoRow(
+                            'Valor Total:',
+                            '\$${_formatearConPuntos(valorTotal)}',
+                          ),
+                          if ((contrato['objeto_contrato'] ?? '')
+                              .toString()
+                              .isNotEmpty)
+                            _buildInfoRow(
+                              'Objeto:',
+                              contrato['objeto_contrato'],
+                            ),
+                        ]),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Items del Contrato',
+                          style: TextStyle(
+                            fontSize: isMobile ? 16 : 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (isMobile)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.swipe,
+                                  size: 16,
+                                  color: Colors.grey.shade600,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Desliza horizontalmente para ver toda la tabla',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        // ✅ TABLA COMPLETA con scroll horizontal en móvil
+                        isMobile
+                            ? SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: _buildTablaItems(
+                                  items,
+                                  valorTotal,
+                                  true,
+                                ),
+                              )
+                            : _buildTablaItems(items, valorTotal, false),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // ── FOOTER ──
+                Container(
+                  padding: EdgeInsets.all(isMobile ? 14 : 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: isMobile
+                      ? Column(
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () => Navigator.pop(context),
+                                icon: const Icon(Icons.close),
+                                label: const Text('Cerrar'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  side: BorderSide(color: Colors.grey.shade400),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Imprimiendo contrato...'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.print),
+                                label: const Text('Imprimir'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green.shade700,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => Navigator.pop(context),
+                                icon: const Icon(Icons.close),
+                                label: const Text('Cerrar'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  side: BorderSide(color: Colors.grey.shade400),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Imprimiendo contrato...'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.print),
+                                label: const Text('Imprimir'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green.shade700,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✅ TABLA CON TODAS LAS COLUMNAS
+  Widget _buildTablaItems(List items, double valorTotal, bool isMobile) {
+    return Container(
+      width: isMobile ? 820 : double.infinity,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.green.shade200),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          // Header de la tabla
+          Container(
+            padding: EdgeInsets.all(isMobile ? 10 : 14),
+            decoration: BoxDecoration(
+              color: Colors.green.shade100,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(9),
+                topRight: Radius.circular(9),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(flex: 1, child: _buildTableHeader('#')),
+                Expanded(flex: 2, child: _buildTableHeader('Código')),
+                Expanded(flex: 3, child: _buildTableHeader('Item')),
+                Expanded(flex: 2, child: _buildTableHeader('Unidad')),
+                Expanded(flex: 2, child: _buildTableHeader('Cantidad')),
+                Expanded(flex: 2, child: _buildTableHeader('V. Unitario')),
+                Expanded(flex: 2, child: _buildTableHeader('Subtotal')),
+              ],
+            ),
+          ),
+
+          // Filas de items
+          if (items.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: Text(
+                  'No hay items registrados',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            ...items.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              final cantidad =
+                  double.tryParse(item['cantidad']?.toString() ?? '0') ?? 0;
+              final valorUnitario =
+                  double.tryParse(item['valor_unitario']?.toString() ?? '0') ??
+                  0;
+              final subtotal = cantidad * valorUnitario;
+
+              return Container(
+                padding: EdgeInsets.all(isMobile ? 8 : 12),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
+                  border: Border(
+                    bottom: BorderSide(color: Colors.green.shade100),
                   ),
                 ),
                 child: Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close),
-                        label: const Text('Cerrar'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          side: BorderSide(color: Colors.grey.shade400),
+                      flex: 1,
+                      child: Text(
+                        '${index + 1}',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        item['codigo']?.toString() ?? '-',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Imprimiendo contrato...'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.print),
-                        label: const Text('Imprimir'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green.shade700,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                      flex: 3,
+                      child: Text(
+                        item['nombre']?.toString() ?? 'N/A',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        item['unidad']?.toString() ?? '-',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 4 : 8,
+                          vertical: isMobile ? 4 : 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: Text(
+                          _formatearConPuntos(cantidad),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        '\$${_formatearConPuntos(valorUnitario)}',
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        '\$${_formatearConPuntos(subtotal)}',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade700,
+                          fontSize: 13,
                         ),
                       ),
                     ),
                   ],
                 ),
+              );
+            }),
+
+          // Footer con total
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(9),
+                bottomRight: Radius.circular(9),
               ),
-            ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'TOTAL: ',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: isMobile ? 13 : 16,
+                    color: Colors.green.shade800,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade200,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade300),
+                  ),
+                  child: Text(
+                    '\$${_formatearConPuntos(valorTotal)}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: isMobile ? 13 : 16,
+                      color: Colors.green.shade800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -556,7 +621,9 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
     textAlign: TextAlign.center,
   );
 
+  // ✅ CONTENEDOR A LA MITAD EN DESKTOP
   Widget _buildInfoSection(String title, List<Widget> children) {
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -569,30 +636,35 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
           ),
         ),
         const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: children,
+        FractionallySizedBox(
+          widthFactor: isMobile ? 1.0 : 0.5,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: children,
+            ),
           ),
         ),
       ],
     );
   }
 
+  // ✅ ETIQUETA COMPACTA
   Widget _buildInfoRow(String label, String value) {
+    final bool isMobile = MediaQuery.of(context).size.width < 600;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: isMobile ? 110 : 160,
             child: Text(
               label,
               style: TextStyle(
@@ -602,58 +674,24 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
               ),
             ),
           ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+          const SizedBox(width: 12),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
         ],
       ),
     );
   }
 
-  // ── UI PRINCIPAL ─────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     const Color verde = Color(0xFF2E7D32);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 900;
 
     return Scaffold(
       body: Column(
         children: [
-          // Header
-          Container(
-            height: 130,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: const BoxDecoration(
-              color: Color.fromARGB(255, 192, 231, 195),
-              border: Border(bottom: BorderSide(color: verde, width: 4)),
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: verde, size: 30),
-                  onPressed: () => Navigator.pop(context),
-                  tooltip: 'Volver al dashboard',
-                ),
-                const SizedBox(width: 8),
-                Image.asset(
-                  'assets/logos/banner_gobernacion.png',
-                  height: 110,
-                  fit: BoxFit.contain,
-                ),
-                const Expanded(
-                  child: Center(
-                    child: Text(
-                      'Consultar Contratos',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: verde,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Contenido
+          _buildResponsiveHeader(verde, isMobile, isTablet),
           Expanded(
             child: Container(
               width: double.infinity,
@@ -664,7 +702,7 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
                   colors: [Color(0xFFF1F8F1), Colors.white],
                 ),
               ),
-              child: _buildLista(verde),
+              child: _buildLista(verde, isMobile),
             ),
           ),
         ],
@@ -672,7 +710,97 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
     );
   }
 
-  Widget _buildLista(Color verde) {
+  Widget _buildResponsiveHeader(Color verde, bool isMobile, bool isTablet) {
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(bottom: BorderSide(color: verde, width: 3)),
+        ),
+        child: Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 72,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Image.asset(
+                    'assets/logos/banner_gobernacion.png',
+                    height: 72,
+                    fit: BoxFit.contain,
+                  ),
+                  Positioned(
+                    left: 0,
+                    child: IconButton(
+                      icon: Icon(Icons.arrow_back, color: verde, size: 28),
+                      onPressed: () => Navigator.pop(context),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Volver al dashboard',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Consultar Contratos',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2E7D32),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        height: 130,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color.fromARGB(255, 192, 231, 195),
+          border: Border(bottom: BorderSide(color: verde, width: 4)),
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              icon: Icon(Icons.arrow_back, color: verde, size: 30),
+              onPressed: () => Navigator.pop(context),
+              tooltip: 'Volver al dashboard',
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 2,
+              child: Image.asset(
+                'assets/logos/banner_gobernacion.png',
+                height: isTablet ? 100 : 110,
+                fit: BoxFit.contain,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: const Text(
+                'Consultar Contratos',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2E7D32),
+                ),
+              ),
+            ),
+            const Expanded(flex: 2, child: SizedBox()),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildLista(Color verde, bool isMobile) {
     if (_contratos.isEmpty && !_cargando) {
       return Center(
         child: Card(
@@ -680,13 +808,13 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Padding(
-            padding: EdgeInsets.all(48),
+          child: Padding(
+            padding: EdgeInsets.all(isMobile ? 32 : 48),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.inbox_outlined, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
                   'No hay contratos registrados',
                   style: TextStyle(
@@ -704,9 +832,8 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
 
     return Column(
       children: [
-        // Barra de búsqueda
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
           child: TextField(
             controller: _busquedaController,
             onChanged: _filtrarContratos,
@@ -736,17 +863,15 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
               ),
               filled: true,
               fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(
+              contentPadding: EdgeInsets.symmetric(
                 horizontal: 16,
-                vertical: 14,
+                vertical: isMobile ? 10 : 14,
               ),
             ),
           ),
         ),
-
-        // Contador
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16),
           child: Row(
             children: [
               Text(
@@ -770,15 +895,16 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
-
-        // Lista
+        const SizedBox(height: 8),
         Expanded(
           child: RefreshIndicator(
             onRefresh: _cargarContratos,
             color: verde,
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 12 : 16,
+                vertical: 8,
+              ),
               itemCount: _contratosFiltrados.length,
               itemBuilder: (ctx, i) {
                 final contrato = _contratosFiltrados[i];
@@ -800,96 +926,101 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
                     onTap: () => _verDetalleContrato(contrato),
                     borderRadius: BorderRadius.circular(12),
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
+                      padding: EdgeInsets.all(isMobile ? 12 : 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
                             children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade100,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      '#${contrato['numero_contrato']}',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: Colors.green.shade800,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _getEstadoColor(
-                                        estado,
-                                      ).withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      estado.toUpperCase(),
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: _getEstadoColor(estado),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                contrato['proveedor'] ?? 'Sin proveedor',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                              SizedBox(
-                                width: 400,
+                                decoration: BoxDecoration(
+                                  color: Colors.green.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                                 child: Text(
-                                  contrato['objeto_contrato'] ?? 'Sin objeto',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  '#${contrato['numero_contrato']}',
                                   style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: isMobile ? 12 : 14,
+                                    color: Colors.green.shade800,
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _getEstadoColor(
+                                    estado,
+                                  ).withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  estado.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: _getEstadoColor(estado),
+                                  ),
+                                ),
+                              ),
+                              const Spacer(),
+                              Icon(
+                                Icons.chevron_right,
+                                color: Colors.green.shade700,
+                                size: isMobile ? 24 : 28,
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: isMobile ? 8 : 10),
+                          Text(
+                            contrato['proveedor'] ?? 'Sin proveedor',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: isMobile ? 13 : 15,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            contrato['objeto_contrato'] ?? 'Sin objeto',
+                            maxLines: isMobile ? 2 : 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: isMobile ? 11 : 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 12,
+                            children: [
+                              Text(
+                                '\$${_formatearConPuntos(valorTotal)}',
+                                style: TextStyle(
+                                  fontSize: isMobile ? 12 : 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: verde,
+                                ),
+                              ),
+                              Text(
+                                'Inicio: ${_formatDate(contrato['fecha_inicio'])}',
+                                style: TextStyle(
+                                  fontSize: isMobile ? 10 : 12,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    '\$${_formatearConPuntos(valorTotal)}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: verde,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    'Inicio: ${_formatDate(contrato['fecha_inicio'])}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade500,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
                                   Icon(
                                     Icons.shopping_bag,
                                     size: 14,
@@ -899,19 +1030,13 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
                                   Text(
                                     '${items.length} items',
                                     style: TextStyle(
-                                      fontSize: 12,
+                                      fontSize: isMobile ? 10 : 12,
                                       color: Colors.grey.shade500,
                                     ),
                                   ),
                                 ],
                               ),
                             ],
-                          ),
-                          const Spacer(),
-                          const Icon(
-                            Icons.visibility_outlined,
-                            color: Colors.blue,
-                            size: 28,
                           ),
                         ],
                       ),
