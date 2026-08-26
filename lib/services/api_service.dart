@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiException implements Exception {
@@ -22,13 +21,7 @@ class ApiService {
   final String _baseUrl;
 
   static String get _defaultBaseUrl {
-    if (kIsWeb) {
-      return 'http://localhost/samde_db';
-    }
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2/samde_db';
-    }
-    return 'http://localhost/samde_db';
+    return 'http://192.168.10.64/samde_db';
   }
 
   Future<dynamic> get(

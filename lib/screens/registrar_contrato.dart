@@ -46,7 +46,7 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
   int? _editandoId;
   bool _formateando = false;
 
-  static const String _baseUrl = 'http://localhost/samde_db/api/contratos';
+  static const String _baseUrl = 'http://192.168.10.64/samde_db/api/contratos';
 
   @override
   void didChangeDependencies() {

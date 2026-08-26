@@ -43,7 +43,7 @@ class _RegistrarIngresoPageState extends State<RegistrarIngresoPage> {
   bool _modoEdicion = false;
   int? _ingresoEditandoId;
 
-  static const String _baseUrl = 'http://localhost/samde_db/api';
+  static const String _baseUrl = 'http://192.168.10.64/samde_db/api';
 
   @override
   void didChangeDependencies() {

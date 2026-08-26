@@ -20,7 +20,7 @@ class _ConsultarContratoPageState extends State<ConsultarContratoPage> {
   final _busquedaController = TextEditingController();
   String _filtroBusqueda = '';
 
-  static const String _baseUrl = 'http://localhost/samde_db/api/contratos';
+  static const String _baseUrl = 'http://192.168.10.64/samde_db/api/contratos';
 
   @override
   void didChangeDependencies() {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../config/api_config.dart';
 import '../widgets/drawer_menu.dart';
 
 class RegistrarUsuario extends StatefulWidget {
@@ -77,7 +78,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
 
   Future<void> _obtenerUsuarios() async {
     setState(() => _cargando = true);
-    final url = Uri.parse("http://localhost/samde_db/api/listar_usuarios.php");
+    final url = Uri.parse("${ApiConfig.api}/listar_usuarios.php");
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -111,7 +112,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
       );
       return;
     }
-    final url = Uri.parse("http://localhost/samde_db/api/password_hash.php");
+    final url = Uri.parse("${ApiConfig.api}/password_hash.php");
     try {
       final response = await http.post(
         url,
@@ -144,7 +145,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
       final index = listaUsuarios.indexWhere((u) => u['id'] == id);
       if (index != -1) listaUsuarios[index]['estado'] = nuevoEstado;
     });
-    final url = Uri.parse("http://localhost/samde_db/api/cambiar_estado.php");
+    final url = Uri.parse("${ApiConfig.api}/cambiar_estado.php");
     try {
       final response = await http.post(
         url,
@@ -377,7 +378,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     String sector,
     String password,
   ) async {
-    final url = Uri.parse("http://localhost/samde_db/api/editar_usuario.php");
+    final url = Uri.parse("${ApiConfig.api}/editar_usuario.php");
     try {
       final response = await http.post(
         url,

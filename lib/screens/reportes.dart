@@ -36,7 +36,7 @@ class _ReportesPageState extends State<ReportesPage> {
   List<Map<String, dynamic>> _resultados = [];
   Map<String, dynamic>? _resumen;
 
-  static const String _baseUrl = 'http://localhost/samde_db/api';
+  static const String _baseUrl = 'http://192.168.10.64/samde_db/api';
 
   @override
   void didChangeDependencies() {

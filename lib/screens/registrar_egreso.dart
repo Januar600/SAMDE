@@ -44,7 +44,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
   bool _modoEdicion = false;
   int? _egresoEditandoId;
 
-  static const String _baseUrl = 'http://localhost/samde_db/api';
+  static const String _baseUrl = 'http://192.168.10.64/samde_db/api';
 
   @override
   void didChangeDependencies() {

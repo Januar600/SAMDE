@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class AuthService {
-  final String _baseUrl = 'http://127.0.0.1/samde_db/api';
+  final String _baseUrl = 'http://192.168.10.64/samde_db/api';
 
   /// Método para validar las credenciales del usuario con el backend en PHP
   Future<Map<String, dynamic>> login(String username, String password) async {

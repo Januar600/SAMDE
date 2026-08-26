@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../config/api_config.dart';
 import '../services/storage_service.dart';
 
 class LoginPage extends StatefulWidget {
@@ -62,7 +63,7 @@ class _LoginPageState extends State<LoginPage> {
       _cargando = true;
     });
 
-    final url = Uri.parse('http://localhost/samde_db/api/login.php');
+    final url = Uri.parse('${ApiConfig.api}/login.php');
 
     try {
       final response = await http

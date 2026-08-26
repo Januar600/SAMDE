@@ -104,7 +104,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
 
   http.Client? _clienteUpload;
   static const int _maxArchivoBytes = 10 * 1024 * 1024;
-  static const String _baseUrl = 'http://localhost/samde_db/api';
+  static const String _baseUrl = 'http://192.168.10.64/samde_db/api';
 
   @override
   void didChangeDependencies() {

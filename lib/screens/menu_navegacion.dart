@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../config/api_config.dart';
 import '../services/storage_service.dart';
 import '../widgets/drawer_menu.dart';
 import 'dart:convert';
@@ -63,7 +64,7 @@ class _MenuNavegacionState extends State<MenuNavegacion> {
       final response = await http
           .get(
             Uri.parse(
-              'http://localhost/samde_db/api/dashboard/estadisticas.php',
+              '${ApiConfig.api}/dashboard/estadisticas.php',
             ),
           )
           .timeout(const Duration(seconds: 10));
