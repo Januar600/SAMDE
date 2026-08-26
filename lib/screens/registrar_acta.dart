@@ -85,6 +85,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
   List<Map<String, dynamic>> _todosItemsDisponibles = [];
   List<TextEditingController> _cantidadControllers = [];
   List<TextEditingController> _cantidadAdicionalControllers = [];
+
   PlatformFile? _archivoSeleccionado;
   String? _archivoExistenteRuta;
 
@@ -92,8 +93,8 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
   bool _mostrandoLista = false;
   bool _modoEdicion = false;
   int? _actaEditandoId;
-
   List<Map<String, dynamic>> _detallesActaEditando = [];
+
   List<Map<String, dynamic>> _actas = [];
   final _busquedaController = TextEditingController();
   String _filtroBusqueda = '';
@@ -111,7 +112,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments;
     final map = (args is Map<String, dynamic>) ? args : <String, dynamic>{};
-
     final idRecibido = map['usuario_id'];
     final idParseado = int.tryParse(idRecibido?.toString() ?? '');
 
@@ -215,6 +215,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
           .get(Uri.parse(url))
           .timeout(const Duration(seconds: 10));
       final data = jsonDecode(r.body);
+
       if (r.statusCode == 200 && data['success'] == true) {
         final lista = List<Map<String, dynamic>>.from(data['data'] ?? []);
         if (_modoEdicion) {
@@ -358,7 +359,12 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     }
   }
 
+  // ✅ CAMBIO 2: Validación al inicio de la función
   Future<void> _cargarActaParaEditar(int actaId) async {
+    if (actaId <= 0) {
+      _snack('⚠️ No se puede editar: ID de acta inválido', Colors.red);
+      return;
+    }
     setState(() => _cargando = true);
     try {
       final response = await http
@@ -371,7 +377,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         final detalles = List<Map<String, dynamic>>.from(
           actaData['detalles'] ?? [],
         );
-
         setState(() {
           _modoEdicion = true;
           _actaEditandoId = actaId;
@@ -424,7 +429,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
               false,
             );
           }
-
           for (int i = 0; i < _todosItemsDisponibles.length; i++) {
             final itemId =
                 int.tryParse(
@@ -477,8 +481,8 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         ],
       ),
     );
-
     if (confirm != true) return;
+
     setState(() => _cargando = true);
     try {
       final response = await http
@@ -489,6 +493,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
           )
           .timeout(const Duration(seconds: 10));
       final data = jsonDecode(response.body);
+
       if (response.statusCode == 200 && data['success'] == true) {
         _snack('✅ Acta eliminada', Colors.green);
         await _cargarActas();
@@ -844,6 +849,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
           .get(Uri.parse('$_baseUrl/actas/listar_actas.php'))
           .timeout(const Duration(seconds: 10));
       final data = jsonDecode(r.body);
+
       if (r.statusCode == 200 && data['success'] == true) {
         setState(() {
           _actas = List<Map<String, dynamic>>.from(data['data'] ?? []);
@@ -881,7 +887,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     _representanteLegalController.clear();
     _ubicacionController.clear();
     _docIdentRLController.clear();
-
     setState(() {
       _areaSeleccionada = null;
       _cargoSeleccionado = null;
@@ -895,7 +900,6 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       _tipoBeneficiarioSeleccionado = null;
       _zonaSeleccionada = null;
     });
-
     for (final c in _cantidadControllers) {
       c.clear();
     }
@@ -1768,6 +1772,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         final contratadaRaw = item['cantidad_contratada'];
         final entregadaRaw = item['cantidad_total_entregada'];
         final tieneStock = disponible > 0;
+
         final hayErrorEntregar =
             !_modoEdicion &&
             (i < _erroresCantidad.length && _erroresCantidad[i]);
@@ -1982,6 +1987,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         ),
       );
     }
+
     if (_cargando) {
       return Container(
         padding: const EdgeInsets.all(60),
@@ -2151,6 +2157,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                         final contratadaRaw = item['cantidad_contratada'];
                         final entregadaRaw = item['cantidad_total_entregada'];
                         final tieneStock = disponible > 0;
+
                         final hayErrorEntregar =
                             !_modoEdicion &&
                             (i < _erroresCantidad.length &&
@@ -2159,6 +2166,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                             _modoEdicion &&
                             (i < _erroresCantidad.length &&
                                 _erroresCantidad[i]);
+
                         final bool stockCero = _modoEdicion && disponible <= 0;
                         final bool stockBajo =
                             _modoEdicion && !stockCero && disponible <= 5;
@@ -2535,10 +2543,10 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                       ),
                       Text(
                         _archivoSeleccionado != null
-                            ? 'PDF, JPG o PNG (Máx. 10MB) *'
+                            ? 'PDF, JPG o PNG (Máx. 2MB) *'
                             : (_archivoExistenteRuta != null
                                   ? 'Toca para cambiar el archivo'
-                                  : 'PDF, JPG o PNG (Máx. 10MB) *'),
+                                  : 'PDF, JPG o PNG (Máx. 2MB) *'),
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade500,
@@ -2653,9 +2661,16 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     }
   }
 
+  // ✅ CAMBIO 1: Validación segura del ID al inicio
   Future<void> _verDetalleActa(Map<String, dynamic> acta) async {
-    final actaId = acta['id'];
-    if (actaId == null) return;
+    final idStr = acta['id']?.toString() ?? '';
+    final actaId = int.tryParse(idStr) ?? 0;
+
+    if (actaId <= 0) {
+      _snack('⚠️ No se puede ver el detalle: ID de acta inválido', Colors.red);
+      debugPrint('⚠️ Detalle acta con ID inválido: $acta');
+      return;
+    }
 
     showDialog(
       context: context,
@@ -2663,13 +2678,13 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
       builder: (context) =>
           const Center(child: CircularProgressIndicator(color: Colors.green)),
     );
-
     List<Map<String, dynamic>> itemsEntregados = [];
     try {
       final response = await http
           .get(Uri.parse('$_baseUrl/actas/obtener_acta.php?id=$actaId'))
           .timeout(const Duration(seconds: 10));
       final data = jsonDecode(response.body);
+
       if (response.statusCode == 200 && data['success'] == true) {
         itemsEntregados = List<Map<String, dynamic>>.from(
           data['data']['detalles'] ?? [],
@@ -3375,10 +3390,23 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
+                              // ✅ CAMBIO 3: Validación segura en botón Editar
                               TextButton.icon(
-                                onPressed: () => _cargarActaParaEditar(
-                                  int.parse(acta['id'].toString()),
-                                ),
+                                onPressed: () {
+                                  final idStr = acta['id']?.toString() ?? '';
+                                  final editId = int.tryParse(idStr) ?? 0;
+                                  if (editId <= 0) {
+                                    _snack(
+                                      '⚠️ Error: El ID del acta es inválido o no fue cargado',
+                                      Colors.red,
+                                    );
+                                    debugPrint(
+                                      '⚠️ Acta con ID inválido recibida: $acta',
+                                    );
+                                    return;
+                                  }
+                                  _cargarActaParaEditar(editId);
+                                },
                                 icon: Icon(
                                   Icons.edit,
                                   color: Colors.blue.shade600,
@@ -3404,11 +3432,23 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                               const SizedBox(width: 4),
                               if (rol == 'administrador' ||
                                   rol == 'administrativo')
+                                // ✅ CAMBIO 4: Validación segura en botón Eliminar
                                 TextButton.icon(
-                                  onPressed: () => _eliminarActa(
-                                    int.parse(acta['id'].toString()),
-                                    acta['numero_acta'] ?? '',
-                                  ),
+                                  onPressed: () {
+                                    final idStr = acta['id']?.toString() ?? '';
+                                    final deleteId = int.tryParse(idStr) ?? 0;
+                                    if (deleteId <= 0) {
+                                      _snack(
+                                        '⚠️ Error: El ID del acta es inválido',
+                                        Colors.red,
+                                      );
+                                      return;
+                                    }
+                                    _eliminarActa(
+                                      deleteId,
+                                      acta['numero_acta'] ?? '',
+                                    );
+                                  },
                                   icon: Icon(
                                     Icons.delete,
                                     color: Colors.red.shade600,
