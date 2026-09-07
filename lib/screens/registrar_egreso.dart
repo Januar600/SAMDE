@@ -1665,7 +1665,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             ),
             DataColumn(
               label: Text(
-                'Stock Disponible',
+                'Stock Gobernación',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,

@@ -3,15 +3,16 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/drawer_menu.dart';
+import 'vista_previa_contrato.dart';
 
-class ReportesPage extends StatefulWidget {
-  const ReportesPage({super.key});
+class ReportesContratosPage extends StatefulWidget {
+  const ReportesContratosPage({super.key});
 
   @override
-  State<ReportesPage> createState() => _ReportesPageState();
+  State<ReportesContratosPage> createState() => _ReportesContratosPageState();
 }
 
-class _ReportesPageState extends State<ReportesPage> {
+class _ReportesContratosPageState extends State<ReportesContratosPage> {
   late String username;
   late String sector;
   late String rol;
@@ -19,14 +20,27 @@ class _ReportesPageState extends State<ReportesPage> {
   final TextEditingController _fechaInicioCtrl = TextEditingController();
   final TextEditingController _fechaFinCtrl = TextEditingController();
 
-  String? _areaSeleccionada;
-  String? _rangoSeleccionado; // 👈 NUEVO: para marcar el rango activo
+  String? _tipoContratoSeleccionado;
+  String? _estadoSeleccionado;
+  String? _rangoSeleccionado;
 
-  final List<String> _areasDisponibles = [
-    'Sector Desarrollo Económico',
-    'Sector Medio Ambiente',
-    'Sector Agropecuario',
-    'Administrativo',
+  final List<String> _tiposContratoDisponibles = [
+    'Contrato de obra',
+    'Contrato de prestación de servicios',
+    'Contrato de consultoría',
+    'Contrato de suministro',
+    'Contrato de interventoría',
+    'Contrato de compraventa',
+    'Contrato de arrendamiento',
+  ];
+
+  final List<String> _estadosContrato = [
+    'Todos los estados',
+    'Activo',
+    'En Proceso',
+    'Finalizado',
+    'Suspendido',
+    'Terminado',
   ];
 
   bool _cargando = false;
@@ -66,11 +80,10 @@ class _ReportesPageState extends State<ReportesPage> {
       setState(() {
         controller.text = fecha.toIso8601String().substring(0, 10);
       });
-      _detectarRangoAutomatico(); // 👈 NUEVO: detecta si coincide con un rango
+      _detectarRangoAutomatico();
     }
   }
 
-  // 👇 NUEVO: detecta automáticamente el rango según las fechas seleccionadas
   void _detectarRangoAutomatico() {
     final inicio = _fechaInicioCtrl.text;
     final fin = _fechaFinCtrl.text;
@@ -98,7 +111,6 @@ class _ReportesPageState extends State<ReportesPage> {
       return;
     }
 
-    // Si no coincide con ninguno, desmarcar
     setState(() => _rangoSeleccionado = null);
   }
 
@@ -129,7 +141,7 @@ class _ReportesPageState extends State<ReportesPage> {
     }
 
     setState(() {
-      _rangoSeleccionado = tipo; // 👈 NUEVO: marcar como activo
+      _rangoSeleccionado = tipo;
       _fechaInicioCtrl.text = inicio.toIso8601String().substring(0, 10);
       _fechaFinCtrl.text = fin.toIso8601String().substring(0, 10);
     });
@@ -154,9 +166,18 @@ class _ReportesPageState extends State<ReportesPage> {
 
     try {
       String url =
-          '$_baseUrl/reportes/reporte_actas.php?fecha_inicio=${_fechaInicioCtrl.text}&fecha_fin=${_fechaFinCtrl.text}';
-      if (_areaSeleccionada != null && _areaSeleccionada!.isNotEmpty) {
-        url += '&area=${Uri.encodeComponent(_areaSeleccionada!)}';
+          '$_baseUrl/reportes/reporte_contratos.php?fecha_inicio=${_fechaInicioCtrl.text}&fecha_fin=${_fechaFinCtrl.text}';
+
+      if (_tipoContratoSeleccionado != null &&
+          _tipoContratoSeleccionado!.isNotEmpty &&
+          _tipoContratoSeleccionado != 'Todos los tipos') {
+        url +=
+            '&tipo_contrato=${Uri.encodeComponent(_tipoContratoSeleccionado!)}';
+      }
+
+      if (_estadoSeleccionado != null &&
+          _estadoSeleccionado != 'Todos los estados') {
+        url += '&estado=${Uri.encodeComponent(_estadoSeleccionado!)}';
       }
 
       final response = await http
@@ -188,7 +209,7 @@ class _ReportesPageState extends State<ReportesPage> {
     if (_fechaInicioCtrl.text.isEmpty || _fechaFinCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('⚠️ Debe seleccionar ambas fechas antes de exportar'),
+          content: Text('️ Debe seleccionar ambas fechas antes de exportar'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -196,9 +217,18 @@ class _ReportesPageState extends State<ReportesPage> {
     }
 
     String url =
-        '$_baseUrl/reportes/exportar_excel.php?fecha_inicio=${_fechaInicioCtrl.text}&fecha_fin=${_fechaFinCtrl.text}';
-    if (_areaSeleccionada != null && _areaSeleccionada!.isNotEmpty) {
-      url += '&area=${Uri.encodeComponent(_areaSeleccionada!)}';
+        '$_baseUrl/reportes/exportar_excel_contratos.php?fecha_inicio=${_fechaInicioCtrl.text}&fecha_fin=${_fechaFinCtrl.text}';
+
+    if (_tipoContratoSeleccionado != null &&
+        _tipoContratoSeleccionado!.isNotEmpty &&
+        _tipoContratoSeleccionado != 'Todos los tipos') {
+      url +=
+          '&tipo_contrato=${Uri.encodeComponent(_tipoContratoSeleccionado!)}';
+    }
+
+    if (_estadoSeleccionado != null &&
+        _estadoSeleccionado != 'Todos los estados') {
+      url += '&estado=${Uri.encodeComponent(_estadoSeleccionado!)}';
     }
 
     final uri = Uri.parse(url);
@@ -208,7 +238,7 @@ class _ReportesPageState extends State<ReportesPage> {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Descargando reporte en Excel...'),
+            content: Text('✅ Descargando reporte de contratos en Excel...'),
             backgroundColor: Colors.green,
           ),
         );
@@ -227,262 +257,23 @@ class _ReportesPageState extends State<ReportesPage> {
     }
   }
 
-  Future<void> _verDetalleActa(Map<String, dynamic> actaResumen) async {
-    final actaId = actaResumen['id'];
-    if (actaId == null) return;
+  Future<void> _verDetalleContrato(Map<String, dynamic> fila) async {
+    final contratoId = fila['id'] ?? fila['contrato_id'] ?? 0;
 
-    List<Map<String, dynamic>> itemsEntregados = [];
-    try {
-      final response = await http
-          .get(Uri.parse('$_baseUrl/actas/obtener_acta.php?id=$actaId'))
-          .timeout(const Duration(seconds: 10));
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && data['success'] == true) {
-        itemsEntregados = List<Map<String, dynamic>>.from(
-          data['data']['detalles'] ?? [],
-        );
-      }
-    } catch (e) {
-      debugPrint('Error cargando items: $e');
+    if (contratoId == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo identificar el contrato'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
     }
 
-    if (mounted) _mostrarDialogoDetalle(actaResumen, itemsEntregados);
-  }
-
-  void _mostrarDialogoDetalle(
-    Map<String, dynamic> acta,
-    List<Map<String, dynamic>> items,
-  ) {
-    const Color verde = Color(0xFF2E7D32);
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800, maxHeight: 600),
-          child: SizedBox(
-            width: double.infinity,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
-                    ),
-                    border: Border(
-                      bottom: BorderSide(color: Colors.green.shade200),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.description,
-                        color: Colors.green.shade700,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Detalle Acta #${acta['numero_acta']}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green.shade800,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _infoRow('Entregado a:', acta['entregado_a'] ?? 'N/A'),
-                        _infoRow('Fecha:', _formatDate(acta['fecha_entrega'])),
-                        _infoRow('Área:', acta['area_dependencia'] ?? 'N/A'),
-                        _infoRow(
-                          'Entregado por:',
-                          acta['nombre_entrego'] ?? 'N/A',
-                        ),
-                        const Divider(height: 32),
-                        Text(
-                          'Items Entregados',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: verde,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.green.shade200),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Column(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                color: Colors.green.shade100,
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 4,
-                                      child: Text(
-                                        'Item',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: verde,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        'Contrato',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: verde,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        'Cant.',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: verde,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (items.isEmpty)
-                                const Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Center(
-                                    child: Text('Sin items registrados'),
-                                  ),
-                                )
-                              else
-                                ...items.map(
-                                  (item) => Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        bottom: BorderSide(
-                                          color: Colors.green.shade100,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 4,
-                                          child: Text(
-                                            item['nombre_item'] ?? 'N/A',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            item['numero_contrato'] ?? 'N/A',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Text(
-                                            '${item['cantidad_entregada']}',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: verde,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(16),
-                      bottomRight: Radius.circular(16),
-                    ),
-                  ),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: verde,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text('Cerrar'),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: Colors.grey.shade700,
-              ),
-            ),
-          ),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
-        ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => VistaPreviaContratoPage(contratoId: contratoId),
       ),
     );
   }
@@ -498,6 +289,18 @@ class _ReportesPageState extends State<ReportesPage> {
     }
   }
 
+  String _formatMoney(dynamic value) {
+    if (value == null) return '\$0';
+    try {
+      final numValue = value is String
+          ? double.tryParse(value) ?? 0
+          : value.toDouble();
+      return '\$${numValue.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}';
+    } catch (e) {
+      return '\$0';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const Color verde = Color(0xFF2E7D32);
@@ -510,7 +313,7 @@ class _ReportesPageState extends State<ReportesPage> {
         username: username,
         sector: sector,
         rol: rol,
-        selectedIndex: 7,
+        selectedIndex: 8,
       ),
       body: Column(
         children: [
@@ -585,7 +388,7 @@ class _ReportesPageState extends State<ReportesPage> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Sección De Reportes Por Fecha',
+              'Reportes de Contratos',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 18,
@@ -626,7 +429,7 @@ class _ReportesPageState extends State<ReportesPage> {
             Expanded(
               flex: 2,
               child: const Text(
-                'Sección De Reportes Por Fecha',
+                'Reportes de Contratos',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 22,
@@ -647,11 +450,13 @@ class _ReportesPageState extends State<ReportesPage> {
       controller: _fechaInicioCtrl,
       readOnly: true,
       onTap: () => _seleccionarFecha(_fechaInicioCtrl),
-      decoration: InputDecoration(
+      decoration: const InputDecoration(
         labelText: 'Fecha Inicio',
         hintText: 'Seleccione fecha inicial',
-        suffixIcon: const Icon(Icons.calendar_today),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        suffixIcon: Icon(Icons.calendar_today),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
       ),
     );
 
@@ -659,39 +464,60 @@ class _ReportesPageState extends State<ReportesPage> {
       controller: _fechaFinCtrl,
       readOnly: true,
       onTap: () => _seleccionarFecha(_fechaFinCtrl),
-      decoration: InputDecoration(
+      decoration: const InputDecoration(
         labelText: 'Fecha Fin',
         hintText: 'Seleccione fecha final',
-        suffixIcon: const Icon(Icons.calendar_today),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        suffixIcon: Icon(Icons.calendar_today),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
       ),
     );
 
-    final areaField = DropdownButtonFormField<String>(
-      value: _areaSeleccionada,
-      decoration: InputDecoration(
-        labelText: 'Área / Dependencia (Opcional)',
-        hintText: 'Todas las áreas',
-        suffixIcon: const Icon(Icons.filter_list),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 12,
+    final tipoContratoField = DropdownButtonFormField<String>(
+      value: _tipoContratoSeleccionado ?? 'Todos los tipos',
+      decoration: const InputDecoration(
+        labelText: 'Tipo de Contrato (Opcional)',
+        hintText: 'Todos los tipos',
+        suffixIcon: Icon(Icons.category),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
         ),
       ),
       isExpanded: true,
       items: [
         const DropdownMenuItem<String>(
-          value: '',
-          child: Text('Todas las áreas', style: TextStyle(color: Colors.grey)),
+          value: 'Todos los tipos',
+          child: Text('Todos los tipos', style: TextStyle(color: Colors.grey)),
         ),
-        ..._areasDisponibles.map(
-          (String area) =>
-              DropdownMenuItem<String>(value: area, child: Text(area)),
+        ..._tiposContratoDisponibles.map(
+          (String tipo) =>
+              DropdownMenuItem<String>(value: tipo, child: Text(tipo)),
         ),
       ],
       onChanged: (String? newValue) =>
-          setState(() => _areaSeleccionada = newValue),
+          setState(() => _tipoContratoSeleccionado = newValue),
+    );
+
+    final estadoField = DropdownButtonFormField<String>(
+      value: _estadoSeleccionado ?? 'Todos los estados',
+      decoration: const InputDecoration(
+        labelText: 'Estado del Contrato (Opcional)',
+        hintText: 'Todos los estados',
+        suffixIcon: Icon(Icons.track_changes),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
+      ),
+      isExpanded: true,
+      items: _estadosContrato
+          .map(
+            (String estado) =>
+                DropdownMenuItem<String>(value: estado, child: Text(estado)),
+          )
+          .toList(),
+      onChanged: (String? newValue) =>
+          setState(() => _estadoSeleccionado = newValue),
     );
 
     return Card(
@@ -722,7 +548,9 @@ class _ReportesPageState extends State<ReportesPage> {
               const SizedBox(height: 16),
               fechaFinField,
               const SizedBox(height: 16),
-              areaField,
+              tipoContratoField,
+              const SizedBox(height: 16),
+              estadoField,
             ] else ...[
               Row(
                 children: [
@@ -732,7 +560,13 @@ class _ReportesPageState extends State<ReportesPage> {
                 ],
               ),
               const SizedBox(height: 16),
-              areaField,
+              Row(
+                children: [
+                  Expanded(child: tipoContratoField),
+                  const SizedBox(width: 16),
+                  Expanded(child: estadoField),
+                ],
+              ),
             ],
             const SizedBox(height: 16),
             const Text(
@@ -843,8 +677,9 @@ class _ReportesPageState extends State<ReportesPage> {
                     setState(() {
                       _fechaInicioCtrl.clear();
                       _fechaFinCtrl.clear();
-                      _areaSeleccionada = null;
-                      _rangoSeleccionado = null; // 👈 NUEVO
+                      _tipoContratoSeleccionado = null;
+                      _estadoSeleccionado = null;
+                      _rangoSeleccionado = null;
                       _reporteGenerado = false;
                       _resultados.clear();
                       _resumen = null;
@@ -927,8 +762,9 @@ class _ReportesPageState extends State<ReportesPage> {
                         setState(() {
                           _fechaInicioCtrl.clear();
                           _fechaFinCtrl.clear();
-                          _areaSeleccionada = null;
-                          _rangoSeleccionado = null; // 👈 NUEVO
+                          _tipoContratoSeleccionado = null;
+                          _estadoSeleccionado = null;
+                          _rangoSeleccionado = null;
                           _reporteGenerado = false;
                           _resultados.clear();
                           _resumen = null;
@@ -954,11 +790,9 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-  // 👇 MÉTODO ACTUALIZADO: cambia de color a verde cuando está seleccionado
   Widget _buildRangoButton(String label, String tipo, bool isMobile) {
     final bool seleccionado = _rangoSeleccionado == tipo;
     const Color verde = Color(0xFF2E7D32);
-
     return OutlinedButton(
       onPressed: () => _establecerRangoRapido(tipo),
       style: OutlinedButton.styleFrom(
@@ -993,14 +827,13 @@ class _ReportesPageState extends State<ReportesPage> {
   }
 
   Widget _buildContenido(Color verde, bool isMobile) {
-    if (_cargando) {
+    if (_cargando)
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(40),
           child: CircularProgressIndicator(color: Colors.green),
         ),
       );
-    }
 
     if (_errorMensaje != null) {
       return Card(
@@ -1029,7 +862,7 @@ class _ReportesPageState extends State<ReportesPage> {
           padding: EdgeInsets.all(40),
           child: Column(
             children: [
-              Icon(Icons.bar_chart, size: 64, color: Colors.grey),
+              Icon(Icons.assignment, size: 64, color: Colors.grey),
               SizedBox(height: 16),
               Text(
                 'Seleccione un rango de fechas y presione "Generar Reporte"',
@@ -1047,7 +880,8 @@ class _ReportesPageState extends State<ReportesPage> {
 
     return Column(
       children: [
-        if (_areaSeleccionada != null && _areaSeleccionada!.isNotEmpty)
+        if (_tipoContratoSeleccionado != null &&
+            _tipoContratoSeleccionado != 'Todos los tipos')
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             margin: const EdgeInsets.only(bottom: 16),
@@ -1062,9 +896,40 @@ class _ReportesPageState extends State<ReportesPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Filtrando por: $_areaSeleccionada',
+                    'Filtrando por tipo: $_tipoContratoSeleccionado',
                     style: TextStyle(
                       color: Colors.blue.shade700,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (_estadoSeleccionado != null &&
+            _estadoSeleccionado != 'Todos los estados')
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: Colors.purple.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.purple.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.track_changes,
+                  color: Colors.purple.shade700,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Filtrando por estado: $_estadoSeleccionado',
+                    style: TextStyle(
+                      color: Colors.purple.shade700,
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
                     ),
@@ -1076,52 +941,52 @@ class _ReportesPageState extends State<ReportesPage> {
         if (_resumen != null) ...[
           if (isMobile) ...[
             _buildResumenCard(
-              'Total Actas',
-              '${_resumen!['total_actas']}',
-              Icons.description,
+              'Total Contratos',
+              '${_resumen!['total_contratos'] ?? 0}',
+              Icons.assignment,
               Colors.blue,
               isMobile,
             ),
             const SizedBox(height: 12),
             _buildResumenCard(
-              'Total Items',
-              '${_resumen!['total_items']}',
-              Icons.inventory_2,
-              Colors.orange,
+              'Valor Total',
+              _formatMoney(_resumen!['valor_total'] ?? 0),
+              Icons.attach_money,
+              Colors.green,
               isMobile,
             ),
             const SizedBox(height: 12),
             _buildResumenCard(
-              'Cant. Entregada',
-              '${_resumen!['total_cantidad']}',
-              Icons.shopping_cart,
-              Colors.green,
+              'Contratos Activos',
+              '${_resumen!['contratos_activos'] ?? 0}',
+              Icons.check_circle,
+              Colors.orange,
               isMobile,
             ),
           ] else
             Row(
               children: [
                 _buildResumenCard(
-                  'Total Actas',
-                  '${_resumen!['total_actas']}',
-                  Icons.description,
+                  'Total Contratos',
+                  '${_resumen!['total_contratos'] ?? 0}',
+                  Icons.assignment,
                   Colors.blue,
                   isMobile,
                 ),
                 const SizedBox(width: 16),
                 _buildResumenCard(
-                  'Total Items',
-                  '${_resumen!['total_items']}',
-                  Icons.inventory_2,
-                  Colors.orange,
+                  'Valor Total',
+                  _formatMoney(_resumen!['valor_total'] ?? 0),
+                  Icons.attach_money,
+                  Colors.green,
                   isMobile,
                 ),
                 const SizedBox(width: 16),
                 _buildResumenCard(
-                  'Cant. Entregada',
-                  '${_resumen!['total_cantidad']}',
-                  Icons.shopping_cart,
-                  Colors.green,
+                  'Contratos Activos',
+                  '${_resumen!['contratos_activos'] ?? 0}',
+                  Icons.check_circle,
+                  Colors.orange,
                   isMobile,
                 ),
               ],
@@ -1137,7 +1002,7 @@ class _ReportesPageState extends State<ReportesPage> {
                   Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
                   const SizedBox(height: 12),
                   Text(
-                    'No se encontraron actas en este rango de fechas',
+                    'No se encontraron contratos en este rango de fechas',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey.shade600,
@@ -1158,11 +1023,11 @@ class _ReportesPageState extends State<ReportesPage> {
 
   Widget _buildResultadosMobile(Color verde) {
     return Column(
-      children: _resultados.map((acta) {
+      children: _resultados.map((contrato) {
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           child: InkWell(
-            onTap: () => _verDetalleActa(acta),
+            onTap: () => _verDetalleContrato(contrato),
             borderRadius: BorderRadius.circular(8),
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -1177,24 +1042,37 @@ class _ReportesPageState extends State<ReportesPage> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade50,
+                          color: Colors.blue.shade50,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          'Acta #${acta['numero_acta'] ?? 'N/A'}',
+                          'Contrato #${contrato['numero_contrato'] ?? 'N/A'}',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: verde,
+                            color: Colors.blue.shade700,
                             fontSize: 13,
                           ),
                         ),
                       ),
                       const Spacer(),
-                      Text(
-                        _formatDate(acta['fecha_entrega']),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getEstadoColor(
+                            contrato['estado'],
+                          ).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          contrato['estado'] ?? 'N/A',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _getEstadoColor(contrato['estado']),
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ],
@@ -1205,29 +1083,24 @@ class _ReportesPageState extends State<ReportesPage> {
                     runSpacing: 6,
                     children: [
                       _buildBadge(
-                        'Entregado a',
-                        acta['entregado_a'] ?? 'N/A',
-                        Colors.blue,
-                      ),
-                      _buildBadge(
-                        'Entregado por',
-                        acta['nombre_entrego'] ?? 'N/A',
+                        'Proveedor',
+                        contrato['proveedor'] ?? 'N/A',
                         Colors.purple,
                       ),
                       _buildBadge(
-                        'Área',
-                        acta['area_dependencia'] ?? 'N/A',
-                        Colors.orange,
-                      ),
-                      _buildBadge(
-                        'Items',
-                        '${acta['total_items']}',
+                        'Valor',
+                        _formatMoney(contrato['valor_total']),
                         Colors.green,
                       ),
                       _buildBadge(
-                        'Cantidad',
-                        '${acta['total_cantidad']}',
-                        Colors.teal,
+                        'Fecha Inicio',
+                        _formatDate(contrato['fecha_inicio']),
+                        Colors.blue,
+                      ),
+                      _buildBadge(
+                        'Fecha Fin',
+                        _formatDate(contrato['fecha_fin']),
+                        Colors.orange,
                       ),
                     ],
                   ),
@@ -1240,13 +1113,30 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
+  Color _getEstadoColor(String? estado) {
+    switch (estado?.toLowerCase()) {
+      case 'activo':
+      case 'en ejecución':
+        return Colors.green;
+      case 'en proceso':
+        return Colors.orange;
+      case 'finalizado':
+      case 'terminado':
+        return Colors.blue;
+      case 'suspendido':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
   Widget _buildBadge(String label, String value, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1281,7 +1171,7 @@ class _ReportesPageState extends State<ReportesPage> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: verde.withOpacity(0.1),
+              color: Colors.blue.shade50,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
@@ -1292,62 +1182,72 @@ class _ReportesPageState extends State<ReportesPage> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Acta',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
+                    'Contrato',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
                   ),
                 ),
                 Expanded(
                   flex: 2,
                   child: Text(
-                    'Fecha',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
+                    'Proveedor',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
                   ),
                 ),
                 Expanded(
-                  flex: 3,
+                  flex: 2,
                   child: Text(
-                    'Entregado a',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
+                    'Fecha Inicio',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
                   ),
                 ),
                 Expanded(
-                  flex: 3,
+                  flex: 2,
                   child: Text(
-                    'Entregado por',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
+                    'Fecha Fin',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
                   ),
                 ),
                 Expanded(
-                  flex: 3,
+                  flex: 2,
                   child: Text(
-                    'Área',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
+                    'Valor Total',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
                   ),
                 ),
                 Expanded(
                   flex: 1,
                   child: Text(
-                    'Items',
+                    'Estado',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
-                  ),
-                ),
-                Expanded(
-                  flex: 1,
-                  child: Text(
-                    'Cant.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: verde),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue.shade700,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          ..._resultados.map((acta) {
+          ..._resultados.map((contrato) {
             return InkWell(
-              onTap: () => _verDetalleActa(acta),
+              onTap: () => _verDetalleContrato(contrato),
               borderRadius: BorderRadius.circular(8),
-              hoverColor: Colors.green.withOpacity(0.05),
+              hoverColor: Colors.blue.withValues(alpha: 0.05),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -1368,14 +1268,14 @@ class _ReportesPageState extends State<ReportesPage> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade50,
+                          color: Colors.blue.shade50,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          acta['numero_acta'] ?? 'N/A',
+                          contrato['numero_contrato'] ?? 'N/A',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: verde,
+                            color: Colors.blue.shade700,
                             fontSize: 13,
                           ),
                         ),
@@ -1385,37 +1285,35 @@ class _ReportesPageState extends State<ReportesPage> {
                     Expanded(
                       flex: 2,
                       child: Text(
-                        _formatDate(acta['fecha_entrega']),
+                        contrato['proveedor'] ?? 'N/A',
                         style: const TextStyle(fontSize: 13),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      flex: 3,
+                      flex: 2,
                       child: Text(
-                        acta['entregado_a'] ?? 'N/A',
-                        style: const TextStyle(
+                        _formatDate(contrato['fecha_inicio']),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        _formatDate(contrato['fecha_fin']),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        _formatMoney(contrato['valor_total']),
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 3,
-                      child: Text(
-                        acta['nombre_entrego'] ?? 'N/A',
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 3,
-                      child: Text(
-                        acta['area_dependencia'] ?? 'N/A',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade700,
+                          color: Colors.green.shade700,
                         ),
                       ),
                     ),
@@ -1428,37 +1326,18 @@ class _ReportesPageState extends State<ReportesPage> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
+                          color: _getEstadoColor(
+                            contrato['estado'],
+                          ).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          '${acta['total_items']}',
+                          contrato['estado'] ?? 'N/A',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.orange.shade700,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 1,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '${acta['total_cantidad']}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade700,
+                            color: _getEstadoColor(contrato['estado']),
+                            fontSize: 11,
                           ),
                         ),
                       ),
@@ -1491,7 +1370,7 @@ class _ReportesPageState extends State<ReportesPage> {
               Container(
                 padding: EdgeInsets.all(isMobile ? 10 : 12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icono, color: color, size: isMobile ? 24 : 28),

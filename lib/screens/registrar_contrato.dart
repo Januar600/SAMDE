@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart'; // ✅ para PointerDeviceKind (arrastre con mouse)
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/drawer_menu.dart';
@@ -221,137 +222,197 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                           border: Border.all(color: Colors.grey.shade300),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            columnSpacing: 12,
-                            headingRowHeight: 36,
-                            headingRowColor: WidgetStateProperty.all(
-                              Colors.green.shade50,
+                        clipBehavior: Clip.antiAlias,
+                        // ✅ Vista previa: parte fija + parte con scroll
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DataTable(
+                              columnSpacing: 12,
+                              headingRowHeight: 36,
+                              dataRowMinHeight: 38,
+                              dataRowMaxHeight: 38,
+                              horizontalMargin: 12,
+                              headingRowColor: WidgetStateProperty.all(
+                                Colors.green.shade50,
+                              ),
+                              columns: ['#', 'Código', 'Item']
+                                  .map(
+                                    (l) => DataColumn(
+                                      label: Text(
+                                        l,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                              rows: items.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final item = entry.value;
+                                return DataRow(
+                                  cells: [
+                                    DataCell(Text('${index + 1}')),
+                                    DataCell(
+                                      Text(
+                                        item['codigo']?.toString() ?? '-',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      SizedBox(
+                                        width: 140,
+                                        child: Text(
+                                          item['nombre']?.toString() ?? 'N/A',
+                                          style: const TextStyle(fontSize: 12),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList(),
                             ),
-                            columns: const [
-                              DataColumn(
-                                label: Text(
-                                  '#',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Código',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Item',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Descripción',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Unidad',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Cantidad',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'V. Unitario',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Subtotal',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                            rows: items.asMap().entries.map((entry) {
-                              final index = entry.key;
-                              final item = entry.value;
-                              final cantidad =
-                                  double.tryParse(
-                                    item['cantidad']?.toString() ?? '0',
-                                  ) ??
-                                  0;
-                              final valorUnitario =
-                                  double.tryParse(
-                                    item['valor_unitario']?.toString() ?? '0',
-                                  ) ??
-                                  0;
-                              final subtotal = cantidad * valorUnitario;
+                            Container(width: 1, color: Colors.grey.shade300),
+                            Expanded(
+                              child: ScrollConfiguration(
+                                behavior: ScrollConfiguration.of(context)
+                                    .copyWith(
+                                      dragDevices: PointerDeviceKind.values
+                                          .toSet(),
+                                    ),
+                                child: Scrollbar(
+                                  thumbVisibility: true,
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: DataTable(
+                                      columnSpacing: 12,
+                                      headingRowHeight: 36,
+                                      dataRowMinHeight: 38,
+                                      dataRowMaxHeight: 38,
+                                      horizontalMargin: 12,
+                                      headingRowColor: WidgetStateProperty.all(
+                                        Colors.green.shade50,
+                                      ),
+                                      columns: const [
+                                        DataColumn(
+                                          label: Text(
+                                            'Descripción',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        DataColumn(
+                                          label: Text(
+                                            'Unidad',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        DataColumn(
+                                          label: Text(
+                                            'Cantidad',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        DataColumn(
+                                          label: Text(
+                                            'V. Unitario',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                        DataColumn(
+                                          label: Text(
+                                            'Subtotal',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                      rows: items.asMap().entries.map((entry) {
+                                        final item = entry.value;
+                                        final cantidad =
+                                            double.tryParse(
+                                              item['cantidad']?.toString() ??
+                                                  '0',
+                                            ) ??
+                                            0;
+                                        final valorUnitario =
+                                            double.tryParse(
+                                              item['valor_unitario']
+                                                      ?.toString() ??
+                                                  '0',
+                                            ) ??
+                                            0;
+                                        final subtotal =
+                                            cantidad * valorUnitario;
 
-                              return DataRow(
-                                cells: [
-                                  DataCell(Text('${index + 1}')),
-                                  DataCell(
-                                    Text(
-                                      item['codigo']?.toString() ?? '-',
-                                      style: const TextStyle(fontSize: 12),
+                                        return DataRow(
+                                          cells: [
+                                            DataCell(
+                                              Text(
+                                                item['descripcion']
+                                                        ?.toString() ??
+                                                    '-',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Text(
+                                                item['unidad']?.toString() ??
+                                                    '-',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Text(
+                                                _formatearConPuntos(cantidad),
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Text(
+                                                '\$${_formatearConPuntos(valorUnitario)}',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Text(
+                                                '\$${_formatearConPuntos(subtotal)}',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                  color: Color(0xFF2E7D32),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      }).toList(),
                                     ),
                                   ),
-                                  DataCell(
-                                    Text(
-                                      item['nombre']?.toString() ?? 'N/A',
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    SizedBox(
-                                      width: 120,
-                                      child: Text(
-                                        item['descripcion']?.toString() ?? '-',
-                                        style: const TextStyle(fontSize: 11),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      item['unidad']?.toString() ?? '-',
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      _formatearConPuntos(cantidad),
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      '\$${_formatearConPuntos(valorUnitario)}',
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      '\$${_formatearConPuntos(subtotal)}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                        color: Color(0xFF2E7D32),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }).toList(),
-                          ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     const SizedBox(height: 16),
@@ -1552,113 +1613,198 @@ class _RegistrarContratoPageState extends State<RegistrarContratoPage> {
                   border: Border.all(color: Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    columnSpacing: 10,
-                    headingRowHeight: 36,
-                    dataRowMinHeight: 38,
-                    headingRowColor: WidgetStateProperty.all(
-                      Colors.green.shade50,
-                    ),
-                    columns:
-                        [
-                              '#',
-                              'Código',
-                              'Nombre',
-                              'Descripción',
-                              'Unidad',
-                              'Cant.',
-                              'V. Unit.',
-                              'Subtotal',
-                              '',
-                            ]
-                            .map(
-                              (l) => DataColumn(
-                                label: Text(
-                                  l,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: verde,
-                                  ),
+                clipBehavior: Clip.antiAlias,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ✅ IZQUIERDA FIJA: #, Código y Nombre
+                    DataTable(
+                      columnSpacing: 10,
+                      headingRowHeight: 36,
+                      dataRowMinHeight: 38,
+                      dataRowMaxHeight: 38,
+                      horizontalMargin: 12,
+                      headingRowColor: WidgetStateProperty.all(
+                        Colors.green.shade50,
+                      ),
+                      columns: ['#', 'Código', 'Nombre']
+                          .map(
+                            (l) => DataColumn(
+                              label: Text(
+                                l,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: verde,
                                 ),
                               ),
-                            )
-                            .toList(),
-                    rows: _items.asMap().entries.map((e) {
-                      final i = e.key;
-                      final item = e.value;
-                      return DataRow(
-                        cells: [
-                          DataCell(
-                            Text(
-                              '${i + 1}',
-                              style: const TextStyle(fontSize: 12),
                             ),
-                          ),
-                          DataCell(
-                            Text(
-                              item['codigo'] ?? '',
-                              style: const TextStyle(fontSize: 12),
+                          )
+                          .toList(),
+                      rows: _items.asMap().entries.map((e) {
+                        final i = e.key;
+                        final item = e.value;
+                        return DataRow(
+                          cells: [
+                            DataCell(
+                              Text(
+                                '${i + 1}',
+                                style: const TextStyle(fontSize: 12),
+                              ),
                             ),
-                          ),
-                          DataCell(
-                            Text(
-                              item['nombre'] ?? '',
-                              style: const TextStyle(fontSize: 12),
+                            DataCell(
+                              Text(
+                                item['codigo'] ?? '',
+                                style: const TextStyle(fontSize: 12),
+                              ),
                             ),
-                          ),
-                          DataCell(
-                            Text(
-                              item['descripcion'] ?? '',
-                              style: const TextStyle(fontSize: 12),
+                            DataCell(
+                              SizedBox(
+                                width: 180,
+                                child: Text(
+                                  item['nombre'] ?? '',
+                                  style: const TextStyle(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ),
-                          ),
-                          DataCell(
-                            Text(
-                              item['unidad'] ?? '',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                          DataCell(
-                            Text(
-                              _formatearConPuntos(item['cantidad']),
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                          DataCell(
-                            Text(
-                              '\$${_formatearConPuntos(item['valor_unitario'])}',
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
-                          DataCell(
-                            Text(
-                              '\$${_formatearConPuntos(item['subtotal'])}',
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                    Container(width: 1, color: Colors.grey.shade300),
+                    // ✅ CENTRO: título "Descripción" FIJO + contenido con scroll
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Container(
+                            height: 36,
+                            color: Colors.green.shade50,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Descripción',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 color: verde,
                               ),
                             ),
                           ),
-                          DataCell(
-                            IconButton(
-                              icon: Icon(
-                                Icons.delete_outline,
-                                color: Colors.red.shade400,
-                                size: 18,
+                          ScrollConfiguration(
+                            behavior: ScrollConfiguration.of(context).copyWith(
+                              dragDevices: PointerDeviceKind.values.toSet(),
+                            ),
+                            child: Scrollbar(
+                              thumbVisibility: true,
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    for (int i = 0; i < _items.length; i++)
+                                      Container(
+                                        height: 38,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
+                                        alignment: Alignment.centerLeft,
+                                        decoration: BoxDecoration(
+                                          border: Border(
+                                            bottom: BorderSide(
+                                              color: Colors.grey.shade300,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          _items[i]['descripcion'] ?? '',
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
-                              onPressed: () => _eliminarItem(i),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
                             ),
                           ),
                         ],
-                      );
-                    }).toList(),
-                  ),
+                      ),
+                    ),
+                    Container(width: 1, color: Colors.grey.shade300),
+                    // ✅ DERECHA FIJA: valores siempre visibles
+                    DataTable(
+                      columnSpacing: 10,
+                      headingRowHeight: 36,
+                      dataRowMinHeight: 38,
+                      dataRowMaxHeight: 38,
+                      horizontalMargin: 12,
+                      headingRowColor: WidgetStateProperty.all(
+                        Colors.green.shade50,
+                      ),
+                      columns: ['Unidad', 'Cant.', 'V. Unit.', 'Subtotal', '']
+                          .map(
+                            (l) => DataColumn(
+                              label: Text(
+                                l,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: verde,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      rows: _items.asMap().entries.map((e) {
+                        final i = e.key;
+                        final item = e.value;
+                        return DataRow(
+                          cells: [
+                            DataCell(
+                              Text(
+                                item['unidad'] ?? '',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                _formatearConPuntos(item['cantidad']),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                '\$${_formatearConPuntos(item['valor_unitario'])}',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            DataCell(
+                              Text(
+                                '\$${_formatearConPuntos(item['subtotal'])}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: verde,
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.red.shade400,
+                                  size: 18,
+                                ),
+                                onPressed: () => _eliminarItem(i),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
               ),
         const SizedBox(height: 12),

@@ -14,6 +14,7 @@ import 'screens/consultar_ingresos.dart';
 import 'screens/consultar_contrato.dart';
 //reportes
 import 'screens/reportes.dart';
+import 'screens/reportes_contrato.dart';
 
 void main() {
   runApp(const MyApp());
@@ -66,6 +67,7 @@ class MyApp extends StatelessWidget {
         '/consultar_contrato': (context) => const ConsultarContratoPage(),
         //reportes
         '/reportes': (context) => const ReportesPage(),
+        '/reportes_contratos': (context) => const ReportesContratosPage(),
       },
     );
   }

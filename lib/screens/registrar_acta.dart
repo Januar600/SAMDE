@@ -33,6 +33,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
     'Asociación / Organización',
     'Pequeño Productor',
     'Unidades Productivas',
+    'Institución',
   ];
 
   String? _zonaSeleccionada;
@@ -939,7 +940,7 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
         sector: sector,
         rol: rol,
         usuarioId: usuarioId,
-        selectedIndex: 1,
+        selectedIndex: 5,
       ),
       body: Column(
         children: [
@@ -1295,7 +1296,8 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
   Widget _buildSeccionDatos(Color verde, bool isMobile) {
     final esAsociacion =
         _tipoBeneficiarioSeleccionado == 'Asociación / Organización' ||
-        _tipoBeneficiarioSeleccionado == 'Unidades Productivas';
+        _tipoBeneficiarioSeleccionado == 'Unidades Productivas' ||
+        _tipoBeneficiarioSeleccionado == 'Institución';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1345,7 +1347,8 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
               setState(() {
                 _tipoBeneficiarioSeleccionado = newValue;
                 if (newValue != 'Asociación / Organización' &&
-                    newValue != 'Unidades Productivas') {
+                    newValue != 'Unidades Productivas' &&
+                    newValue != 'Institución') {
                   _representanteLegalController.clear();
                   _docIdentRLController.clear();
                 }
@@ -1497,7 +1500,8 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                     setState(() {
                       _tipoBeneficiarioSeleccionado = newValue;
                       if (newValue != 'Asociación / Organización' &&
-                          newValue != 'Unidades Productivas') {
+                          newValue != 'Unidades Productivas' &&
+                          newValue != 'Institición') {
                         _representanteLegalController.clear();
                         _docIdentRLController.clear();
                       }
@@ -2815,7 +2819,9 @@ class _RegistrarActaPageState extends State<RegistrarActaPage> {
                         const SizedBox(height: 20),
                         if (acta['tipo_beneficiario'] ==
                                 'Asociación / Organización' ||
-                            acta['tipo_beneficiario'] == 'Unidades Productivas')
+                            acta['tipo_beneficiario'] ==
+                                'Unidades Productivas' ||
+                            acta['tipo_beneficiario'] == 'Institución')
                           _buildInfoSection('Representante Legal', [
                             if (acta['representante_legal'] != null &&
                                 acta['representante_legal']

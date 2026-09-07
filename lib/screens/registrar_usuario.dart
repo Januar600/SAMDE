@@ -180,22 +180,35 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     bool ocultarPassword = true;
     String editRolSeleccionado = usuario['rol'] ?? 'consulta';
     String editSectorSeleccionado = 'No Asignado';
+
     if (usuario['sector'] != null && usuario['sector'].toString().isNotEmpty) {
       String sectorBd = usuario['sector'].toString();
       if ([
         'Medio Ambiente',
         'Agropecuario',
         'Desarrollo Económico',
+        'Administrativo',
       ].contains(sectorBd)) {
         editSectorSeleccionado = sectorBd;
       }
     }
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 24,
+              ), // <-- 1. Margen exterior
+              contentPadding: const EdgeInsets.fromLTRB(
+                24,
+                16,
+                24,
+                16,
+              ), // <-- 2. Padding interno del contenido
               title: Row(
                 children: const [
                   Icon(Icons.edit, color: Colors.blue),
@@ -205,11 +218,13 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
               ),
               content: SingleChildScrollView(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 500),
+                  constraints: const BoxConstraints(
+                    minWidth: 500,
+                    maxWidth: 600,
+                  ), // <-- 3. Ancho mínimo y máximo
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const SizedBox(height: 10),
                       TextField(
                         controller: editUsernameController,
                         decoration: const InputDecoration(
@@ -318,6 +333,10 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                                 value: 'Desarrollo Económico',
                                 child: Text('DESARROLLO ECONÓMICO'),
                               ),
+                              DropdownMenuItem(
+                                value: 'Administrativo',
+                                child: Text('ADMINISTRATIVO'),
+                              ),
                             ],
                             onChanged: (value) => setDialogState(
                               () => editSectorSeleccionado = value!,
@@ -410,7 +429,7 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Ocultar Usuario"),
+        title: const Text("Eliminar Usuario"),
         content: Text("¿Seguro que deseas enviar a $username a la papelera?"),
         actions: [
           TextButton(
@@ -429,103 +448,179 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
     );
   }
 
-  void _mostrarPapeleraDialog() {
+  void _confirmarRestauracion(String username, VoidCallback onConfirmado) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.restore, color: Colors.green),
+            SizedBox(width: 10),
+            Text("Restaurar Usuario"),
+          ],
+        ),
+        content: Text(
+          "¿Deseas restaurar a $username y devolverlo a la lista de usuarios activos?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancelar"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            onPressed: () {
+              Navigator.pop(context);
+              onConfirmado();
+            },
+            child: const Text(
+              "Restaurar",
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _mostrarPapelera() {
     List usuariosEliminados = listaUsuarios
         .where((u) => u['estado'] == 3)
         .toList();
+
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Row(
-            children: const [
-              Icon(Icons.delete_sweep, color: Colors.red),
-              SizedBox(width: 10),
-              Text('Papelera de Usuarios'),
-            ],
-          ),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600, maxHeight: 500),
-            child: SizedBox(
-              width: double.infinity,
-              height: 400,
-              child: usuariosEliminados.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'La papelera está vacía.',
-                        style: TextStyle(color: Colors.grey, fontSize: 16),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Row(
+                children: const [
+                  SizedBox(width: 10),
+                  Text('Papelera de Usuarios'),
+                ],
+              ),
+              content: SizedBox(
+                width: 450,
+                child: usuariosEliminados.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Text('No hay usuarios en la papelera.'),
+                      )
+                    : SizedBox(
+                        height: 320,
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: usuariosEliminados.length,
+                          itemBuilder: (context, index) {
+                            final usuario = usuariosEliminados[index];
+                            return ListTile(
+                              leading: const CircleAvatar(
+                                backgroundColor: Color(0xFFF1D0D0),
+                                child: Icon(
+                                  Icons.person_off,
+                                  color: Colors.red,
+                                ),
+                              ),
+                              title: Text(usuario['username'] ?? 'Sin nombre'),
+                              subtitle: Text(usuario['email'] ?? 'Sin correo'),
+                              trailing: IconButton(
+                                icon: const Icon(
+                                  Icons.restore,
+                                  color: Colors.green,
+                                ),
+                                tooltip: 'Restaurar usuario',
+                                onPressed: () {
+                                  _confirmarRestauracion(
+                                    usuario['username'] ?? 'este usuario',
+                                    () async {
+                                      await _cambiarEstadoUsuario(
+                                        usuario['id'],
+                                        1,
+                                      );
+                                      setDialogState(() {
+                                        usuariosEliminados.removeAt(index);
+                                      });
+                                      if (usuariosEliminados.isEmpty) {
+                                        Navigator.of(context).pop();
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                    )
-                  : ListView.builder(
-                      itemCount: usuariosEliminados.length,
-                      itemBuilder: (context, index) {
-                        final usuario = usuariosEliminados[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 5),
-                          color: Colors.grey[100],
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0,
-                              vertical: 8.0,
-                            ),
-                            child: Row(
-                              children: [
-                                const CircleAvatar(
-                                  backgroundColor: Colors.grey,
-                                  child: Icon(
-                                    Icons.person,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        usuario['username'] ?? 'Sin usuario',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        usuario['email'] ?? 'Sin correo',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.settings_backup_restore,
-                                    color: Colors.green,
-                                  ),
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                    _cambiarEstadoUsuario(usuario['id'], 1);
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cerrar'),
-            ),
-          ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cerrar'),
+                ),
+              ],
+            );
+          },
         );
       },
+    );
+  }
+
+  Widget _buildBotonPapelera(Color color, {double size = 28}) {
+    final int cantidadEliminados = listaUsuarios
+        .where((u) => u['estado'] == 3)
+        .length;
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, right: 8),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.9),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: IconButton(
+              icon: Icon(Icons.delete_rounded, color: color, size: 24),
+              tooltip: 'Papelera de usuarios',
+              onPressed: _mostrarPapelera,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ),
+          if (cantidadEliminados > 0)
+            Positioned(
+              right: -2,
+              top: -2,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                child: Text(
+                  '$cantidadEliminados',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -596,11 +691,6 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _mostrarPapeleraDialog,
-        backgroundColor: const Color.fromARGB(255, 227, 6, 6),
-        child: const Icon(Icons.delete_sweep, color: Colors.white),
-      ),
     );
   }
 
@@ -640,6 +730,10 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
+                  ),
+                  Positioned(
+                    right: 0,
+                    child: _buildBotonPapelera(verdeInstitucional),
                   ),
                 ],
               ),
@@ -696,7 +790,13 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                 ),
               ),
             ),
-            const Expanded(flex: 2, child: SizedBox()),
+            Expanded(
+              flex: 2,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: _buildBotonPapelera(verdeInstitucional, size: 30),
+              ),
+            ),
           ],
         ),
       );
@@ -815,6 +915,10 @@ class _RegistrarUsuarioState extends State<RegistrarUsuario> {
                     DropdownMenuItem(
                       value: 'Desarrollo Económico',
                       child: Text('DESARROLLO ECONÓMICO'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Administrativo',
+                      child: Text('ADMINISTRATIVO'),
                     ),
                   ],
                   onChanged: (value) =>

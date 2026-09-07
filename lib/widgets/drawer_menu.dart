@@ -38,6 +38,9 @@ class DrawerMenu extends StatelessWidget {
         ? username[0].toUpperCase()
         : 'U';
 
+    // ✅ Verificamos si alguna opción de reportes está activa para mantener el menú abierto y resaltado
+    final bool isReportesActive = selectedIndex == 7 || selectedIndex == 8;
+
     return Drawer(
       child: Container(
         color: Colors.white,
@@ -99,14 +102,18 @@ class DrawerMenu extends StatelessWidget {
                             Text(
                               'ROL: ${rol.toUpperCase()}',
                               style: TextStyle(
-                                color: verdeInstitucional.withOpacity(0.7),
+                                color: verdeInstitucional.withValues(
+                                  alpha: 0.7,
+                                ),
                                 fontSize: 11,
                               ),
                             ),
                             Text(
                               sector,
                               style: TextStyle(
-                                color: verdeInstitucional.withOpacity(0.6),
+                                color: verdeInstitucional.withValues(
+                                  alpha: 0.6,
+                                ),
                                 fontSize: 10,
                               ),
                             ),
@@ -180,13 +187,63 @@ class DrawerMenu extends StatelessWidget {
                       selectedIndex: selectedIndex,
                       route: '/historial_movimientos',
                     ),
-                    _buildMenuItem(
-                      context,
-                      icon: Icons.bar_chart,
-                      title: 'Reportes',
-                      index: 7,
-                      selectedIndex: selectedIndex,
-                      route: '/reportes',
+
+                    // ✅ NUEVO: Submenú de Reportes usando ExpansionTile
+                    ExpansionTile(
+                      initiallyExpanded: isReportesActive,
+                      iconColor: isReportesActive
+                          ? verdeInstitucional
+                          : Colors.grey.shade700,
+                      textColor: isReportesActive
+                          ? verdeInstitucional
+                          : Colors.grey.shade800,
+                      leading: Icon(
+                        Icons.bar_chart,
+                        color: isReportesActive
+                            ? verdeInstitucional
+                            : Colors.grey.shade700,
+                        size: 22,
+                      ),
+                      title: Text(
+                        'Reportes',
+                        style: TextStyle(
+                          color: isReportesActive
+                              ? verdeInstitucional
+                              : Colors.grey.shade800,
+                          fontWeight: isReportesActive
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          fontSize: 14,
+                        ),
+                      ),
+                      trailing: isReportesActive
+                          ? Container(
+                              width: 4,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: verdeInstitucional,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            )
+                          : null,
+                      children: [
+                        _buildSubMenuItem(
+                          context,
+                          icon: Icons.description,
+                          title: 'Reportes por fecha',
+                          index: 7,
+                          selectedIndex: selectedIndex,
+                          route: '/reportes',
+                        ),
+                        _buildSubMenuItem(
+                          context,
+                          icon: Icons.folder_copy, // Icono para contratos
+                          title: 'Contratos',
+                          index: 8,
+                          selectedIndex: selectedIndex,
+                          route: '/reportes_contratos',
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -216,6 +273,7 @@ class DrawerMenu extends StatelessWidget {
     );
   }
 
+  /// ✅ Método original para items de primer nivel
   Widget _buildMenuItem(
     BuildContext context, {
     required IconData icon,
@@ -261,7 +319,65 @@ class DrawerMenu extends StatelessWidget {
       onTap: () async {
         Navigator.of(context).pop();
         if (ModalRoute.of(context)!.settings.name != route) {
-          // ✅ Lee el usuario_id de la sesión si no fue pasado
+          final uid = await _obtenerUsuarioId();
+          Navigator.pushReplacementNamed(
+            context,
+            route,
+            arguments: {
+              'username': username,
+              'sector': sector,
+              'rol': rol,
+              'usuario_id': uid,
+            },
+          );
+        }
+      },
+    );
+  }
+
+  /// ✅ NUEVO: Método específico para items dentro del submenú (con sangría)
+  Widget _buildSubMenuItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required int index,
+    required int selectedIndex,
+    required String route,
+  }) {
+    final bool isSelected = selectedIndex == index;
+    const Color verdeInstitucional = Color(0xFF2E7D32);
+
+    return ListTile(
+      contentPadding: const EdgeInsets.only(
+        left: 56.0,
+        right: 16.0,
+      ), // ✅ Sangría para submenú
+      leading: Icon(
+        icon,
+        color: isSelected ? verdeInstitucional : Colors.grey.shade600,
+        size: 20,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: isSelected ? verdeInstitucional : Colors.grey.shade700,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          fontSize: 13, // Ligeramente más pequeño
+        ),
+      ),
+      trailing: isSelected
+          ? Container(
+              width: 4,
+              height: 20,
+              decoration: BoxDecoration(
+                color: verdeInstitucional,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            )
+          : null,
+      onTap: () async {
+        Navigator.of(context).pop();
+        if (ModalRoute.of(context)!.settings.name != route) {
           final uid = await _obtenerUsuarioId();
           Navigator.pushReplacementNamed(
             context,
