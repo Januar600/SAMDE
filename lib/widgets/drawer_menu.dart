@@ -38,8 +38,14 @@ class DrawerMenu extends StatelessWidget {
         ? username[0].toUpperCase()
         : 'U';
 
-    // ✅ Verificamos si alguna opción de reportes está activa para mantener el menú abierto y resaltado
-    final bool isReportesActive = selectedIndex == 7 || selectedIndex == 8;
+    // ✅ ACTUALIZADO: Incluye el índice 9 para la nueva opción
+    final bool isReportesActive =
+        selectedIndex == 7 ||
+        selectedIndex == 8 ||
+        selectedIndex == 9 ||
+        selectedIndex == 10 ||
+        selectedIndex == 11 ||
+        selectedIndex == 12;
 
     return Drawer(
       child: Container(
@@ -188,7 +194,7 @@ class DrawerMenu extends StatelessWidget {
                       route: '/historial_movimientos',
                     ),
 
-                    // ✅ NUEVO: Submenú de Reportes usando ExpansionTile
+                    // ✅ Submenú de Reportes usando ExpansionTile
                     ExpansionTile(
                       initiallyExpanded: isReportesActive,
                       iconColor: isReportesActive
@@ -237,11 +243,43 @@ class DrawerMenu extends StatelessWidget {
                         ),
                         _buildSubMenuItem(
                           context,
-                          icon: Icons.folder_copy, // Icono para contratos
+                          icon: Icons.folder_copy,
                           title: 'Contratos',
                           index: 8,
                           selectedIndex: selectedIndex,
                           route: '/reportes_contratos',
+                        ),
+                        _buildSubMenuItem(
+                          context,
+                          icon: Icons.person_search,
+                          title: 'Búsqueda por Usuario',
+                          index: 9,
+                          selectedIndex: selectedIndex,
+                          route: '/reporte_usuario',
+                        ),
+                        _buildSubMenuItem(
+                          context,
+                          icon: Icons.person_search,
+                          title: 'Búsqueda por Proveedor',
+                          index: 10,
+                          selectedIndex: selectedIndex,
+                          route: '/reporte_proveedor_contratos',
+                        ),
+                        _buildSubMenuItem(
+                          context,
+                          icon: Icons.person_search,
+                          title: 'Historial por Proveedor',
+                          index: 11,
+                          selectedIndex: selectedIndex,
+                          route: '/reporte_proveedor_historial',
+                        ),
+                        _buildSubMenuItem(
+                          context,
+                          icon: Icons.person_search,
+                          title: 'Reportes Anual Consolidado',
+                          index: 12,
+                          selectedIndex: selectedIndex,
+                          route: '/reporte_anual_consolidado',
                         ),
                       ],
                     ),
@@ -335,7 +373,7 @@ class DrawerMenu extends StatelessWidget {
     );
   }
 
-  /// ✅ NUEVO: Método específico para items dentro del submenú (con sangría)
+  /// ✅ Método específico para items dentro del submenú (con sangría)
   Widget _buildSubMenuItem(
     BuildContext context, {
     required IconData icon,
@@ -348,10 +386,7 @@ class DrawerMenu extends StatelessWidget {
     const Color verdeInstitucional = Color(0xFF2E7D32);
 
     return ListTile(
-      contentPadding: const EdgeInsets.only(
-        left: 56.0,
-        right: 16.0,
-      ), // ✅ Sangría para submenú
+      contentPadding: const EdgeInsets.only(left: 56.0, right: 16.0),
       leading: Icon(
         icon,
         color: isSelected ? verdeInstitucional : Colors.grey.shade600,
@@ -362,7 +397,7 @@ class DrawerMenu extends StatelessWidget {
         style: TextStyle(
           color: isSelected ? verdeInstitucional : Colors.grey.shade700,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          fontSize: 13, // Ligeramente más pequeño
+          fontSize: 13,
         ),
       ),
       trailing: isSelected

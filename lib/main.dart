@@ -15,6 +15,10 @@ import 'screens/consultar_contrato.dart';
 //reportes
 import 'screens/reportes.dart';
 import 'screens/reportes_contrato.dart';
+import 'screens/reporte_usuario.dart';
+import 'screens/reporte_proveedor_contratos.dart';
+import 'screens/reporte_proveedor_historial.dart';
+import 'screens/reporte_anual_consolidado.dart';
 
 void main() {
   runApp(const MyApp());
@@ -68,6 +72,13 @@ class MyApp extends StatelessWidget {
         //reportes
         '/reportes': (context) => const ReportesPage(),
         '/reportes_contratos': (context) => const ReportesContratosPage(),
+        '/reporte_usuario': (context) => ReporteUsuarioPage(),
+        '/reporte_proveedor_contratos': (context) =>
+            const ReporteProveedorContratosPage(),
+        '/reporte_proveedor_historial': (context) =>
+            const ReporteProveedorHistorialPage(),
+        '/reporte_anual_consolidado': (context) =>
+            const ReporteAnualConsolidadoPage(),
       },
     );
   }

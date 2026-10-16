@@ -209,7 +209,7 @@ class _ReportesContratosPageState extends State<ReportesContratosPage> {
     if (_fechaInicioCtrl.text.isEmpty || _fechaFinCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('️ Debe seleccionar ambas fechas antes de exportar'),
+          content: Text('⚠️ Debe seleccionar ambas fechas antes de exportar'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -308,6 +308,117 @@ class _ReportesContratosPageState extends State<ReportesContratosPage> {
     final isMobile = screenWidth < 600;
     final isTablet = screenWidth >= 600 && screenWidth < 900;
 
+    // 🆕 DETECCIÓN DE ORIENTACIÓN
+    final isPortrait =
+        MediaQuery.of(context).orientation == Orientation.portrait;
+
+    // ✅ CORREGIDO: El mensaje de rotación SOLO aparece después de generar el reporte
+    if (_reporteGenerado && isMobile && isPortrait) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Reportes de Contratos'),
+          backgroundColor: verde,
+          foregroundColor: Colors.white,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () {
+              // Volver al estado sin reporte para poder usar los filtros
+              setState(() {
+                _reporteGenerado = false;
+                _resultados.clear();
+                _resumen = null;
+              });
+            },
+            tooltip: 'Volver a filtros',
+          ),
+        ),
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFF1F8F1), Colors.white],
+            ),
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.blue.shade200, width: 2),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.screen_rotation,
+                          size: 80,
+                          color: Colors.blue,
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Gira tu dispositivo',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Esta vista funciona mejor en orientación horizontal (landscape) para ver todos los detalles del reporte.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const Icon(
+                          Icons.screen_lock_rotation_outlined,
+                          size: 40,
+                          color: Colors.blue,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _reporteGenerado = false;
+                        _resultados.clear();
+                        _resumen = null;
+                      });
+                    },
+                    icon: const Icon(Icons.filter_alt),
+                    label: const Text('Volver a los filtros'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: verde,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // VISTA NORMAL (filtros, tablet, desktop o móvil en horizontal)
     return Scaffold(
       drawer: DrawerMenu(
         username: username,
@@ -352,54 +463,109 @@ class _ReportesContratosPageState extends State<ReportesContratosPage> {
   }
 
   Widget _buildResponsiveHeader(Color verde, bool isMobile, bool isTablet) {
+    // ✅ Detectar orientación
+    final isPortrait =
+        MediaQuery.of(context).orientation == Orientation.portrait;
+
     if (isMobile) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: const Color.fromARGB(255, 192, 231, 195),
-          border: Border(bottom: BorderSide(color: verde, width: 3)),
-        ),
-        child: Column(
-          children: [
-            SizedBox(
-              width: double.infinity,
-              height: 72,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Image.asset(
-                    'assets/logos/banner_gobernacion.png',
-                    height: 72,
-                    fit: BoxFit.contain,
-                  ),
-                  Positioned(
-                    left: 0,
-                    child: Builder(
-                      builder: (ctx) => IconButton(
-                        icon: Icon(Icons.menu, color: verde, size: 28),
-                        onPressed: () => Scaffold.of(ctx).openDrawer(),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
+      // ✅ MÓVIL EN VERTICAL (Portrait) - Banner original
+      if (isPortrait) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color.fromARGB(255, 192, 231, 195),
+            border: Border(bottom: BorderSide(color: verde, width: 3)),
+          ),
+          child: Column(
+            children: [
+              SizedBox(
+                width: double.infinity,
+                height: 72,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Image.asset(
+                      'assets/logos/banner_gobernacion.png',
+                      height: 72,
+                      fit: BoxFit.contain,
+                    ),
+                    Positioned(
+                      left: 0,
+                      child: Builder(
+                        builder: (ctx) => IconButton(
+                          icon: Icon(Icons.menu, color: verde, size: 28),
+                          onPressed: () => Scaffold.of(ctx).openDrawer(),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
                       ),
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Reportes de Contratos',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2E7D32),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+      // ✅ MÓVIL EN HORIZONTAL (Landscape) - Banner compacto
+      else {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color.fromARGB(255, 192, 231, 195),
+            border: Border(bottom: BorderSide(color: verde, width: 2)),
+          ),
+          child: Row(
+            children: [
+              Builder(
+                builder: (ctx) => IconButton(
+                  icon: Icon(Icons.menu, color: verde, size: 24),
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: Image.asset(
+                  'assets/logos/banner_gobernacion.png',
+                  height: 50,
+                  fit: BoxFit.contain,
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Reportes de Contratos',
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2E7D32),
                   ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Reportes de Contratos',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2E7D32),
-              ),
-            ),
-          ],
-        ),
-      );
-    } else {
+              const Expanded(flex: 1, child: SizedBox()),
+            ],
+          ),
+        );
+      }
+    }
+    // ✅ TABLET/DESKTOP - Banner original
+    else {
       return Container(
         height: 130,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -827,13 +993,14 @@ class _ReportesContratosPageState extends State<ReportesContratosPage> {
   }
 
   Widget _buildContenido(Color verde, bool isMobile) {
-    if (_cargando)
+    if (_cargando) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(40),
           child: CircularProgressIndicator(color: Colors.green),
         ),
       );
+    }
 
     if (_errorMensaje != null) {
       return Card(
@@ -880,6 +1047,7 @@ class _ReportesContratosPageState extends State<ReportesContratosPage> {
 
     return Column(
       children: [
+        // ✅ Filtro por tipo de contrato
         if (_tipoContratoSeleccionado != null &&
             _tipoContratoSeleccionado != 'Todos los tipos')
           Container(
@@ -907,6 +1075,8 @@ class _ReportesContratosPageState extends State<ReportesContratosPage> {
               ],
             ),
           ),
+
+        // ✅ Filtro por estado
         if (_estadoSeleccionado != null &&
             _estadoSeleccionado != 'Todos los estados')
           Container(
@@ -938,61 +1108,91 @@ class _ReportesContratosPageState extends State<ReportesContratosPage> {
               ],
             ),
           ),
+
+        // ✅ TARJETAS DE RESUMEN
         if (_resumen != null) ...[
           if (isMobile) ...[
-            _buildResumenCard(
-              'Total Contratos',
-              '${_resumen!['total_contratos'] ?? 0}',
-              Icons.assignment,
-              Colors.blue,
-              isMobile,
-            ),
-            const SizedBox(height: 12),
-            _buildResumenCard(
-              'Valor Total',
-              _formatMoney(_resumen!['valor_total'] ?? 0),
-              Icons.attach_money,
-              Colors.green,
-              isMobile,
-            ),
-            const SizedBox(height: 12),
-            _buildResumenCard(
-              'Contratos Activos',
-              '${_resumen!['contratos_activos'] ?? 0}',
-              Icons.check_circle,
-              Colors.orange,
-              isMobile,
-            ),
-          ] else
+            // 📱 MÓVIL: Layout con tamaños diferentes (1 - 2 - 1)
             Row(
               children: [
-                _buildResumenCard(
-                  'Total Contratos',
-                  '${_resumen!['total_contratos'] ?? 0}',
-                  Icons.assignment,
-                  Colors.blue,
-                  isMobile,
+                // Total Contratos - Compacta (25%)
+                Expanded(
+                  flex: 1,
+                  child: _buildResumenCardCompact(
+                    'Total Contratos',
+                    '${_resumen!['total_contratos'] ?? 0}',
+                    Icons.assignment,
+                    Colors.blue,
+                    isMobile,
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Valor Total - Expandida (50%)
+                Expanded(
+                  flex: 2,
+                  child: _buildResumenCardValorTotal(
+                    'Valor Total',
+                    _formatMoney(_resumen!['valor_total'] ?? 0),
+                    Icons.attach_money,
+                    Colors.green,
+                    isMobile,
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Contratos Activos - Compacta (25%)
+                Expanded(
+                  flex: 1,
+                  child: _buildResumenCardCompact(
+                    'Contratos Activos',
+                    '${_resumen!['contratos_activos'] ?? 0}',
+                    Icons.check_circle,
+                    Colors.orange,
+                    isMobile,
+                  ),
+                ),
+              ],
+            ),
+          ] else
+            // 💻 TABLET/DESKTOP: Layout original (todas iguales)
+            Row(
+              children: [
+                Expanded(
+                  child: _buildResumenCard(
+                    'Total Contratos',
+                    '${_resumen!['total_contratos'] ?? 0}',
+                    Icons.assignment,
+                    Colors.blue,
+                    isMobile,
+                  ),
                 ),
                 const SizedBox(width: 16),
-                _buildResumenCard(
-                  'Valor Total',
-                  _formatMoney(_resumen!['valor_total'] ?? 0),
-                  Icons.attach_money,
-                  Colors.green,
-                  isMobile,
+                Expanded(
+                  child: _buildResumenCard(
+                    'Valor Total',
+                    _formatMoney(_resumen!['valor_total'] ?? 0),
+                    Icons.attach_money,
+                    Colors.green,
+                    isMobile,
+                  ),
                 ),
                 const SizedBox(width: 16),
-                _buildResumenCard(
-                  'Contratos Activos',
-                  '${_resumen!['contratos_activos'] ?? 0}',
-                  Icons.check_circle,
-                  Colors.orange,
-                  isMobile,
+                Expanded(
+                  child: _buildResumenCard(
+                    'Contratos Activos',
+                    '${_resumen!['contratos_activos'] ?? 0}',
+                    Icons.check_circle,
+                    Colors.orange,
+                    isMobile,
+                  ),
                 ),
               ],
             ),
           const SizedBox(height: 24),
         ],
+
+        // ✅ LISTA DE RESULTADOS
         if (_resultados.isEmpty)
           Card(
             child: Padding(
@@ -1018,6 +1218,170 @@ class _ReportesContratosPageState extends State<ReportesContratosPage> {
               ? _buildResultadosMobile(verde)
               : _buildResultadosDesktop(verde),
       ],
+    );
+  }
+
+  // ✅ TARJETA COMPACTA (Total Contratos y Contratos Activos)
+  Widget _buildResumenCardCompact(
+    String titulo,
+    String valor,
+    IconData icono,
+    Color color,
+    bool isMobile,
+  ) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icono, color: color, size: 24),
+            const SizedBox(height: 6),
+            Text(
+              titulo,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              valor,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✅ TARJETA GRANDE (Valor Total)
+  Widget _buildResumenCardValorTotal(
+    String titulo,
+    String valor,
+    IconData icono,
+    Color color,
+    bool isMobile,
+  ) {
+    // Detectar longitud del valor para ajustar fuente dinámicamente
+    final valorLimpio = valor.replaceAll(RegExp(r'[^\d]'), '');
+    final esValorGrande = valorLimpio.length > 9;
+    final esValorMuyGrande = valorLimpio.length > 12;
+
+    double fontSize;
+    if (esValorMuyGrande) {
+      fontSize = 12; // Billones: 1,217,104,700
+    } else if (esValorGrande) {
+      fontSize = 14; // Cientos de millones: 535,445,900
+    } else {
+      fontSize = 18; // Valores normales
+    }
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icono, color: color, size: 24),
+            const SizedBox(height: 6),
+            Text(
+              titulo,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              valor,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+                letterSpacing: esValorGrande ? -0.3 : 0,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✅ TARJETA NORMAL (para Desktop/Tablet)
+  Widget _buildResumenCard(
+    String titulo,
+    String valor,
+    IconData icono,
+    Color color,
+    bool isMobile,
+  ) {
+    return Expanded(
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: EdgeInsets.all(isMobile ? 12 : 16),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(isMobile ? 10 : 12),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icono, color: color, size: isMobile ? 24 : 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      valor,
+                      style: TextStyle(
+                        fontSize: isMobile ? 18 : 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1348,61 +1712,6 @@ class _ReportesContratosPageState extends State<ReportesContratosPage> {
             );
           }),
         ],
-      ),
-    );
-  }
-
-  Widget _buildResumenCard(
-    String titulo,
-    String valor,
-    IconData icono,
-    Color color,
-    bool isMobile,
-  ) {
-    return Expanded(
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: EdgeInsets.all(isMobile ? 12 : 16),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(isMobile ? 10 : 12),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icono, color: color, size: isMobile ? 24 : 28),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      titulo,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      valor,
-                      style: TextStyle(
-                        fontSize: isMobile ? 20 : 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

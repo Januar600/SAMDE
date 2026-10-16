@@ -586,7 +586,6 @@ class _VistaPreviaContratoPageState extends State<VistaPreviaContratoPage> {
                           ),
                         ],
                         rows: _items.asMap().entries.map((e) {
-                          final i = e.key;
                           final item = e.value;
 
                           final codigo = item['codigo']?.toString() ?? 'N/A';

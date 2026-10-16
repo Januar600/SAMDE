@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../widgets/drawer_menu.dart';
 
 class RegistrarEgresoPage extends StatefulWidget {
@@ -25,15 +27,19 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
 
   List<TextEditingController> _cantidadControllers = [];
 
+  // Variables para manejo de multiples documentos
+  List<PlatformFile> _documentosSeleccionados = [];
+  List<Map<String, String>> _documentosExistentes = [];
+  bool _cargandoArchivos = false;
+  bool _documentosBloqueados = false;
+
   String? _anioSeleccionado;
   int? _contratoSeleccionado;
-  String _contratoNumero = '';
   static const int BODEGA_FIJA_ID = 2;
   static const String BODEGA_FIJA_NOMBRE = 'SAMDE';
 
   List<String> _aniosDisponibles = [];
   List<Map<String, dynamic>> _contratosDisponibles = [];
-  List<Map<String, dynamic>> _itemsContrato = [];
   List<Map<String, dynamic>> _detallesEgreso = [];
   List<Map<String, dynamic>> _egresos = [];
   List<Map<String, dynamic>> _egresosFiltrados = [];
@@ -64,6 +70,244 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     _cargarEgresos();
     _searchController.addListener(_filtrarEgresos);
   }
+
+  // =================================================================
+  // FUNCIONES PARA MANEJO DE ARCHIVOS
+  // =================================================================
+  Future<void> _seleccionarMultiplesDocumentos() async {
+    setState(() => _cargandoArchivos = true);
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'],
+      );
+
+      if (result != null) {
+        final archivosValidos = <PlatformFile>[];
+        for (var file in result.files) {
+          if (file.size > 2 * 1024 * 1024) {
+            _snack('⚠️ "${file.name}" excede el limite de 2 MB', Colors.orange);
+          } else {
+            archivosValidos.add(file);
+          }
+        }
+
+        if (archivosValidos.isNotEmpty) {
+          setState(() {
+            _documentosSeleccionados.addAll(archivosValidos);
+          });
+          _snack(
+            '✅ ${archivosValidos.length} documento(s) agregado(s)',
+            Colors.green,
+          );
+        }
+      }
+    } catch (e) {
+      _snack('Error al seleccionar archivos: $e', Colors.red);
+    } finally {
+      if (mounted) setState(() => _cargandoArchivos = false);
+    }
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return "0 B";
+    int divisor = 1;
+    String suffix = "B";
+    if (bytes >= 1073741824) {
+      divisor = 1073741824;
+      suffix = "GB";
+    } else if (bytes >= 1048576) {
+      divisor = 1048576;
+      suffix = "MB";
+    } else if (bytes >= 1024) {
+      divisor = 1024;
+      suffix = "KB";
+    }
+    return '${(bytes / divisor).toStringAsFixed(1)} $suffix';
+  }
+
+  bool _esImagen(String nombre) {
+    final lower = nombre.toLowerCase();
+    return lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png');
+  }
+
+  Future<void> _previewDocumento(PlatformFile file) async {
+    final esImagen = _esImagen(file.name);
+
+    if (esImagen && file.bytes != null) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Dialog(
+            backgroundColor: Colors.black87,
+            child: Stack(
+              children: [
+                InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Image.memory(file.bytes!, fit: BoxFit.contain),
+                ),
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black54,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    } else {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.picture_as_pdf, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Documento'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('📄 ${file.name}'),
+              const SizedBox(height: 8),
+              Text('📦 Tamaño: ${_formatBytes(file.size)}'),
+              const SizedBox(height: 16),
+              const Text(
+                'Este archivo se adjuntará al egreso y podrá visualizarse desde el listado.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<void> _previewDocumentoExistente(String ruta, String nombre) async {
+    final esImg = _esImagen(nombre);
+
+    // Usar el PHP intermediario para evitar CORS
+    // Si ruta es: /samde_db/api/egresos/uploads/33/doc_xxx.png
+    // URL será: http://localhost/samde_db/api/egresos/download_documento.php?file=/samde_db/api/egresos/uploads/33/doc_xxx.png
+    final urlCompleta =
+        '$_baseUrl/egresos/download_documento.php?file=${Uri.encodeComponent(ruta)}';
+
+    if (esImg) {
+      // Mostrar imagen dentro del Dialog (sin abrir otra pestaña)
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Dialog(
+            backgroundColor: Colors.black87,
+            child: Stack(
+              children: [
+                InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: Image.network(
+                    urlCompleta,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.broken_image,
+                              color: Colors.white,
+                              size: 64,
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'No se pudo cargar la imagen',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'URL: $urlCompleta',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black54,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    } else {
+      // Para PDFs, abrir en navegador (no se pueden mostrar inline fácilmente)
+      final uri = Uri.parse(urlCompleta);
+      try {
+        final launched = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!launched && mounted) {
+          _snack('No se pudo abrir el archivo', Colors.red);
+        }
+      } catch (e) {
+        if (mounted) _snack('Error: $e', Colors.red);
+      }
+    }
+  }
+  // =================================================================
 
   void _inicializarControllersCantidad() {
     for (final c in _cantidadControllers) {
@@ -204,10 +448,8 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     setState(() {
       _cargando = true;
       _contratosDisponibles = [];
-      _itemsContrato = [];
       _detallesEgreso = [];
       _objetoContratoController.clear();
-      _contratoNumero = '';
     });
     try {
       final r = await http
@@ -253,7 +495,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
   Future<void> _cargarItemsContrato(int contratoId) async {
     setState(() {
       _cargando = true;
-      _itemsContrato = [];
       _detallesEgreso = [];
     });
 
@@ -261,8 +502,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
       (c) => _toInt(c['id']) == contratoId,
       orElse: () => {},
     );
-    _contratoNumero =
-        contratoObj['numero_contrato']?.toString() ?? contratoId.toString();
     _objetoContratoController.text =
         contratoObj['objeto_contrato']?.toString() ??
         contratoObj['objeto']?.toString() ??
@@ -281,7 +520,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           _snack('Este contrato no tiene items asociados', Colors.orange);
         } else {
           setState(() {
-            _itemsContrato = items;
             _detallesEgreso = items.map((item) {
               final totalIngresadoRaw = item['total_ingresado'];
               final totalIngresado = totalIngresadoRaw is int
@@ -289,7 +527,6 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                   : totalIngresadoRaw is double
                   ? totalIngresadoRaw
                   : double.tryParse(totalIngresadoRaw.toString()) ?? 0.0;
-
               final totalEgresadoRaw = item['total_egresado'];
               final totalEgresado = totalEgresadoRaw is int
                   ? totalEgresadoRaw.toDouble()
@@ -349,6 +586,9 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     }
   }
 
+  // =================================================================
+  // REGISTRO CON MULTIPART
+  // =================================================================
   Future<void> _registrarEgreso() async {
     if (!_formKey.currentState!.validate()) return;
     if (_contratoSeleccionado == null) {
@@ -359,36 +599,59 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
 
     setState(() => _cargando = true);
     try {
-      final body = {
-        'contrato_id': _contratoSeleccionado,
-        'numero_egreso': _numeroEgresoController.text.trim(),
-        'id_bodega': BODEGA_FIJA_ID,
-        'usuario_id': usuarioId,
-        'usuario_registro': username,
-        'fecha': _fechaEgresoController.text.trim(),
-        'observacion': _observacionController.text.trim(),
-        'detalles': _detallesEgreso
-            .where((d) => _toDouble(d['cantidad_egresada']) > 0)
-            .map(
-              (d) => {
-                'item_contrato_id': d['id_item_contrato'],
-                'cantidad': d['cantidad_egresada'],
-                'precio_unitario': d['precio_unitario'],
-              },
-            )
-            .toList(),
-      };
+      final uri = Uri.parse('$_baseUrl/egresos/registrar_egreso.php');
+      final request = http.MultipartRequest('POST', uri);
 
-      final r = await http
-          .post(
-            Uri.parse('$_baseUrl/egresos/registrar_egreso.php'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(body),
+      request.fields['contrato_id'] = _contratoSeleccionado.toString();
+      request.fields['numero_egreso'] = _numeroEgresoController.text.trim();
+      request.fields['id_bodega'] = BODEGA_FIJA_ID.toString();
+      request.fields['usuario_id'] = usuarioId.toString();
+      request.fields['usuario_registro'] = username;
+      request.fields['fecha'] = _fechaEgresoController.text.trim();
+      request.fields['observacion'] = _observacionController.text.trim();
+
+      final detallesJson = _detallesEgreso
+          .where((d) => _toDouble(d['cantidad_egresada']) > 0)
+          .map(
+            (d) => {
+              'item_contrato_id': d['id_item_contrato'],
+              'cantidad': d['cantidad_egresada'],
+              'precio_unitario': d['precio_unitario'],
+            },
           )
-          .timeout(const Duration(seconds: 10));
+          .toList();
+      request.fields['detalles'] = jsonEncode(detallesJson);
 
-      final data = jsonDecode(r.body);
-      if (r.statusCode == 200 && data['success'] == true) {
+      for (var file in _documentosSeleccionados) {
+        if (file.bytes != null) {
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              'documentos[]',
+              file.bytes!,
+              filename: file.name,
+            ),
+          );
+        } else if (file.path != null) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'documentos[]',
+              file.path!,
+              filename: file.name,
+            ),
+          );
+        }
+      }
+
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 30),
+      );
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        setState(() {
+          _documentosBloqueados = true; // BLOQUEAR DOCUMENTOS
+        });
         _limpiarFormulario();
         _snack('✅ Egreso registrado exitosamente', Colors.green);
         await _cargarEgresos();
@@ -397,17 +660,29 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
         _snack('${data['message'] ?? 'Error desconocido'}', Colors.red);
       }
     } catch (e) {
-      _snack('❌ Error: $e', Colors.red);
+      _snack('❌ Error de red: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _cargando = false);
     }
   }
 
+  // =================================================================
+  // ACTUALIZACION CON MULTIPART
+  // =================================================================
   Future<void> _actualizarEgreso() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_validarStock()) return;
     setState(() => _cargando = true);
     try {
+      final uri = Uri.parse('$_baseUrl/egresos/actualizar_egreso.php');
+      final request = http.MultipartRequest('POST', uri);
+
+      request.fields['id'] = _egresoEditandoId.toString();
+      request.fields['numero_egreso'] = _numeroEgresoController.text.trim();
+      request.fields['id_bodega'] = BODEGA_FIJA_ID.toString();
+      request.fields['fecha'] = _fechaEgresoController.text.trim();
+      request.fields['observacion'] = _observacionController.text.trim();
+
       final detallesActualizados = _detallesEgreso
           .where((d) {
             final base = _toDouble(d['cantidad_egresada']);
@@ -424,23 +699,38 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             };
           })
           .toList();
+      request.fields['detalles'] = jsonEncode(detallesActualizados);
 
-      final r = await http
-          .post(
-            Uri.parse('$_baseUrl/egresos/actualizar_egreso.php'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'id': _egresoEditandoId,
-              'numero_egreso': _numeroEgresoController.text.trim(),
-              'id_bodega': BODEGA_FIJA_ID,
-              'fecha': _fechaEgresoController.text.trim(),
-              'observacion': _observacionController.text.trim(),
-              'detalles': detallesActualizados,
-            }),
-          )
-          .timeout(const Duration(seconds: 10));
-      final data = jsonDecode(r.body);
-      if (r.statusCode == 200 && data['success'] == true) {
+      for (var file in _documentosSeleccionados) {
+        if (file.bytes != null) {
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              'documentos[]',
+              file.bytes!,
+              filename: file.name,
+            ),
+          );
+        } else if (file.path != null) {
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'documentos[]',
+              file.path!,
+              filename: file.name,
+            ),
+          );
+        }
+      }
+
+      final streamedResponse = await request.send().timeout(
+        const Duration(seconds: 30),
+      );
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        setState(() {
+          _documentosBloqueados = true; // BLOQUEAR DOCUMENTOS
+        });
         _limpiarFormulario();
         _snack('✅ Egreso actualizado', Colors.green);
         await _cargarEgresos();
@@ -746,8 +1036,12 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
         final detallesData = List<Map<String, dynamic>>.from(
           data['data']['detalles'] as List,
         );
-        final String fechaEgreso = egresoData['fecha'] ?? '';
-        String anioContrato = fechaEgreso.isNotEmpty && fechaEgreso.length >= 4
+        final String fechaRaw = egresoData['fecha'] ?? '';
+        final String fechaEgreso = fechaRaw.length >= 10
+            ? fechaRaw.substring(0, 10)
+            : fechaRaw;
+
+        final String anioContrato = fechaEgreso.length >= 4
             ? fechaEgreso.substring(0, 4)
             : '';
 
@@ -769,12 +1063,11 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             _observacionController.text = egresoData['observacion'] ?? '';
             _anioSeleccionado = anioContrato;
             _contratoSeleccionado = contratoIdDelEgreso;
-            _contratoNumero =
-                contratoEncontrado['numero_contrato']?.toString() ?? '';
             _objetoContratoController.text =
                 contratoEncontrado['objeto_contrato']?.toString() ??
                 contratoEncontrado['objeto']?.toString() ??
                 'No especificado';
+            _documentosBloqueados = false; // Permitir edición de documentos
 
             for (var detalleEgreso in detallesData) {
               final itemId =
@@ -795,6 +1088,18 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                 _detallesEgreso[index]['cantidad_adicional'] = 0.0;
               }
             }
+
+            //  CORREGIDO: Manejo seguro de documentos existentes
+            if (data['data']['documentos'] != null) {
+              final docsList = data['data']['documentos'] as List;
+              _documentosExistentes = docsList.map((doc) {
+                return {
+                  'nombre': doc['nombre']?.toString() ?? '',
+                  'ruta': doc['ruta']?.toString() ?? '',
+                };
+              }).toList();
+            }
+
             _inicializarControllersCantidad();
           });
         } else {
@@ -864,12 +1169,14 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     _cantidadControllers = [];
     _anioSeleccionado = null;
     _contratoSeleccionado = null;
-    _contratoNumero = '';
     _contratosDisponibles = [];
-    _itemsContrato = [];
     _detallesEgreso = [];
     _modoEdicion = false;
     _egresoEditandoId = null;
+
+    _documentosSeleccionados.clear();
+    _documentosExistentes.clear();
+    _documentosBloqueados = false; // DESBLOQUEAR al limpiar
   }
 
   void _snack(String msg, Color color) {
@@ -937,9 +1244,11 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _buildSeccionDatos(verde, isMobile),
-                                  SizedBox(height: isMobile ? 20 : 24),
+                                  const SizedBox(height: 24),
                                   _buildSeccionDetalles(verde, isMobile),
-                                  const SizedBox(height: 20),
+                                  const SizedBox(height: 24),
+                                  _buildSeccionDocumentos(verde),
+                                  const SizedBox(height: 24),
                                   _buildBotones(verde),
                                 ],
                               ),
@@ -955,6 +1264,9 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
     );
   }
 
+  // =================================================================
+  // WIDGETS DE UI
+  // =================================================================
   Widget _buildResponsiveHeader(Color verde, bool isMobile, bool isTablet) {
     if (isMobile) {
       return Container(
@@ -1036,7 +1348,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                           _limpiarFormulario();
                           setState(() => _mostrandoLista = true);
                         },
-                        tooltip: 'Cancelar edición',
+                        tooltip: 'Cancelar edicion',
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
@@ -1146,7 +1458,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                           _limpiarFormulario();
                           setState(() => _mostrandoLista = true);
                         },
-                        tooltip: 'Cancelar edición',
+                        tooltip: 'Cancelar edicion',
                       ),
               ),
             ),
@@ -1177,9 +1489,9 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
 
     final numeroField = TextFormField(
       controller: _numeroEgresoController,
-      decoration: _deco('Número de Egreso *', hint: 'Ej: EGR-0001'),
+      decoration: _deco('Numero de Egreso *', hint: 'Ej: EGR-0001'),
       validator: (v) =>
-          (v == null || v.trim().isEmpty) ? 'Ingrese número de egreso' : null,
+          (v == null || v.trim().isEmpty) ? 'Ingrese numero de egreso' : null,
     );
 
     final bodegaField = TextFormField(
@@ -1211,7 +1523,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
 
     final anioField = DropdownButtonFormField<String>(
       value: _anioSeleccionado,
-      hint: const Text('Año contrato *'),
+      hint: const Text('Selecciona año *'),
       isExpanded: true,
       items: _aniosDisponibles
           .map((a) => DropdownMenuItem(value: a, child: Text(a)))
@@ -1223,15 +1535,13 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                 _anioSeleccionado = v;
                 _contratoSeleccionado = null;
                 _contratosDisponibles = [];
-                _itemsContrato = [];
                 _detallesEgreso = [];
                 _objetoContratoController.clear();
-                _contratoNumero = '';
               });
               if (v != null) _cargarContratosPorAnio(v);
             },
       decoration: _deco('Año contrato *'),
-      validator: (v) => v == null ? 'Seleccione año' : null,
+      validator: (v) => v == null ? 'Selecciona año' : null,
     );
 
     final contratoField = DropdownButtonFormField<int>(
@@ -1257,14 +1567,11 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           : (v) {
               setState(() {
                 _contratoSeleccionado = v;
-                _itemsContrato = [];
                 _detallesEgreso = [];
                 final contratoSeleccionado = _contratosDisponibles.firstWhere(
                   (c) => _toInt(c['id']) == v,
                   orElse: () => {},
                 );
-                _contratoNumero =
-                    contratoSeleccionado['numero_contrato']?.toString() ?? '';
                 _objetoContratoController.text =
                     contratoSeleccionado['objeto_contrato']?.toString() ??
                     contratoSeleccionado['objeto']?.toString() ??
@@ -1352,7 +1659,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           controller: _observacionController,
           maxLines: 3,
           minLines: 2,
-          decoration: _deco('Observación', alignLabel: true),
+          decoration: _deco('Observacion', alignLabel: true),
           style: const TextStyle(fontSize: 14),
         ),
       ],
@@ -1665,7 +1972,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
             ),
             DataColumn(
               label: Text(
-                'Stock Gobernación',
+                'Stock Gobernacion',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -1901,7 +2208,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                 ),
               ),
               child: const Text(
-                'Cancelar Edición',
+                'Cancelar Edicion',
                 style: TextStyle(fontSize: 13),
               ),
             ),
@@ -1963,7 +2270,7 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
           TextField(
             controller: _searchController,
             decoration: InputDecoration(
-              hintText: ' Buscar por número, bodega, usuario...',
+              hintText: ' Buscar por numero, bodega, usuario...',
               prefixIcon: const Icon(Icons.search, color: Colors.grey),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -2049,8 +2356,9 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
                             color: Colors.grey.shade500,
                           ),
                           const SizedBox(width: 4),
+                          // ✅ CORREGIDO: Mostrar solo la fecha sin la hora
                           Text(
-                            egreso['fecha'] ?? '',
+                            (egreso['fecha'] ?? '').toString().split(' ')[0],
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey.shade600,
@@ -2190,6 +2498,233 @@ class _RegistrarEgresoPageState extends State<RegistrarEgresoPage> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // SECCION DE DOCUMENTOS
+  Widget _buildSeccionDocumentos(Color verde) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.attach_file, color: verde, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              'Documentos Justificantes',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: verde,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'Max. 2 MB por archivo',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const Divider(height: 24),
+
+        // 1. Archivos existentes (Modo Edicion)
+        if (_documentosExistentes.isNotEmpty) ...[
+          Text(
+            'Archivos actuales registrados:',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ..._documentosExistentes.map(
+            (doc) => _buildFileCard(
+              nombre: doc['nombre'] ?? 'Archivo',
+              tamano: null,
+              esNuevo: false,
+              color: Colors.blue,
+              rutaArchivo: doc['ruta'], // 🆕 PASAR LA RUTA PARA VISUALIZAR
+              puedeEliminar:
+                  (rol == 'administrador' || rol == 'administrativo'),
+              onRemove: () {
+                setState(() => _documentosExistentes.remove(doc));
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // 2. Archivos nuevos seleccionados
+        if (_documentosSeleccionados.isNotEmpty) ...[
+          Text(
+            'Nuevos archivos a subir:',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ..._documentosSeleccionados.asMap().entries.map((entry) {
+            final index = entry.key;
+            final file = entry.value;
+            return _buildFileCard(
+              nombre: file.name,
+              tamano: file.size,
+              esNuevo: true,
+              color: Colors.green,
+              fileData: file,
+              puedeEliminar: !_documentosBloqueados,
+              onRemove: () =>
+                  setState(() => _documentosSeleccionados.removeAt(index)),
+            );
+          }),
+          const SizedBox(height: 16),
+        ],
+
+        SizedBox(
+          width: double.infinity,
+          child: _cargandoArchivos
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              : OutlinedButton.icon(
+                  onPressed: _seleccionarMultiplesDocumentos,
+                  icon: const Icon(Icons.add_link),
+                  label: const Text('Adjuntar documentos (PDF, JPG, PNG, DOC)'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: verde),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+        ),
+
+        if (_documentosSeleccionados.isEmpty &&
+            _documentosExistentes.isEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.attach_file, color: Colors.grey.shade400, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Sin documentos adjuntos (opcional)',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFileCard({
+    required String nombre,
+    required int? tamano,
+    required bool esNuevo,
+    required Color color,
+    required VoidCallback onRemove,
+    required bool puedeEliminar,
+    PlatformFile? fileData,
+    String? rutaArchivo,
+  }) {
+    final esImg = _esImagen(nombre);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              esImg ? Icons.image : Icons.picture_as_pdf,
+              color: color,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nombre,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  tamano != null
+                      ? _formatBytes(tamano)
+                      : 'Archivo registrado en sistema',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ),
+          // 👁️ BOTON DE VISTA PREVIA (para nuevos)
+          if (esNuevo && fileData != null)
+            IconButton(
+              icon: const Icon(Icons.visibility, color: Colors.blue, size: 22),
+              onPressed: () => _previewDocumento(fileData),
+              tooltip: 'Vista previa',
+              constraints: const BoxConstraints(),
+              padding: EdgeInsets.zero,
+            ),
+          // 👁️ BOTON DE VISTA PREVIA (para existentes)
+          if (!esNuevo && rutaArchivo != null)
+            IconButton(
+              icon: const Icon(Icons.visibility, color: Colors.blue, size: 22),
+              onPressed: () => _previewDocumentoExistente(rutaArchivo, nombre),
+              tooltip: 'Vista previa',
+              constraints: const BoxConstraints(),
+              padding: EdgeInsets.zero,
+            ),
+          if (puedeEliminar) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              icon: Icon(Icons.close, color: Colors.red.shade400, size: 20),
+              onPressed: onRemove,
+              tooltip: 'Quitar archivo',
+              constraints: const BoxConstraints(),
+              padding: EdgeInsets.zero,
+            ),
+          ],
         ],
       ),
     );
