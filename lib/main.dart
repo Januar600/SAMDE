@@ -19,6 +19,7 @@ import 'screens/reporte_usuario.dart';
 import 'screens/reporte_proveedor_contratos.dart';
 import 'screens/reporte_proveedor_historial.dart';
 import 'screens/reporte_anual_consolidado.dart';
+import 'screens/dashboard_ejecutivo.dart';
 
 void main() {
   runApp(const MyApp());
@@ -79,6 +80,7 @@ class MyApp extends StatelessWidget {
             const ReporteProveedorHistorialPage(),
         '/reporte_anual_consolidado': (context) =>
             const ReporteAnualConsolidadoPage(),
+        '/dashboard_ejecutivo': (context) => const DashboardEjecutivoPage(),
       },
     );
   }

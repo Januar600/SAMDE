@@ -63,10 +63,7 @@ class _ReporteProveedorContratosPageState
     sector = map['sector'] ?? 'No Asignado';
     rol = map['rol'] ?? 'consulta';
 
-    // ✅ Cargar datos automáticamente al entrar
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _generarReporte();
-    });
+    // ✅ SIN CARGA AUTOMÁTICA - El usuario debe hacer clic en "FILTRAR"
   }
 
   @override
@@ -84,13 +81,17 @@ class _ReporteProveedorContratosPageState
       lastDate: DateTime(2030),
     );
     if (fecha != null) {
-      setState(() {
-        controller.text = fecha.toIso8601String().substring(0, 10);
-      });
+      if (mounted) {
+        setState(() {
+          controller.text = fecha.toIso8601String().substring(0, 10);
+        });
+      }
     }
   }
 
   void _establecerRangoRapido(String tipo) {
+    if (!mounted) return;
+
     final ahora = DateTime.now();
     DateTime inicio;
     DateTime fin;
@@ -116,15 +117,18 @@ class _ReporteProveedorContratosPageState
         return;
     }
 
-    setState(() {
-      _rangoSeleccionado = tipo;
-      _fechaInicioCtrl.text = inicio.toIso8601String().substring(0, 10);
-      _fechaFinCtrl.text = fin.toIso8601String().substring(0, 10);
-    });
+    if (mounted) {
+      setState(() {
+        _rangoSeleccionado = tipo;
+        _fechaInicioCtrl.text = inicio.toIso8601String().substring(0, 10);
+        _fechaFinCtrl.text = fin.toIso8601String().substring(0, 10);
+      });
+    }
   }
 
   Future<void> _generarReporte() async {
-    // ✅ Las fechas son opcionales ahora
+    if (!mounted) return;
+
     setState(() {
       _cargando = true;
       _errorMensaje = null;
@@ -134,7 +138,6 @@ class _ReporteProveedorContratosPageState
     try {
       String url = '$_baseUrl/reportes/reporte_proveedor_contratos.php?';
 
-      // ✅ Solo agregar fechas si están seleccionadas
       if (_fechaInicioCtrl.text.isNotEmpty && _fechaFinCtrl.text.isNotEmpty) {
         url +=
             'fecha_inicio=${_fechaInicioCtrl.text}&fecha_fin=${_fechaFinCtrl.text}&';
@@ -151,7 +154,6 @@ class _ReporteProveedorContratosPageState
         url += 'estado=${Uri.encodeComponent(_estadoSeleccionado!)}&';
       }
 
-      // Eliminar último '&' si existe
       if (url.endsWith('&')) {
         url = url.substring(0, url.length - 1);
       }
@@ -159,29 +161,42 @@ class _ReporteProveedorContratosPageState
       final response = await http
           .get(Uri.parse(url))
           .timeout(const Duration(seconds: 15));
+
+      if (!mounted) return;
+
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
-        setState(() {
-          _proveedores = List<Map<String, dynamic>>.from(data['data'] ?? []);
-          _resumen = data['resumen'];
-          _reporteGenerado = true;
-        });
+        if (mounted) {
+          setState(() {
+            _proveedores = List<Map<String, dynamic>>.from(data['data'] ?? []);
+            _resumen = data['resumen'];
+            _reporteGenerado = true;
+          });
+        }
       } else {
-        setState(() {
-          _errorMensaje = data['message'] ?? 'Error al generar el reporte';
-        });
+        if (mounted) {
+          setState(() {
+            _errorMensaje = data['message'] ?? 'Error al generar el reporte';
+          });
+        }
       }
     } catch (e) {
-      setState(() {
-        _errorMensaje = 'Error de conexión: $e';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMensaje = 'Error de conexión: $e';
+        });
+      }
     } finally {
-      if (mounted) setState(() => _cargando = false);
+      if (mounted) {
+        setState(() => _cargando = false);
+      }
     }
   }
 
   Future<void> _exportarExcel() async {
+    if (!mounted) return;
+
     String url = '$_baseUrl/reportes/exportar_proveedor_contratos_excel.php?';
 
     if (_fechaInicioCtrl.text.isNotEmpty && _fechaFinCtrl.text.isNotEmpty) {
@@ -209,24 +224,30 @@ class _ReporteProveedorContratosPageState
     try {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Descargando reporte en Excel...'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Descargando reporte en Excel...'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('❌ No se pudo iniciar la descarga'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ No se pudo iniciar la descarga'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -476,8 +497,11 @@ class _ReporteProveedorContratosPageState
               DropdownMenuItem<String>(value: tipo, child: Text(tipo)),
         ),
       ],
-      onChanged: (String? newValue) =>
-          setState(() => _tipoContratoSeleccionado = newValue),
+      onChanged: (String? newValue) {
+        if (mounted) {
+          setState(() => _tipoContratoSeleccionado = newValue);
+        }
+      },
     );
 
     final estadoField = DropdownButtonFormField<String>(
@@ -497,8 +521,11 @@ class _ReporteProveedorContratosPageState
                 DropdownMenuItem<String>(value: estado, child: Text(estado)),
           )
           .toList(),
-      onChanged: (String? newValue) =>
-          setState(() => _estadoSeleccionado = newValue),
+      onChanged: (String? newValue) {
+        if (mounted) {
+          setState(() => _estadoSeleccionado = newValue);
+        }
+      },
     );
 
     return Card(
@@ -655,18 +682,19 @@ class _ReporteProveedorContratosPageState
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    setState(() {
-                      _fechaInicioCtrl.clear();
-                      _fechaFinCtrl.clear();
-                      _tipoContratoSeleccionado = null;
-                      _estadoSeleccionado = null;
-                      _rangoSeleccionado = null;
-                      _reporteGenerado = false;
-                      _proveedores.clear();
-                      _resumen = null;
-                      _errorMensaje = null;
-                    });
-                    _generarReporte();
+                    if (mounted) {
+                      setState(() {
+                        _fechaInicioCtrl.clear();
+                        _fechaFinCtrl.clear();
+                        _tipoContratoSeleccionado = null;
+                        _estadoSeleccionado = null;
+                        _rangoSeleccionado = null;
+                        _reporteGenerado = false;
+                        _proveedores.clear();
+                        _resumen = null;
+                        _errorMensaje = null;
+                      });
+                    }
                   },
                   icon: const Icon(Icons.clear),
                   label: const Text('Limpiar'),
@@ -741,18 +769,19 @@ class _ReporteProveedorContratosPageState
                     flex: 1,
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        setState(() {
-                          _fechaInicioCtrl.clear();
-                          _fechaFinCtrl.clear();
-                          _tipoContratoSeleccionado = null;
-                          _estadoSeleccionado = null;
-                          _rangoSeleccionado = null;
-                          _reporteGenerado = false;
-                          _proveedores.clear();
-                          _resumen = null;
-                          _errorMensaje = null;
-                        });
-                        _generarReporte();
+                        if (mounted) {
+                          setState(() {
+                            _fechaInicioCtrl.clear();
+                            _fechaFinCtrl.clear();
+                            _tipoContratoSeleccionado = null;
+                            _estadoSeleccionado = null;
+                            _rangoSeleccionado = null;
+                            _reporteGenerado = false;
+                            _proveedores.clear();
+                            _resumen = null;
+                            _errorMensaje = null;
+                          });
+                        }
                       },
                       icon: const Icon(Icons.clear),
                       label: const Text('Limpiar'),
@@ -777,7 +806,11 @@ class _ReporteProveedorContratosPageState
     final bool seleccionado = _rangoSeleccionado == tipo;
     const Color verde = Color(0xFF2E7D32);
     return OutlinedButton(
-      onPressed: () => _establecerRangoRapido(tipo),
+      onPressed: () {
+        if (mounted) {
+          _establecerRangoRapido(tipo);
+        }
+      },
       style: OutlinedButton.styleFrom(
         padding: EdgeInsets.symmetric(
           vertical: isMobile ? 8 : 8,
@@ -840,21 +873,30 @@ class _ReporteProveedorContratosPageState
       );
     }
 
+    // ✅ MENSAJE INICIAL (sin datos cargados aún)
     if (!_reporteGenerado) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(40),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.business, size: 64, color: Colors.grey),
+              Icon(Icons.search, size: 64, color: Colors.grey),
               SizedBox(height: 16),
               Text(
-                'Cargando contratos...',
+                'Busca contratos por proveedor',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                   color: Colors.grey,
-                  fontWeight: FontWeight.w500,
                 ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Selecciona los filtros deseados y presiona "FILTRAR"\npara cargar los contratos.',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -921,19 +963,35 @@ class _ReporteProveedorContratosPageState
         ],
         if (_proveedores.isEmpty)
           Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(40),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
-                  const SizedBox(height: 12),
+                  Icon(
+                    Icons.inbox_outlined,
+                    size: 64,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 16),
                   Text(
-                    'No se encontraron contratos con estos filtros',
+                    'No se encontraron contratos',
                     style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade700,
                     ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No hay contratos que coincidan con los filtros seleccionados.\nIntenta cambiar los filtros o limpiar la búsqueda.',
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),

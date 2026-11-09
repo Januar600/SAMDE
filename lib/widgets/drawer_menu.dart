@@ -38,7 +38,6 @@ class DrawerMenu extends StatelessWidget {
         ? username[0].toUpperCase()
         : 'U';
 
-    // ✅ ACTUALIZADO: Incluye el índice 9 para la nueva opción
     final bool isReportesActive =
         selectedIndex == 7 ||
         selectedIndex == 8 ||
@@ -280,6 +279,14 @@ class DrawerMenu extends StatelessWidget {
                           index: 12,
                           selectedIndex: selectedIndex,
                           route: '/reporte_anual_consolidado',
+                        ),
+                        _buildSubMenuItem(
+                          context,
+                          icon: Icons.person_search,
+                          title: 'Dashboard Ejecutivo',
+                          index: 13,
+                          selectedIndex: selectedIndex,
+                          route: '/dashboard_ejecutivo',
                         ),
                       ],
                     ),

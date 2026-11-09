@@ -49,9 +49,7 @@ class _ReporteProveedorHistorialPageState
     sector = map['sector'] ?? 'No Asignado';
     rol = map['rol'] ?? 'consulta';
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _generarReporte();
-    });
+    // ✅ SIN CARGA AUTOMÁTICA - El usuario debe hacer clic en "FILTRAR"
   }
 
   @override
@@ -63,6 +61,8 @@ class _ReporteProveedorHistorialPageState
   }
 
   void _establecerRangoRapido(String tipo) {
+    if (!mounted) return;
+
     final ahora = DateTime.now();
     DateTime inicio;
     DateTime fin;
@@ -88,14 +88,18 @@ class _ReporteProveedorHistorialPageState
         return;
     }
 
-    setState(() {
-      _rangoSeleccionado = tipo;
-      _fechaInicioCtrl.text = inicio.toIso8601String().substring(0, 10);
-      _fechaFinCtrl.text = fin.toIso8601String().substring(0, 10);
-    });
+    if (mounted) {
+      setState(() {
+        _rangoSeleccionado = tipo;
+        _fechaInicioCtrl.text = inicio.toIso8601String().substring(0, 10);
+        _fechaFinCtrl.text = fin.toIso8601String().substring(0, 10);
+      });
+    }
   }
 
   Future<void> _generarReporte() async {
+    if (!mounted) return;
+
     setState(() {
       _cargando = true;
       _errorMensaje = null;
@@ -124,25 +128,36 @@ class _ReporteProveedorHistorialPageState
       final response = await http
           .get(Uri.parse(url))
           .timeout(const Duration(seconds: 15));
+
+      if (!mounted) return;
+
       final data = jsonDecode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
-        setState(() {
-          _proveedores = List<Map<String, dynamic>>.from(data['data'] ?? []);
-          _resumen = data['resumen'];
-          _reporteGenerado = true;
-        });
+        if (mounted) {
+          setState(() {
+            _proveedores = List<Map<String, dynamic>>.from(data['data'] ?? []);
+            _resumen = data['resumen'];
+            _reporteGenerado = true;
+          });
+        }
       } else {
-        setState(() {
-          _errorMensaje = data['message'] ?? 'Error al generar el reporte';
-        });
+        if (mounted) {
+          setState(() {
+            _errorMensaje = data['message'] ?? 'Error al generar el reporte';
+          });
+        }
       }
     } catch (e) {
-      setState(() {
-        _errorMensaje = 'Error de conexión: $e';
-      });
+      if (mounted) {
+        setState(() {
+          _errorMensaje = 'Error de conexión: $e';
+        });
+      }
     } finally {
-      if (mounted) setState(() => _cargando = false);
+      if (mounted) {
+        setState(() => _cargando = false);
+      }
     }
   }
 
@@ -302,7 +317,6 @@ class _ReporteProveedorHistorialPageState
   }
 
   Widget _buildFiltros(Color verde, bool isMobile) {
-    // ✅ Campo de búsqueda con autocompletado
     final proveedorField = Autocomplete<String>(
       optionsBuilder: (TextEditingValue textEditingValue) async {
         final query = textEditingValue.text.trim();
@@ -329,7 +343,11 @@ class _ReporteProveedorHistorialPageState
         return const Iterable<String>.empty();
       },
       onSelected: (String selection) {
-        _proveedorCtrl.text = selection;
+        if (mounted) {
+          setState(() {
+            _proveedorCtrl.text = selection;
+          });
+        }
       },
       fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
         return TextFormField(
@@ -344,17 +362,29 @@ class _ReporteProveedorHistorialPageState
                     icon: const Icon(Icons.clear, size: 20),
                     onPressed: () {
                       controller.clear();
-                      _proveedorCtrl.clear();
+                      if (mounted) {
+                        setState(() {
+                          _proveedorCtrl.clear();
+                        });
+                      }
                     },
                   )
                 : null,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           onChanged: (value) {
-            _proveedorCtrl.text = value;
+            if (mounted) {
+              setState(() {
+                _proveedorCtrl.text = value;
+              });
+            }
           },
           onFieldSubmitted: (value) {
-            _proveedorCtrl.text = value;
+            if (mounted) {
+              setState(() {
+                _proveedorCtrl.text = value;
+              });
+            }
           },
         );
       },
@@ -419,8 +449,11 @@ class _ReporteProveedorHistorialPageState
                 DropdownMenuItem<String>(value: estado, child: Text(estado)),
           )
           .toList(),
-      onChanged: (String? newValue) =>
-          setState(() => _estadoSeleccionado = newValue),
+      onChanged: (String? newValue) {
+        if (mounted) {
+          setState(() => _estadoSeleccionado = newValue);
+        }
+      },
     );
 
     return Card(
@@ -545,14 +578,19 @@ class _ReporteProveedorHistorialPageState
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    setState(() {
-                      _proveedorCtrl.clear();
-                      _fechaInicioCtrl.clear();
-                      _fechaFinCtrl.clear();
-                      _estadoSeleccionado = null;
-                      _rangoSeleccionado = null;
-                    });
-                    _generarReporte();
+                    if (mounted) {
+                      setState(() {
+                        _proveedorCtrl.clear();
+                        _fechaInicioCtrl.clear();
+                        _fechaFinCtrl.clear();
+                        _estadoSeleccionado = null;
+                        _rangoSeleccionado = null;
+                        _reporteGenerado = false;
+                        _proveedores.clear();
+                        _resumen = null;
+                        _errorMensaje = null;
+                      });
+                    }
                   },
                   icon: const Icon(Icons.clear),
                   label: const Text('Limpiar'),
@@ -602,14 +640,19 @@ class _ReporteProveedorHistorialPageState
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
-                        setState(() {
-                          _proveedorCtrl.clear();
-                          _fechaInicioCtrl.clear();
-                          _fechaFinCtrl.clear();
-                          _estadoSeleccionado = null;
-                          _rangoSeleccionado = null;
-                        });
-                        _generarReporte();
+                        if (mounted) {
+                          setState(() {
+                            _proveedorCtrl.clear();
+                            _fechaInicioCtrl.clear();
+                            _fechaFinCtrl.clear();
+                            _estadoSeleccionado = null;
+                            _rangoSeleccionado = null;
+                            _reporteGenerado = false;
+                            _proveedores.clear();
+                            _resumen = null;
+                            _errorMensaje = null;
+                          });
+                        }
                       },
                       icon: const Icon(Icons.clear),
                       label: const Text('Limpiar'),
@@ -634,7 +677,11 @@ class _ReporteProveedorHistorialPageState
     final bool seleccionado = _rangoSeleccionado == tipo;
     const Color verde = Color(0xFF2E7D32);
     return OutlinedButton(
-      onPressed: () => _establecerRangoRapido(tipo),
+      onPressed: () {
+        if (mounted) {
+          _establecerRangoRapido(tipo);
+        }
+      },
       style: OutlinedButton.styleFrom(
         padding: EdgeInsets.symmetric(
           vertical: isMobile ? 8 : 8,
@@ -697,21 +744,30 @@ class _ReporteProveedorHistorialPageState
       );
     }
 
+    // ✅ MENSAJE INICIAL (sin datos cargados aún)
     if (!_reporteGenerado) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(40),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.history, size: 64, color: Colors.grey),
+              Icon(Icons.search, size: 64, color: Colors.grey),
               SizedBox(height: 16),
               Text(
-                'Cargando historial...',
+                'Busca el historial de proveedores',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                   color: Colors.grey,
-                  fontWeight: FontWeight.w500,
                 ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Selecciona los filtros deseados y presiona "FILTRAR"\npara cargar el historial de entregas.',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -778,18 +834,62 @@ class _ReporteProveedorHistorialPageState
         ],
         if (_proveedores.isEmpty)
           Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(40),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
-                  const SizedBox(height: 12),
+                  Icon(
+                    Icons.inbox_outlined,
+                    size: 64,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 16),
                   Text(
-                    'No se encontraron actas con estos filtros',
+                    'No hay datos de historial de proveedores',
                     style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade700,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No se encontraron actas de entrega con los filtros seleccionados.\nIntenta cambiar los filtros o limpiar la búsqueda.',
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      if (mounted) {
+                        setState(() {
+                          _proveedorCtrl.clear();
+                          _fechaInicioCtrl.clear();
+                          _fechaFinCtrl.clear();
+                          _estadoSeleccionado = null;
+                          _rangoSeleccionado = null;
+                          _reporteGenerado = false;
+                          _proveedores.clear();
+                          _resumen = null;
+                          _errorMensaje = null;
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Limpiar filtros'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: verde,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
                   ),
                 ],
